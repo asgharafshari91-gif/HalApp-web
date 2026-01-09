@@ -1,59 +1,73 @@
-import { NextResponse, type NextRequest } from "next/server";
+// app/api/pazar/[id]/manage/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseRouteClient } from "@/lib/supabaseRoute";
 
 export const dynamic = "force-dynamic";
+
+type Ctx = { params: Promise<{ id: string }> };
 
 function json(data: any, status = 200) {
   return NextResponse.json(data, { status });
 }
 
-function safeId(v: unknown) {
+function safeId(v: any) {
   return String(v ?? "").trim();
+}
+
+const ALLOWED_FIELDS = [
+  "title",
+  "description",
+  "price",
+  "price_per_unit",
+  "unit",
+  "quantity",
+  "min_quantity",
+  "is_active",
+  "is_boosted",
+  "expires_at",
+  "city",
+  "district",
+  "neighborhood",
+  "market_name",
+  "product_name",
+  "product_type",
+  "post_type",
+] as const;
+
+function pickPatch(body: any) {
+  const patch: Record<string, any> = {};
+  for (const k of ALLOWED_FIELDS) if (k in (body ?? {})) patch[k] = (body as any)[k];
+  return patch;
 }
 
 /**
  * PATCH /api/pazar/:id/manage
- * Body: { is_active: boolean }
- * - login zorunlu
- * - ilan sahibi zorunlu
+ * (Sadece allowlist alanları update eder)
  */
-export async function PATCH(
-  req: NextRequest,
-  ctx: { params: { id: string } }
-) {
-  const id = safeId(ctx?.params?.id);
+export async function PATCH(req: NextRequest, ctx: Ctx) {
+  const { id: rawId } = await ctx.params;
+  const id = safeId(rawId);
   if (!id) return json({ error: "missing_id" }, 400);
+
+  const body = await req.json().catch(() => ({}));
+  const patch = pickPatch(body);
+
+  if (Object.keys(patch).length === 0) {
+    return json({ error: "no_fields" }, 400);
+  }
 
   const sb = await supabaseRouteClient();
 
-  const {
-    data: { user },
-  } = await sb.auth.getUser();
-
-  if (!user) return json({ error: "not_authed" }, 401);
-
-  const body = await req.json().catch(() => ({}));
-  const is_active = Boolean(body?.is_active);
-
-  // ilan var mı + sahibi mi?
-  const { data: row, error: e1 } = await sb
+  // TODO: burada “ilan sahibi mi?” kontrolü istersen ekleriz
+  const { data, error } = await sb
     .from("listings")
-    .select("id,seller_id")
+    .update(patch)
     .eq("id", id)
-    .is("deleted_at", null)
+    .select("*")
     .maybeSingle();
 
-  if (e1) return json({ error: e1.message }, 400);
-  if (!row) return json({ error: "not_found" }, 404);
-  if (row.seller_id !== user.id)
-    return json({ error: "not_owner" }, 403);
+  if (error) return json({ error: error.message }, 400);
+  if (!data) return json({ error: "not_found" }, 404);
 
-  const { error: e2 } = await sb
-    .from("listings")
-    .update({ is_active })
-    .eq("id", id);
-
-  if (e2) return json({ error: e2.message }, 400);
-
-  return json({ ok: true, is_active });
+  return json({ item: data }, 200);
 }

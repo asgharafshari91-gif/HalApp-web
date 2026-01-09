@@ -4,18 +4,23 @@ import { supabaseRouteClient } from "@/lib/supabaseRoute";
 
 export const dynamic = "force-dynamic";
 
-type Ctx = { params: Promise<{ id: string }> };
-
 function json(data: any, status = 200) {
   return NextResponse.json(data, { status });
 }
 
-function safeId(v: unknown) {
+function safeId(v: any) {
   return String(v ?? "").trim();
 }
 
-export async function GET(_req: NextRequest, ctx: Ctx) {
-  const { id: rawId } = await ctx.params; // ✅ Next 16: params Promise
+/**
+ * GET /api/pazar/:id
+ * -> listings + seller + photos
+ */
+export async function GET(
+  _req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const { id: rawId } = await ctx.params;
   const id = safeId(rawId);
   if (!id) return json({ error: "missing_id" }, 400);
 
@@ -67,7 +72,7 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
   if (item.seller_id) {
     const { data: s, error: sErr } = await sb
       .from("profiles")
-      .select("id,full_name,company_name,avatar_url,is_premium,is_verified")
+      .select("id,full_name,company_name,avatar_url,is_premium,is_verified,phone")
       .eq("id", item.seller_id)
       .maybeSingle();
 
@@ -78,8 +83,8 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
         id: s.id,
         name: s.full_name || s.company_name || "Satıcı",
         avatar_url: s.avatar_url ?? null,
+        phone: s.phone ?? null,
         is_premium: Boolean(s.is_premium ?? false),
-        is_verified: Boolean(s.is_verified ?? false),
       };
     }
   }
@@ -95,4 +100,48 @@ export async function GET(_req: NextRequest, ctx: Ctx) {
       })),
     },
   });
+}
+
+/**
+ * DELETE /api/pazar/:id
+ * -> only owner can soft delete
+ */
+export async function DELETE(
+  req: NextRequest,
+  ctx: { params: Promise<{ id: string }> }
+) {
+  const { id: rawId } = await ctx.params;
+  const id = safeId(rawId);
+  if (!id) return json({ error: "missing_id" }, 400);
+
+  const sb = await supabaseRouteClient();
+
+  // auth required
+  const { data: auth, error: aErr } = await sb.auth.getUser();
+  if (aErr) return json({ error: aErr.message }, 401);
+  const user = auth?.user;
+  if (!user) return json({ error: "not_authed" }, 401);
+
+  // check owner
+  const { data: row, error: e1 } = await sb
+    .from("listings")
+    .select("id,seller_id,deleted_at")
+    .eq("id", id)
+    .maybeSingle();
+
+  if (e1) return json({ error: e1.message }, 400);
+  if (!row || row.deleted_at) return json({ error: "not_found" }, 404);
+
+  if (row.seller_id !== user.id) {
+    return json({ error: "not_owner" }, 403);
+  }
+
+  const { error: e2 } = await sb
+    .from("listings")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+
+  if (e2) return json({ error: e2.message }, 400);
+
+  return json({ ok: true });
 }

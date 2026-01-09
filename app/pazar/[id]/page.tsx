@@ -8,18 +8,12 @@ function safeId(v: any) {
   return String(v ?? "").trim();
 }
 
-export default function PazarDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
+export default function PazarDetailPage({ params }: { params: { id: string } }) {
   const id = safeId(params?.id);
-
   if (!id) redirect("/pazar");
 
   return (
     <div className="space-y-4">
-      {/* Header */}
       <div className="rounded-[22px] border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
@@ -44,7 +38,6 @@ export default function PazarDetailPage({
         </div>
       </div>
 
-      {/* Client Detail */}
       <PazarDetailClient id={id} />
     </div>
   );

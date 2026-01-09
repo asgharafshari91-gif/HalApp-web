@@ -1,5 +1,5 @@
 // app/api/pazar/favorites/route.ts
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseRouteClient } from "@/lib/supabaseRoute";
 
 export const dynamic = "force-dynamic";
@@ -12,78 +12,79 @@ function safeId(v: any) {
   return String(v ?? "").trim();
 }
 
+const TABLE = "listing_favorites"; // <-- sende farklıysa burayı değiştir
+
 /**
  * GET /api/pazar/favorites
  * -> { ids: string[] }
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   const sb = await supabaseRouteClient();
-  const { data: auth, error: aErr } = await sb.auth.getUser();
-  if (aErr) return json({ error: aErr.message }, 400);
 
+  const { data: auth } = await sb.auth.getUser();
   const user = auth?.user;
-  if (!user) return json({ ids: [] }, 200);
+  if (!user) return json({ error: "not_authed" }, 401);
 
   const { data, error } = await sb
-    .from("listing_favorites")
+    .from(TABLE)
     .select("listing_id")
     .eq("user_id", user.id);
 
   if (error) return json({ error: error.message }, 400);
 
-  return json({ ids: (data ?? []).map((x: any) => x.listing_id).filter(Boolean) }, 200);
+  const ids = (data ?? [])
+    .map((x: any) => safeId(x?.listing_id))
+    .filter(Boolean);
+
+  return json({ ids });
 }
 
 /**
  * POST /api/pazar/favorites
  * Body: { listing_id: string }
- *
- * Toggle:
- *  - varsa siler
- *  - yoksa ekler
+ * -> { favorited: boolean }
  */
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   const sb = await supabaseRouteClient();
-  const { data: auth, error: aErr } = await sb.auth.getUser();
-  if (aErr) return json({ error: aErr.message }, 400);
 
+  const { data: auth } = await sb.auth.getUser();
   const user = auth?.user;
   if (!user) return json({ error: "not_authed" }, 401);
 
   const body = await req.json().catch(() => ({}));
-  const listingId = safeId(body?.listing_id);
-  if (!listingId) return json({ error: "missing_listing_id" }, 400);
+  const listing_id = safeId(body?.listing_id);
+  if (!listing_id) return json({ error: "missing_listing_id" }, 400);
 
-  // ✅ mevcut mu?
+  // var mı?
   const { data: existing, error: e1 } = await sb
-    .from("listing_favorites")
+    .from(TABLE)
     .select("listing_id")
-    .eq("listing_id", listingId)
     .eq("user_id", user.id)
+    .eq("listing_id", listing_id)
     .maybeSingle();
 
   if (e1) return json({ error: e1.message }, 400);
 
-  // ✅ varsa -> sil
   if (existing) {
-    const { error: delErr } = await sb
-      .from("listing_favorites")
+    // delete
+    const { error: e2 } = await sb
+      .from(TABLE)
       .delete()
-      .eq("listing_id", listingId)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .eq("listing_id", listing_id);
 
-    if (delErr) return json({ error: delErr.message }, 400);
+    if (e2) return json({ error: e2.message }, 400);
 
-    return json({ ok: true, favorited: false, listing_id: listingId }, 200);
+    return json({ favorited: false });
   }
 
-  // ✅ yoksa -> ekle
-  const { error: insErr } = await sb.from("listing_favorites").insert({
-    listing_id: listingId,
+  // insert
+  const { error: e3 } = await sb.from(TABLE).insert({
     user_id: user.id,
+    listing_id,
   });
 
-  if (insErr) return json({ error: insErr.message }, 400);
+  if (e3) return json({ error: e3.message }, 400);
 
-  return json({ ok: true, favorited: true, listing_id: listingId }, 200);
+  return json({ favorited: true });
 }

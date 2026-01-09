@@ -1,4 +1,3 @@
-// app/pazar/[id]/ui/pazar-detail-client.tsx
 "use client";
 
 import Link from "next/link";
@@ -41,7 +40,9 @@ type Listing = {
   quantity: number | null;
   min_quantity: number | null;
 
+  is_active: boolean;          // ✅ ekledik
   is_boosted: boolean;
+
   created_at: string | null;
 
   seller_id: string | null;
@@ -204,6 +205,8 @@ export default function PazarDetailClient({ id }: { id: string }) {
   const [busyReport, setBusyReport] = useState(false);
   const [busyBlock, setBusyBlock] = useState(false);
 
+  const [busyManage, setBusyManage] = useState(false); // ✅ yeni
+
   const myId = useMemo(() => {
     const p: any = me.profile ?? null;
     return (p?.id ?? p?.user_id ?? p?.uid ?? null) as string | null;
@@ -233,7 +236,6 @@ export default function PazarDetailClient({ id }: { id: string }) {
   }, [item]);
 
   const { cover, gallery } = useMemo(() => pickPhotos(photos), [photos]);
-
   const mainPhoto = activePhoto || cover;
 
   useEffect(() => {
@@ -242,18 +244,13 @@ export default function PazarDetailClient({ id }: { id: string }) {
 
   async function fetchDetail(signal?: AbortSignal) {
     if (!id?.trim()) throw new Error("missing_id");
-
-    const r = await fetch(`/api/pazar/${encodeURIComponent(id)}`, {
-      cache: "no-store",
-      signal,
-    });
+    const r = await fetch(`/api/pazar/${encodeURIComponent(id)}`, { cache: "no-store", signal });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j?.error || "detail_failed");
     return (j.item ?? null) as Listing | null;
   }
 
   async function fetchMedia(signal?: AbortSignal) {
-    // ✅ Eğer sende bu endpoint yoksa sorun değil: boş döner
     try {
       const r = await fetch(`/api/pazar/${encodeURIComponent(id)}/media`, {
         cache: "no-store",
@@ -307,33 +304,26 @@ export default function PazarDetailClient({ id }: { id: string }) {
 
   useEffect(() => {
     let stop = false;
-
     (async () => {
       if (stop) return;
       await refetchAll();
     })();
-
     return () => {
       stop = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // ✅ Realtime: listings + listing_media değişince otomatik yenile
   useEffect(() => {
     if (!id) return;
 
     const ch = supabase
       .channel(`pazar-detail-${id}`)
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "listings", filter: `id=eq.${id}` },
-        () => refetchAll()
+      .on("postgres_changes", { event: "*", schema: "public", table: "listings", filter: `id=eq.${id}` }, () =>
+        refetchAll()
       )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "listing_media", filter: `listing_id=eq.${id}` },
-        () => refetchAll()
+      .on("postgres_changes", { event: "*", schema: "public", table: "listing_media", filter: `listing_id=eq.${id}` }, () =>
+        refetchAll()
       )
       .subscribe();
 
@@ -391,6 +381,49 @@ export default function PazarDetailClient({ id }: { id: string }) {
       return;
     }
     window.location.href = `tel:${phone}`;
+  }
+
+  // ✅ NEW: ilan yayına al / kaldır
+  async function toggleActive() {
+    if (!item) return;
+
+    try {
+      setBusyManage(true);
+
+      const nextActive = !Boolean(item.is_active);
+
+      const r = await fetch(`/api/pazar/${encodeURIComponent(id)}/manage`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_active: nextActive }),
+      });
+
+      const j = await r.json().catch(() => ({}));
+
+      if (!r.ok) {
+        if (j?.error === "not_authed") {
+          toast({ variant: "info", title: "Giriş gerekli", message: "Bu işlem için giriş yap." });
+          router.push(`/auth?next=${encodeURIComponent(`/pazar/${id}`)}`);
+          return;
+        }
+        if (j?.error === "not_owner") {
+          toast({ variant: "error", title: "Yetki yok", message: "Bu ilan sana ait değil." });
+          return;
+        }
+        throw new Error(j?.error || "manage_failed");
+      }
+
+      setItem((prev) => (prev ? { ...prev, is_active: Boolean(j?.is_active) } : prev));
+      toast({
+        variant: "success",
+        title: "Güncellendi",
+        message: Boolean(j?.is_active) ? "İlan yayına alındı." : "İlan yayından kaldırıldı.",
+      });
+    } catch (e: any) {
+      toast({ variant: "error", title: "Güncellenemedi", message: e?.message ?? "İşlem başarısız." });
+    } finally {
+      setBusyManage(false);
+    }
   }
 
   async function deleteListing() {
@@ -514,6 +547,17 @@ export default function PazarDetailClient({ id }: { id: string }) {
                     {item.post_type?.toUpperCase() || "İLAN"}
                   </span>
 
+                  {/* ✅ aktif/pasif badge */}
+                  {item.is_active ? (
+                    <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-emerald-800 dark:text-emerald-200">
+                      🟢 Yayında
+                    </span>
+                  ) : (
+                    <span className="rounded-full bg-zinc-500/15 px-3 py-1 text-zinc-700 dark:text-zinc-200">
+                      ⚫ Yayın Dışı
+                    </span>
+                  )}
+
                   {item.is_boosted ? (
                     <span className="rounded-full bg-yellow-500/15 px-3 py-1 text-yellow-800 dark:text-yellow-200">
                       GOLD
@@ -538,6 +582,34 @@ export default function PazarDetailClient({ id }: { id: string }) {
                     </span>
                   ) : null}
                 </div>
+
+                {/* ✅ sadece satıcı görür: yayına al/kaldır */}
+                {isMine ? (
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={busyManage}
+                      onClick={toggleActive}
+                      className={clsx(
+                        "rounded-2xl px-4 py-2 text-sm font-black transition",
+                        item.is_active
+                          ? "bg-zinc-500/15 text-zinc-800 dark:text-zinc-200"
+                          : "bg-emerald-500 text-black hover:bg-emerald-400",
+                        busyManage ? "cursor-not-allowed opacity-60" : ""
+                      )}
+                    >
+                      {busyManage
+                        ? "Güncelleniyor…"
+                        : item.is_active
+                          ? "Yayından Kaldır"
+                          : "Yayına Al"}
+                    </button>
+
+                    <div className="text-xs text-black/50 dark:text-white/50">
+                      Bu buton `/api/pazar/[id]/manage` PATCH’e bağlı.
+                    </div>
+                  </div>
+                ) : null}
               </div>
 
               <div className="shrink-0 rounded-[20px] border border-black/10 bg-emerald-500/10 px-4 py-3 dark:border-white/10">
@@ -609,7 +681,6 @@ export default function PazarDetailClient({ id }: { id: string }) {
                 <div className="mt-1 font-black">{item.market_name || "—"}</div>
               </div>
 
-              {/* quick info row */}
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <div className="rounded-2xl border border-black/10 bg-white/70 p-3 text-sm dark:border-white/10 dark:bg-white/[0.04]">
                   <div className="text-xs font-black text-black/50 dark:text-white/50">Birim</div>
@@ -657,7 +728,6 @@ export default function PazarDetailClient({ id }: { id: string }) {
                 ) : null}
               </div>
 
-              {/* actions */}
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 {isMine ? (
                   <>
@@ -718,7 +788,6 @@ export default function PazarDetailClient({ id }: { id: string }) {
             </div>
           </div>
 
-          {/* description */}
           <div className="rounded-[22px] border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
             <div className="text-sm font-black">📝 Açıklama</div>
             <div className="mt-2 whitespace-pre-wrap text-sm leading-6 text-black/80 dark:text-white/80">
@@ -728,7 +797,6 @@ export default function PazarDetailClient({ id }: { id: string }) {
         </>
       )}
 
-      {/* MORE modal */}
       <Modal open={openMore} title="İşlemler" onClose={() => setOpenMore(false)}>
         <div className="space-y-3">
           <div className="rounded-2xl border border-black/10 bg-black/5 p-4 text-sm text-black/70 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
@@ -795,7 +863,6 @@ export default function PazarDetailClient({ id }: { id: string }) {
         </div>
       </Modal>
 
-      {/* delete confirm */}
       <Modal open={openConfirmDelete} title="İlanı sil?" onClose={() => setOpenConfirmDelete(false)}>
         <div className="space-y-3">
           <div className="rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm text-rose-700 dark:text-rose-200">
