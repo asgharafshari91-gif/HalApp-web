@@ -1,9 +1,9 @@
-// app/api/admin/users/[id]/route.ts
-import { NextResponse } from "next/server";
+// app/api/admin/users/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { adminServerClient, requireAdminOrRedirect } from "@/lib/admin";
 import { auditLog } from "@/lib/audit";
 
-type Ctx = { params: Promise<{ id: string }> };
+export const dynamic = "force-dynamic";
 
 function json(data: any, status = 200) {
   return NextResponse.json(data, { status });
@@ -15,163 +15,112 @@ async function guardAdmin(nextPath = "/admin/users") {
   return { ok: true as const, uid: g.uid };
 }
 
-const ALLOWED_FIELDS = [
-  "full_name",
-  "company_name",
-  "avatar_url",
-  "is_premium",
-  "premium_until",
-  "is_admin",
-  "banned_until",
-  "ban_reason",
-  "deleted_at",
-  "verified",
-] as const;
-
-function pickPatch(body: any) {
-  const patch: Record<string, any> = {};
-  for (const k of ALLOWED_FIELDS) if (k in body) patch[k] = body[k];
-  return patch;
-}
-
-function premiumAction(before: any, after: any) {
-  const b = Boolean(before?.is_premium);
-  const a = Boolean(after?.is_premium);
-  if (b === a) return null;
-  return a ? ("user.premium.enable" as const) : ("user.premium.disable" as const);
-}
-
-function banAction(before: any, after: any) {
-  const b = before?.banned_until ? new Date(before.banned_until).getTime() : 0;
-  const a = after?.banned_until ? new Date(after.banned_until).getTime() : 0;
-
-  const now = Date.now();
-  const bActive = b > now;
-  const aActive = a > now;
-
-  if (bActive === aActive) return null;
-  return aActive ? ("user.ban" as const) : ("user.unban" as const);
-}
-
 /**
- * GET /api/admin/users/:id
+ * GET /api/admin/users
+ * Query:
+ *  - q (optional): isim / şirket / public_id araması
+ *  - page (optional): 1..n
+ *  - pageSize (optional): 10..100
  */
-export async function GET(_req: Request, ctx: Ctx) {
+export async function GET(req: NextRequest) {
   const gate = await guardAdmin("/admin/users");
   if (!gate.ok) return gate.res;
 
-  const { id } = await ctx.params;
   const sb = await adminServerClient();
 
-  const { data, error } = await sb.from("profiles").select("*").eq("id", id).maybeSingle();
-  if (error) return json({ error: error.message }, 400);
-  if (!data) return json({ error: "not_found" }, 404);
+  const { searchParams } = new URL(req.url);
+  const q = (searchParams.get("q") ?? "").trim();
+  const page = Math.max(1, Number(searchParams.get("page") ?? "1") || 1);
+  const pageSizeRaw = Number(searchParams.get("pageSize") ?? "20") || 20;
+  const pageSize = Math.min(100, Math.max(10, pageSizeRaw));
 
-  return json({ profile: data }, 200);
-}
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
 
-/**
- * PATCH /api/admin/users/:id
- * Body allowlist -> profiles update
- * Otomatik audit insert ✅
- */
-export async function PATCH(req: Request, ctx: Ctx) {
-  const gate = await guardAdmin("/admin/users");
-  if (!gate.ok) return gate.res;
+  let query = sb
+    .from("profiles")
+    .select(
+      `
+      id,
+      full_name,
+      company_name,
+      public_id,
+      avatar_url,
+      is_premium,
+      premium_until,
+      is_admin,
+      verified,
+      is_banned,
+      banned_until,
+      ban_reason,
+      created_at,
+      updated_at
+    `,
+      { count: "exact" }
+    )
+    .order("created_at", { ascending: false })
+    .range(from, to);
 
-  const { id } = await ctx.params;
-  const sb = await adminServerClient();
-
-  const body = await req.json().catch(() => ({}));
-  const patch = pickPatch(body);
-
-  if (Object.keys(patch).length === 0) {
-    return json({ error: "no_fields" }, 400);
+  if (q) {
+    // basit arama: full_name/company_name/public_id
+    // supabase "or" ile ilike
+    const like = `%${q.replace(/%/g, "")}%`;
+    query = query.or(
+      `full_name.ilike.${like},company_name.ilike.${like},public_id.ilike.${like}`
+    );
   }
 
-  // BEFORE snapshot
-  const { data: beforeRow } = await sb
-    .from("profiles")
-    .select("id,is_admin,is_premium,premium_until,banned_until,ban_reason,deleted_at,verified,full_name,company_name,avatar_url")
-    .eq("id", id)
-    .maybeSingle();
-
-  const { data: afterRow, error } = await sb
-    .from("profiles")
-    .update(patch)
-    .eq("id", id)
-    .select("id,is_admin,is_premium,premium_until,banned_until,ban_reason,deleted_at,verified,full_name,company_name,avatar_url")
-    .maybeSingle();
-
+  const { data, error, count } = await query;
   if (error) return json({ error: error.message }, 400);
 
-  // Action classify
-  const a1 = premiumAction(beforeRow, afterRow);
-  const a2 = banAction(beforeRow, afterRow);
-  const action =
-    a2 ??
-    a1 ??
-    (patch.deleted_at ? ("user.soft_delete" as const) : ("user.update" as const));
-
-  const summary =
-    action === "user.ban"
-      ? `Kullanıcı banlandı (${afterRow?.banned_until ?? "-"})`
-      : action === "user.unban"
-      ? "Kullanıcı ban kaldırıldı"
-      : action === "user.premium.enable"
-      ? "Premium açıldı"
-      : action === "user.premium.disable"
-      ? "Premium kapatıldı"
-      : action === "user.soft_delete"
-      ? "Soft delete uygulandı"
-      : "Kullanıcı güncellendi";
-
-  await auditLog(req, sb, {
-    actor_id: gate.uid,
-    target_user_id: id,
-    action,
-    summary,
-    before: beforeRow ?? null,
-    after: afterRow ?? null,
-  });
-
-  return json({ profile: afterRow }, 200);
+  return json(
+    {
+      items: data ?? [],
+      page,
+      pageSize,
+      total: count ?? (data?.length ?? 0),
+    },
+    200
+  );
 }
 
 /**
- * DELETE /api/admin/users/:id
- * Soft delete (deleted_at) + audit ✅
+ * POST /api/admin/users
+ * (Opsiyonel) Admin panelden manuel kullanıcı oluşturmak istersen diye.
+ * Sen istemiyorsan silebilirsin.
  */
-export async function DELETE(req: Request, ctx: Ctx) {
+export async function POST(req: NextRequest) {
   const gate = await guardAdmin("/admin/users");
   if (!gate.ok) return gate.res;
 
-  const { id } = await ctx.params;
   const sb = await adminServerClient();
+  const body = await req.json().catch(() => ({}));
 
-  const { data: beforeRow } = await sb
-    .from("profiles")
-    .select("id,deleted_at")
-    .eq("id", id)
-    .maybeSingle();
+  // minimum alanlar (istersen genişlet)
+  const id = String(body?.id ?? "").trim();
+  if (!id) return json({ error: "id_required" }, 400);
 
-  const { data: afterRow, error } = await sb
-    .from("profiles")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", id)
-    .select("id,deleted_at")
-    .maybeSingle();
+  const patch: any = {
+    id,
+    full_name: body?.full_name ?? null,
+    company_name: body?.company_name ?? null,
+    public_id: body?.public_id ?? null,
+    account_type: body?.account_type ?? "standard",
+    is_premium: Boolean(body?.is_premium ?? false),
+    is_admin: Boolean(body?.is_admin ?? false),
+  };
 
+  const { data, error } = await sb.from("profiles").upsert(patch).select("*").maybeSingle();
   if (error) return json({ error: error.message }, 400);
 
   await auditLog(req, sb, {
     actor_id: gate.uid,
     target_user_id: id,
-    action: "user.soft_delete",
-    summary: "Soft delete uygulandı",
-    before: beforeRow ?? null,
-    after: afterRow ?? null,
+    action: "user.create",
+    summary: "Kullanıcı admin tarafından oluşturuldu / upsert edildi",
+    before: null,
+    after: data ?? null,
   });
 
-  return json({ ok: true, result: afterRow }, 200);
+  return json({ profile: data }, 201);
 }
