@@ -1,11 +1,12 @@
+// app/profile/ui/profile-client.tsx
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import React, { Suspense, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/toast";
 import PremiumSelect from "@/components/ui/PremiumSelect";
-import BlockButton from "@/components/BlockButton"; // ✅ senin BlockButton path'in buysa bırak. Değilse path'i düzelt.
+import BlockButton from "@/components/BlockButton"; // ✅ path doğru değilse düzelt
 
 type AccountType = "individual" | "corporate";
 type UserRole = "buyer" | "seller" | "both";
@@ -111,15 +112,7 @@ function Badge({
   );
 }
 
-function Field({
-  label,
-  children,
-  hint,
-}: {
-  label: string;
-  children: React.ReactNode;
-  hint?: string;
-}) {
+function Field({ label, children, hint }: { label: string; children: React.ReactNode; hint?: string }) {
   return (
     <div className="rounded-2xl border border-black/10 bg-black/5 p-4 dark:border-white/10 dark:bg-white/5">
       <div className="text-xs font-extrabold text-black/55 dark:text-white/55">{label}</div>
@@ -166,9 +159,7 @@ function normKeyTR(x: any) {
   return normStr(x).toLocaleUpperCase("tr-TR");
 }
 
-/**
- * ✅ locations.json normalize
- */
+/** ✅ locations.json normalize */
 function normalizeLocationsAny(raw: any): LocationsIL[] {
   if (!raw) return [];
   const unwrap = raw?.iller ?? raw?.cities ?? raw?.data ?? raw?.locations ?? raw?.Turkey ?? raw?.turkey ?? raw;
@@ -209,10 +200,10 @@ function normalizeLocationsAny(raw: any): LocationsIL[] {
     const out: LocationsIL[] = [];
     for (const cityKey of Object.keys(unwrap)) {
       const il = normStr(cityKey);
-      const v = unwrap[cityKey];
+      const v = (unwrap as any)[cityKey];
 
       if (Array.isArray(v)) {
-        out.push({ il, ilceler: v.map((d: any) => ({ ilce: normStr(d), mahalleler: [] })).filter((x) => x.ilce) });
+        out.push({ il, ilceler: v.map((d: any) => ({ ilce: normStr(d), mahalleler: [] })).filter((x: any) => x.ilce) });
         continue;
       }
 
@@ -231,7 +222,6 @@ function normalizeLocationsAny(raw: any): LocationsIL[] {
           .filter((x) => x.ilce);
 
         out.push({ il, ilceler });
-        continue;
       }
     }
     if (out.length) return out;
@@ -250,12 +240,30 @@ async function uploadToKyc(bucketPath: string, file: File) {
   return bucketPath;
 }
 
-export default function ProfilePage() {
+/**
+ * ✅ Next.js uyarısı/bug’ı için:
+ * useSearchParams kullanan bileşeni Suspense içine alıyoruz.
+ */
+export default function ProfileClient() {
+  return (
+    <Suspense
+      fallback={
+        <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
+          Yükleniyor…
+        </div>
+      }
+    >
+      <ProfileInner />
+    </Suspense>
+  );
+}
+
+function ProfileInner() {
   const router = useRouter();
   const sp = useSearchParams();
   const { toast } = useToast();
 
-  // ✅ Eğer /profile?u=<id> ile başka kullanıcının profiline bakmak istersen
+  // ✅ /profile?u=<id> başka kullanıcının profili
   const profileUserId = (sp.get("u") || "").trim() || null;
 
   const avatarInput = useRef<HTMLInputElement | null>(null);
@@ -314,7 +322,7 @@ export default function ProfilePage() {
   const displayName = useMemo(() => safeName(profile), [profile]);
 
   const isMyProfile = useMemo(() => {
-    if (!myId) return true; // session gelene kadar kendi kabul et
+    if (!myId) return !profileUserId; // session gelene kadar (u yoksa) kendi say
     if (!profileUserId) return true;
     return myId === profileUserId;
   }, [myId, profileUserId]);
@@ -403,14 +411,14 @@ export default function ProfilePage() {
     }
   }
 
-  async function ensureProfile(uid: string) {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+  async function ensureProfile(targetId: string, canCreate: boolean) {
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", targetId).maybeSingle();
     if (error) throw error;
 
     // ✅ sadece kendi profilinde create
-    if (!data && isMyProfile) {
+    if (!data && canCreate) {
       const { error: ie } = await supabase.from("profiles").insert({
-        id: uid,
+        id: targetId,
         account_type: "individual",
         user_role: "buyer",
         kyc_status: "none",
@@ -419,17 +427,15 @@ export default function ProfilePage() {
       });
       if (ie) throw ie;
 
-      const { data: p2, error: e2 } = await supabase.from("profiles").select("*").eq("id", uid).maybeSingle();
+      const { data: p2, error: e2 } = await supabase.from("profiles").select("*").eq("id", targetId).maybeSingle();
       if (e2) throw e2;
-      return p2 as ProfileRow;
+      return (p2 as ProfileRow) ?? null;
     }
 
     return (data as ProfileRow) ?? null;
   }
 
   async function loadKyc(uid: string) {
-    // ✅ sadece kendi profilinde KYC yükle
-    if (!isMyProfile) return;
     const { data, error } = await supabase.from("kyc_requests").select("*").eq("user_id", uid).maybeSingle();
     if (error) throw error;
     setKyc((data as any) ?? null);
@@ -444,17 +450,18 @@ export default function ProfilePage() {
       const uid = data.session?.user?.id ?? null;
       setMyId(uid);
 
-      // ✅ giriş yoksa kendi profile’a girmesin
+      // ✅ giriş yoksa /profile (kendi) açılamasın
       if (!uid && !profileUserId) {
         router.replace(`/auth?next=${encodeURIComponent("/profile")}`);
         return;
       }
 
-      // ✅ hedef profil: query varsa onu göster, yoksa kendi
       const targetId = profileUserId || uid;
       if (!targetId) return;
 
-      const p = await ensureProfile(targetId);
+      const viewingOwn = Boolean(uid && targetId === uid);
+
+      const p = await ensureProfile(targetId, viewingOwn);
       if (!p) {
         toast({ variant: "warning", title: "Bulunamadı", message: "Bu kullanıcı profili bulunamadı." });
         router.push("/");
@@ -465,8 +472,10 @@ export default function ProfilePage() {
       hydrate(p);
 
       // ✅ KYC sadece kendi profilinde
-      if (uid && (profileUserId ? uid === profileUserId : true)) {
+      if (viewingOwn && uid) {
         await loadKyc(uid);
+      } else {
+        setKyc(null);
       }
 
       setEditMode(false);
@@ -674,7 +683,6 @@ export default function ProfilePage() {
       if (!uid) return;
 
       const base: any = { user_id: uid, account_type: accountType, status: "draft" };
-
       const { error: upErr } = await supabase.from("kyc_requests").upsert(base, { onConflict: "user_id" });
       if (upErr) throw upErr;
 
@@ -835,7 +843,7 @@ export default function ProfilePage() {
 
           <div className="flex flex-wrap items-center gap-2">
             {/* ✅ BAŞKA PROFİLDE: ⋮ menü + Block */}
-            {!isMyProfile && (profileUserId || profile.id) ? (
+            {!isMyProfile && profile.id ? (
               <div className="relative" ref={moreRef}>
                 <button
                   type="button"
@@ -1109,7 +1117,7 @@ export default function ProfilePage() {
         </label>
       </div>
 
-      {/* ✅ KYC sadece kendi profilinde göster */}
+      {/* ✅ KYC sadece kendi profilinde */}
       {isMyProfile ? (
         <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
           <div className="flex flex-wrap items-center justify-between gap-2">
