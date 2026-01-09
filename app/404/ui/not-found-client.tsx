@@ -1,3 +1,4 @@
+// app/404/ui/not-found-client.tsx
 "use client";
 
 import Link from "next/link";
@@ -5,27 +6,28 @@ import { useSearchParams } from "next/navigation";
 
 export default function NotFoundClient() {
   const sp = useSearchParams();
-  const from = sp.get("from"); // kullanıyorsan
+  const next = sp.get("next");
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-14">
-      <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="text-2xl font-black tracking-tight">
-          Sayfa bulunamadı
-        </div>
+    <div className="mx-auto max-w-lg space-y-3 rounded-[22px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="text-xl font-black">404 – Sayfa bulunamadı</div>
+      <div className="text-sm text-black/60 dark:text-white/60">
+        Aradığın sayfa yok. {next ? `İpucu: next=${next}` : ""}
+      </div>
 
-        <div className="mt-2 text-sm text-black/60 dark:text-white/60">
-          Aradığın sayfa bulunamadı veya taşınmış olabilir.
-        </div>
-
-        <div className="mt-6">
-          <Link
-            href="/"
-            className="rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-black hover:bg-emerald-400 transition"
-          >
-            Ana Sayfa
-          </Link>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <Link
+          href="/"
+          className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-black hover:bg-emerald-400"
+        >
+          Ana sayfa
+        </Link>
+        <Link
+          href="/pazar"
+          className="rounded-2xl bg-black/5 px-4 py-2 text-sm font-black hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+        >
+          Pazara git
+        </Link>
       </div>
     </div>
   );
