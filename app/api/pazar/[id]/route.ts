@@ -1,19 +1,22 @@
-import { NextResponse } from "next/server";
+// app/api/pazar/[id]/route.ts
+import { NextRequest, NextResponse } from "next/server";
 import { supabaseRouteClient } from "@/lib/supabaseRoute";
 
 export const dynamic = "force-dynamic";
+
+type Ctx = { params: Promise<{ id: string }> };
 
 function json(data: any, status = 200) {
   return NextResponse.json(data, { status });
 }
 
-function safeId(v: any) {
-  const s = String(v ?? "").trim();
-  return s;
+function safeId(v: unknown) {
+  return String(v ?? "").trim();
 }
 
-export async function GET(_: Request, ctx: { params: { id: string } }) {
-  const id = safeId(ctx?.params?.id);
+export async function GET(_req: NextRequest, ctx: Ctx) {
+  const { id: rawId } = await ctx.params; // ✅ Next 16: params Promise
+  const id = safeId(rawId);
   if (!id) return json({ error: "missing_id" }, 400);
 
   const sb = await supabaseRouteClient();
@@ -76,6 +79,7 @@ export async function GET(_: Request, ctx: { params: { id: string } }) {
         name: s.full_name || s.company_name || "Satıcı",
         avatar_url: s.avatar_url ?? null,
         is_premium: Boolean(s.is_premium ?? false),
+        is_verified: Boolean(s.is_verified ?? false),
       };
     }
   }
