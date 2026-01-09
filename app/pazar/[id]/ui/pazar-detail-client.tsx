@@ -733,7 +733,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
                   <>
                     <button
                       type="button"
-                      onClick={() => router.push(`/my-listings?edit=${encodeURIComponent(id)}`)}
+                      onClick={() => router.push(`/pazar/${encodeURIComponent(id)}/edit`)}
                       className="rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-black hover:bg-emerald-400"
                     >
                       ✏️ Düzenle

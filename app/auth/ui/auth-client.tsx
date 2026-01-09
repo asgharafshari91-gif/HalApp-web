@@ -17,7 +17,6 @@ function normalizePhoneTR(raw: string) {
   return `+90${v}`;
 }
 
-/** ✅ next param güvenli olsun: sadece internal path */
 function safeNext(raw: string | null) {
   const v = (raw ?? "").trim();
   if (!v) return "/";
@@ -32,9 +31,7 @@ export default function AuthClient() {
   const sp = useSearchParams();
   const { toast } = useToast();
 
-  // ✅ useMemo dependency: string üzerinden
-  const nextRaw = sp.get("next");
-  const next = useMemo(() => safeNext(nextRaw), [nextRaw]);
+  const next = useMemo(() => safeNext(sp.get("next")), [sp]);
 
   const [mode, setMode] = useState<"phone" | "otp">("phone");
   const [phoneInput, setPhoneInput] = useState("");
@@ -43,7 +40,6 @@ export default function AuthClient() {
   const [loading, setLoading] = useState(false);
   const [sentPhone, setSentPhone] = useState<string | null>(null);
 
-  // ✅ replace döngüsünü kesin kes
   const redirectedRef = useRef(false);
 
   useEffect(() => {
@@ -61,7 +57,6 @@ export default function AuthClient() {
 
     checkSessionOnce();
 
-    // ✅ auth event olursa da 1 kere redirect
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       if (!alive) return;
       if (session && !redirectedRef.current) {
@@ -83,18 +78,12 @@ export default function AuthClient() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-            next
-          )}`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
       if (error) throw error;
     } catch (e: any) {
-      toast({
-        variant: "error",
-        title: "Google giriş hatası",
-        message: e?.message ?? "Hata oluştu.",
-      });
+      toast({ variant: "error", title: "Google giriş hatası", message: e?.message ?? "Hata oluştu." });
       setLoading(false);
     }
   }
@@ -105,18 +94,12 @@ export default function AuthClient() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "apple",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(
-            next
-          )}`,
+          redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}`,
         },
       });
       if (error) throw error;
     } catch (e: any) {
-      toast({
-        variant: "error",
-        title: "Apple giriş hatası",
-        message: e?.message ?? "Hata oluştu.",
-      });
+      toast({ variant: "error", title: "Apple giriş hatası", message: e?.message ?? "Hata oluştu." });
       setLoading(false);
     }
   }
@@ -127,8 +110,7 @@ export default function AuthClient() {
       toast({
         variant: "error",
         title: "Telefon geçersiz",
-        message:
-          "05xx… ya da 5xx… formatında 10 haneli gir. (Örn: 5xxxxxxxxx)",
+        message: "05xx… ya da 5xx… formatında 10 haneli gir. (Örn: 5xxxxxxxxx)",
       });
       return;
     }
@@ -143,17 +125,9 @@ export default function AuthClient() {
 
       setSentPhone(phone);
       setMode("otp");
-      toast({
-        variant: "success",
-        title: "Kod gönderildi",
-        message: `SMS kodu ${phone} numarasına gönderildi.`,
-      });
+      toast({ variant: "success", title: "Kod gönderildi", message: `SMS kodu ${phone} numarasına gönderildi.` });
     } catch (e: any) {
-      toast({
-        variant: "error",
-        title: "Kod gönderilemedi",
-        message: e?.message ?? "Hata oluştu.",
-      });
+      toast({ variant: "error", title: "Kod gönderilemedi", message: e?.message ?? "Hata oluştu." });
     } finally {
       setLoading(false);
     }
@@ -177,23 +151,14 @@ export default function AuthClient() {
       });
       if (error) throw error;
 
-      toast({
-        variant: "success",
-        title: "Giriş başarılı",
-        message: "Yönlendiriliyorsun…",
-      });
+      toast({ variant: "success", title: "Giriş başarılı", message: "Yönlendiriliyorsun…" });
 
-      // ✅ burada da sadece 1 kere
       if (!redirectedRef.current) {
         redirectedRef.current = true;
         router.replace(next);
       }
     } catch (e: any) {
-      toast({
-        variant: "error",
-        title: "Kod hatalı",
-        message: e?.message ?? "Hata oluştu.",
-      });
+      toast({ variant: "error", title: "Kod hatalı", message: e?.message ?? "Hata oluştu." });
     } finally {
       setLoading(false);
     }
@@ -203,11 +168,8 @@ export default function AuthClient() {
     <div className="mx-auto w-full max-w-md">
       <div className="rounded-[28px] border border-black/10 bg-white/80 p-5 shadow-[0_18px_60px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-white/[0.04]">
         <div className="text-2xl font-black tracking-tight">HalApp Web</div>
-        <div className="mt-1 text-sm text-black/60 dark:text-white/60">
-          Telefon, Google veya Apple ile giriş yap.
-        </div>
+        <div className="mt-1 text-sm text-black/60 dark:text-white/60">Telefon, Google veya Apple ile giriş yap.</div>
 
-        {/* OAuth */}
         <div className="mt-5 space-y-2">
           <button
             disabled={loading}
@@ -240,12 +202,9 @@ export default function AuthClient() {
           <div className="h-px flex-1 bg-black/10 dark:bg-white/10" />
         </div>
 
-        {/* Phone OTP */}
         {mode === "phone" ? (
           <div className="space-y-3">
-            <div className="text-xs font-extrabold text-black/55 dark:text-white/55">
-              Telefon ile giriş
-            </div>
+            <div className="text-xs font-extrabold text-black/55 dark:text-white/55">Telefon ile giriş</div>
             <input
               value={phoneInput}
               onChange={(e) => setPhoneInput(e.target.value)}
@@ -266,9 +225,7 @@ export default function AuthClient() {
           </div>
         ) : (
           <div className="space-y-3">
-            <div className="text-xs font-extrabold text-black/55 dark:text-white/55">
-              Kod gir ({sentPhone})
-            </div>
+            <div className="text-xs font-extrabold text-black/55 dark:text-white/55">Kod gir ({sentPhone})</div>
             <input
               value={otp}
               onChange={(e) => setOtp(e.target.value)}
