@@ -283,9 +283,9 @@ export default function LiveCard({
   );
 
   const detailHref = useMemo(
-    () => `/listing/${item.id}`,
-    [item.id]
-  );
+  () => `/pazar/${item.id}`,
+  [item.id]
+);
 
   const created = timeAgo(
     item.created_at
