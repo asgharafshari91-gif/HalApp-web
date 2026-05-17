@@ -16,38 +16,9 @@ function Stat({
       <div className="text-3xl font-black tracking-tight text-zinc-900 dark:text-white">
         {value}
       </div>
+
       <div className="mt-1 text-sm font-semibold text-zinc-600 dark:text-white/60">
         {label}
-      </div>
-    </div>
-  );
-}
-
-function Feature({
-  title,
-  desc,
-  icon,
-}: {
-  title: string;
-  desc: string;
-  icon: string;
-}) {
-  return (
-    <div className="group relative overflow-hidden rounded-[30px] border border-black/10 bg-white/70 p-6 backdrop-blur-xl transition duration-300 hover:-translate-y-1 hover:shadow-[0_20px_80px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-white/[0.04] dark:hover:shadow-[0_20px_80px_rgba(0,0,0,0.45)]">
-      <div className="absolute right-0 top-0 h-24 w-24 rounded-full bg-emerald-500/10 blur-2xl transition group-hover:scale-125" />
-
-      <div className="relative z-10">
-        <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-emerald-500/20 bg-emerald-500/10 text-2xl">
-          {icon}
-        </div>
-
-        <div className="mt-5 text-lg font-black text-zinc-900 dark:text-white">
-          {title}
-        </div>
-
-        <div className="mt-2 text-sm leading-6 text-zinc-600 dark:text-white/65">
-          {desc}
-        </div>
       </div>
     </div>
   );
@@ -111,7 +82,9 @@ export default function HomeClient() {
       {/* PREMIUM BACKGROUND */}
       <div className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
         <div className="absolute left-[10%] top-[-200px] h-[520px] w-[520px] rounded-full bg-emerald-500/10 blur-[140px]" />
+
         <div className="absolute right-[0%] top-[120px] h-[480px] w-[480px] rounded-full bg-emerald-400/10 blur-[140px]" />
+
         <div className="absolute bottom-[-200px] left-[20%] h-[520px] w-[520px] rounded-full bg-emerald-600/10 blur-[160px]" />
       </div>
 
@@ -120,6 +93,7 @@ export default function HomeClient() {
         <section className="relative overflow-hidden rounded-[38px] border border-black/10 bg-white/75 p-7 shadow-[0_20px_100px_rgba(0,0,0,0.06)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_20px_100px_rgba(0,0,0,0.45)] sm:p-10 lg:p-14">
           {/* glow */}
           <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-500/15 blur-3xl" />
+
           <div className="absolute bottom-0 left-0 h-64 w-64 rounded-full bg-emerald-400/10 blur-3xl" />
 
           <div className="relative z-10 grid gap-14 lg:grid-cols-12 lg:items-center">
@@ -140,8 +114,8 @@ export default function HomeClient() {
 
               <p className="mt-6 max-w-2xl text-base leading-8 text-zinc-700 dark:text-white/70 sm:text-lg">
                 Üretici, komisyoncu, tüccar ve alıcıları aynı platformda
-                buluşturan modern nesil hal sistemi. Canlı ilanlar, premium vitrin,
-                hızlı mesajlaşma ve gerçek zamanlı piyasa akışı.
+                buluşturan modern nesil hal sistemi. Canlı ilanlar, premium
+                vitrin, hızlı mesajlaşma ve gerçek zamanlı piyasa akışı.
               </p>
 
               {/* CTA */}
@@ -171,7 +145,9 @@ export default function HomeClient() {
               {/* STATS */}
               <div className="mt-10 grid gap-4 sm:grid-cols-3">
                 <Stat value="7/24" label="Canlı İlan Akışı" />
+
                 <Stat value="Hızlı" label="Gerçek Zamanlı Mesajlaşma" />
+
                 <Stat value="Premium" label="Modern Hal Deneyimi" />
               </div>
             </div>
@@ -183,7 +159,6 @@ export default function HomeClient() {
           </div>
         </section>
 
-       
         {/* LIVE */}
         <section id="live" className="mt-16">
           <LiveGrid />
