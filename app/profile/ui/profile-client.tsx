@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/toast";
 import PremiumSelect from "@/components/ui/PremiumSelect";
@@ -265,11 +265,12 @@ async function uploadToKyc(bucketPath: string, file: File) {
 
 export default function ProfileClient() {
   const router = useRouter();
-  const sp = useSearchParams();
+ const profileUserId =
+  typeof window !== "undefined"
+    ? (new URLSearchParams(window.location.search).get("u") || "").trim() || null
+    : null;
   const { toast } = useToast();
 
-  // /profile?u=<id> başka profil
-  const profileUserId = (sp.get("u") || "").trim() || null;
 
   const avatarInput = useRef<HTMLInputElement | null>(null);
 

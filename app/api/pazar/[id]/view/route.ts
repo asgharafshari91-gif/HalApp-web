@@ -25,9 +25,21 @@ async function getViews(listingId: string): Promise<number | null> {
   }
 }
 
-export async function POST(req: Request, ctx: { params: { id: string } }) {
-  const id = safeId(ctx?.params?.id);
-  if (!id) return NextResponse.json({ error: "missing_id" }, { status: 400 });
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+
+  const { id } = await params;
+
+  const safeListingId = safeId(id);
+
+  if (!safeListingId) {
+    return NextResponse.json(
+      { error: "missing_id" },
+      { status: 400 }
+    );
+  }
 
   try {
     // (Opsiyonel) Bot spam azaltmak için basit kontrol
@@ -36,7 +48,7 @@ export async function POST(req: Request, ctx: { params: { id: string } }) {
 
     // ✅ view +1
     try {
-      const { error } = await supabase.rpc("increment_listing_view", { listing_id: id });
+      const { error } = await supabase.rpc("increment_listing_view", { listing_id: safeListingId });
       if (error) throw error;
     } catch {
       // RPC yoksa / izin yoksa: sessiz geç (istersen burada 500 döndürebilirsin)
