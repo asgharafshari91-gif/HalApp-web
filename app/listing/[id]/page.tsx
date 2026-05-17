@@ -118,9 +118,9 @@ function pillTR(postType?: string | null) {
 export default async function ListingDetailPage({
   params,
 }: {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 }) {
-  const { id } = params;
+  const { id } = await params;
 
   const sb = supabaseServer();
   const today = new Date().toISOString().slice(0, 10);
