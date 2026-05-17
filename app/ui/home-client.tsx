@@ -183,47 +183,7 @@ export default function HomeClient() {
           </div>
         </section>
 
-        {/* FEATURES */}
-        <section className="mt-16">
-          <div className="flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
-            <div>
-              <div className="text-3xl font-black tracking-tight text-zinc-900 dark:text-white">
-                Neden HalApp?
-              </div>
-
-              <div className="mt-2 text-zinc-600 dark:text-white/60">
-                Modern nesil hal & ilan altyapısı.
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-8 grid gap-5 md:grid-cols-2 xl:grid-cols-4">
-            <Feature
-              icon="⚡"
-              title="Canlı Sistem"
-              desc="İlanlar mobil uygulamadan web’e gerçek zamanlı yansır."
-            />
-
-            <Feature
-              icon="💬"
-              title="Hızlı Mesajlaşma"
-              desc="Alıcı ve satıcıyı anında buluşturan modern chat sistemi."
-            />
-
-            <Feature
-              icon="🛡️"
-              title="Güvenli Altyapı"
-              desc="Supabase + RLS ile güvenli premium mimari."
-            />
-
-            <Feature
-              icon="🚀"
-              title="Premium Deneyim"
-              desc="Modern arayüz, yüksek performans, profesyonel görünüm."
-            />
-          </div>
-        </section>
-
+       
         {/* LIVE */}
         <section id="live" className="mt-16">
           <LiveGrid />
