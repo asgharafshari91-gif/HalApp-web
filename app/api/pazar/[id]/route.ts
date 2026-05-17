@@ -1,147 +1,152 @@
 // app/api/pazar/[id]/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { supabaseRouteClient } from "@/lib/supabaseRoute";
+import { NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 
 export const dynamic = "force-dynamic";
 
-function json(data: any, status = 200) {
-  return NextResponse.json(data, { status });
-}
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  (process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY)!,
+  { auth: { persistSession: false } }
+);
 
 function safeId(v: any) {
   return String(v ?? "").trim();
 }
 
-/**
- * GET /api/pazar/:id
- * -> listings + seller + photos
- */
-export async function GET(
-  _req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
-) {
-  const { id: rawId } = await ctx.params;
-  const id = safeId(rawId);
-  if (!id) return json({ error: "missing_id" }, 400);
+type MediaType = "image" | "video";
 
-  const sb = await supabaseRouteClient();
-
-  const { data: item, error } = await sb
-    .from("listings")
-    .select(
-      `
-      id,
-      title,
-      description,
-      product_name,
-      product_type,
-      post_type,
-      city,
-      district,
-      neighborhood,
-      market_name,
-      price,
-      price_per_unit,
-      unit,
-      quantity,
-      min_quantity,
-      is_active,
-      is_boosted,
-      expires_at,
-      created_at,
-      seller_id
-    `
-    )
-    .eq("id", id)
-    .is("deleted_at", null)
-    .maybeSingle();
-
-  if (error) return json({ error: error.message }, 400);
-  if (!item) return json({ error: "not_found" }, 404);
-
-  // photos
-  const { data: photos, error: pErr } = await sb
-    .from("listing_photos")
-    .select("url,thumb_url,media_type,listing_id")
-    .eq("listing_id", item.id);
-
-  if (pErr) return json({ error: pErr.message }, 400);
-
-  // seller
-  let seller: any = null;
-  if (item.seller_id) {
-    const { data: s, error: sErr } = await sb
-      .from("profiles")
-      .select("id,full_name,company_name,avatar_url,is_premium,is_verified,phone")
-      .eq("id", item.seller_id)
-      .maybeSingle();
-
-    if (sErr) return json({ error: sErr.message }, 400);
-
-    if (s) {
-      seller = {
-        id: s.id,
-        name: s.full_name || s.company_name || "Satıcı",
-        avatar_url: s.avatar_url ?? null,
-        phone: s.phone ?? null,
-        is_premium: Boolean(s.is_premium ?? false),
-      };
-    }
-  }
-
-  return json({
-    item: {
-      ...item,
-      seller,
-      photos: (photos ?? []).map((p: any) => ({
-        url: p.url ?? null,
-        thumb_url: p.thumb_url ?? null,
-        media_type: p.media_type ?? null,
-      })),
-    },
-  });
+function toMediaType(t: any): MediaType {
+  return String(t) === "video" ? "video" : "image";
 }
 
-/**
- * DELETE /api/pazar/:id
- * -> only owner can soft delete
- */
-export async function DELETE(
-  req: NextRequest,
-  ctx: { params: Promise<{ id: string }> }
-) {
-  const { id: rawId } = await ctx.params;
-  const id = safeId(rawId);
-  if (!id) return json({ error: "missing_id" }, 400);
+async function fetchListingMedia(listingId: string) {
+  const { data, error } = await supabase
+    .from("listing_media")
+    .select("url,type,poster_url,sort_order")
+    .eq("listing_id", listingId)
+    .order("sort_order", { ascending: true });
 
-  const sb = await supabaseRouteClient();
+  if (error) throw error;
 
-  // auth required
-  const { data: auth, error: aErr } = await sb.auth.getUser();
-  if (aErr) return json({ error: aErr.message }, 401);
-  const user = auth?.user;
-  if (!user) return json({ error: "not_authed" }, 401);
+  const media = (data ?? []).map((m: any) => ({
+    url: String(m.url),
+    type: toMediaType(m.type),
+    poster_url: m.poster_url ? String(m.poster_url) : null,
+    sort_order: Number(m.sort_order ?? 0) || 0,
+  }));
 
-  // check owner
-  const { data: row, error: e1 } = await sb
-    .from("listings")
-    .select("id,seller_id,deleted_at")
-    .eq("id", id)
-    .maybeSingle();
+  const media_urls = media.map((m) => m.url);
+  const media_types = media.map((m) => m.type);
 
-  if (e1) return json({ error: e1.message }, 400);
-  if (!row || row.deleted_at) return json({ error: "not_found" }, 404);
+  return { media, media_urls, media_types };
+}
 
-  if (row.seller_id !== user.id) {
-    return json({ error: "not_owner" }, 403);
+async function fetchSellerProfile(sellerId: string) {
+  if (!sellerId) return null;
+
+  // sende RPC var: get_public_profiles(ids)
+  const { data, error } = await supabase.rpc("get_public_profiles", { ids: [sellerId] });
+  if (error) return null;
+
+  const p = (data ?? [])[0];
+  if (!p) return null;
+
+  return {
+    id: String(p.id),
+    full_name: p.full_name ?? null,
+    avatar_url: p.avatar_url ?? null,
+    is_premium: p.is_premium ?? null,
+  };
+}
+
+async function fetchViews(listingId: string) {
+  try {
+    const { data, error } = await supabase.rpc("get_listing_views", { ids: [listingId] });
+    if (error) throw error;
+    const r = (data ?? [])[0];
+    return r ? (Number(r.views ?? 0) || 0) : 0;
+  } catch {
+    return null;
   }
+}
 
-  const { error: e2 } = await sb
-    .from("listings")
-    .update({ deleted_at: new Date().toISOString() })
-    .eq("id", id);
+export async function GET(_req: Request, ctx: { params: { id: string } }) {
+  const id = safeId(ctx?.params?.id);
+  if (!id) return NextResponse.json({ error: "missing_id" }, { status: 400 });
 
-  if (e2) return json({ error: e2.message }, 400);
+  try {
+    // listing çek
+    const { data, error } = await supabase
+      .from("listings")
+      .select(
+        [
+          "id",
+          "title",
+          "description",
+          "product_name",
+          "product_type",
+          "city",
+          "district",
+          "neighborhood",
+          "market_name",
+          "unit",
+          "price_per_unit",
+          "price",
+          "min_price",
+          "max_price",
+          "min_quantity",
+          "quantity",
+          "is_active",
+          "is_boosted",
+          "boost_score",
+          "boost_until",
+          "expires_at",
+          "created_at",
+          "seller_id",
+          "media_urls",
+          "media_types",
+          "deleted_at",
+        ].join(",")
+      )
+      .eq("id", id)
+      .maybeSingle();
 
-  return json({ ok: true });
+    if (error) throw error;
+    if (!data) return NextResponse.json({ error: "not_found" }, { status: 404 });
+
+    // ✅ TS hatasını bitiren garanti: listingObj her zaman object
+    const listingObj: Record<string, any> =
+      data && typeof data === "object" && !Array.isArray(data) ? (data as Record<string, any>) : {};
+
+    // listing_media varsa override et
+    const { media, media_urls, media_types } = await fetchListingMedia(id);
+
+    // listing üzerinde media yoksa listing_media’dan doldur
+    // varsa ama listing_media doluysa, listing_media öncelikli olsun
+    const finalMediaUrls =
+      media_urls.length > 0 ? media_urls : Array.isArray((listingObj as any).media_urls) ? (listingObj as any).media_urls : [];
+    const finalMediaTypesRaw =
+      media_types.length > 0 ? media_types : Array.isArray((listingObj as any).media_types) ? (listingObj as any).media_types : [];
+    const finalMediaTypes: MediaType[] = finalMediaTypesRaw.map((t: any) => toMediaType(t));
+
+    const sellerId = safeId(listingObj.seller_id);
+    const [seller, views] = await Promise.all([fetchSellerProfile(sellerId), fetchViews(id)]);
+
+    return NextResponse.json({
+      listing: {
+        ...listingObj, // ✅ artık TS hata vermez
+        media_urls: finalMediaUrls,
+        media_types: finalMediaTypes,
+      },
+      media, // detay için poster_url vs
+      seller,
+      views,
+    });
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: "server_error", message: e?.message ? String(e.message) : "unknown_error" },
+      { status: 500 }
+    );
+  }
 }

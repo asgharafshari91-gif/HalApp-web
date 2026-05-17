@@ -3,38 +3,49 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/toast";
 
-type ConvRow = {
-  u1: string;
-  u2: string;
+type VConv = {
+  conversation_id: string;
+  viewer_id: string;
+  peer_id: string | null;
+
+  pinned: boolean | null;
+  archived: boolean | null;
+  muted: boolean | null;
+
+  title: string | null;
+  avatar_url: string | null;
+  listing_id: string | null;
+  updated_at: string | null;
+
+  peer_full_name: string | null;
+  peer_company_name: string | null;
+  peer_avatar_url: string | null;
+  peer_is_online: boolean | null;
+  peer_last_seen_at: string | null;
+
   last_message_id: number | null;
   last_body: string | null;
   last_type: string | null;
   last_media_url: string | null;
   last_created_at: string | null;
+
   unread_count: number | null;
-  viewer_id: string | null;
 };
 
-type MiniProfile = {
-  id: string;
-  full_name: string | null;
-  company_name: string | null;
-  avatar_url: string | null;
-  is_online?: boolean | null;
-  last_seen_at?: string | null;
-};
+function isUuid(v?: string | null) {
+  if (!v) return false;
+  const s = String(v).trim();
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    s
+  );
+}
 
-type ConvSettings = {
-  pinned: boolean;
-  archived: boolean;
-  muted: boolean;
-};
-
-function clsx(...a: (string | false | null | undefined)[]) {
-  return a.filter(Boolean).join(" ");
+function safeStr(v: any) {
+  return String(v ?? "").trim();
 }
 
 function initials(name?: string | null) {
@@ -42,13 +53,6 @@ function initials(name?: string | null) {
   if (!v) return "HA";
   const parts = v.split(/\s+/).slice(0, 2);
   return parts.map((p) => p[0]?.toUpperCase()).join("") || "HA";
-}
-
-function bust(url?: string | null) {
-  const u = (url ?? "").trim();
-  if (!u) return "";
-  const hasQ = u.includes("?");
-  return `${u}${hasQ ? "&" : "?"}t=${Date.now()}`;
 }
 
 function timeAgoShort(iso?: string | null) {
@@ -66,7 +70,7 @@ function timeAgoShort(iso?: string | null) {
   return "az önce";
 }
 
-function previewText(row: ConvRow) {
+function previewText(row: VConv) {
   const t = (row.last_type ?? "text").toLowerCase();
   if (t === "image") return "📷 Fotoğraf";
   if (t === "video") return "🎬 Video";
@@ -82,280 +86,337 @@ export default function ConversationsClient() {
   const [loading, setLoading] = useState(true);
   const [myId, setMyId] = useState<string | null>(null);
 
-  const [rows, setRows] = useState<ConvRow[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, MiniProfile>>({});
-  const [settings, setSettings] = useState<Record<string, ConvSettings>>({});
+  const [rows, setRows] = useState<VConv[]>([]);
+  const [tab, setTab] = useState<"active" | "archived">("active");
+  const [q, setQ] = useState("");
 
-  const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+  const chRef = useRef<RealtimeChannel | null>(null);
+  const reloadTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const mountedRef = useRef(true);
+
+  function scheduleReload() {
+    if (reloadTimerRef.current) return;
+    reloadTimerRef.current = setTimeout(() => {
+      reloadTimerRef.current = null;
+      load();
+    }, 350);
+  }
+
+  async function ensureSession(): Promise<string | null> {
+    const { data: s } = await supabase.auth.getSession();
+    const uid = s.session?.user?.id ?? null;
+
+    if (!uid) {
+      router.replace(`/auth?next=${encodeURIComponent("/conversations")}`);
+      return null;
+    }
+
+    setMyId(uid);
+    return uid;
+  }
 
   async function load() {
     setLoading(true);
     try {
-      const { data: s } = await supabase.auth.getSession();
-      const uid = s.session?.user?.id ?? null;
+      const uid = await ensureSession();
+      if (!uid) return;
 
-      if (!uid) {
-        router.replace(`/auth?next=${encodeURIComponent("/conversations")}`);
-        return;
-      }
-
-      setMyId(uid);
-
-      // 1) settings (pinned/archived/muted)
-      const { data: ss, error: se } = await supabase
-        .from("conversation_settings")
-        .select("peer_id,pinned,archived,muted")
-        .eq("user_id", uid);
-
-      if (se) throw se;
-
-      const smap: Record<string, ConvSettings> = {};
-      (ss ?? []).forEach((x: any) => {
-        const pid = String(x.peer_id);
-        smap[pid] = { pinned: !!x.pinned, archived: !!x.archived, muted: !!x.muted };
-      });
-      setSettings(smap);
-
-      // 2) conversations (hepsini çekiyoruz; view zaten viewer_id filtreli)
       const { data, error } = await supabase
         .from("v_conversations")
-        .select("u1,u2,last_message_id,last_body,last_type,last_media_url,last_created_at,unread_count,viewer_id")
+        .select("*")
         .eq("viewer_id", uid)
         .order("last_created_at", { ascending: false });
 
       if (error) throw error;
 
-      const list: ConvRow[] = (data ?? []) as ConvRow[];
-      setRows(list);
+      // ✅ peer_id: null/""/uuid değilse UI'ye hiç alma
+      const cleaned = (data ?? [])
+        .map((r: any) => ({
+          ...r,
+          peer_id: safeStr(r.peer_id) || null,
+          pinned: !!r.pinned,
+          archived: !!r.archived,
+          muted: !!r.muted,
+          peer_is_online: !!r.peer_is_online,
+        }))
+        .filter((r: any) => isUuid(r.peer_id));
 
-      // 3) peer ids
-      const ids = Array.from(
-        new Set(
-          list
-            .map((r) => (r.u1 === uid ? r.u2 : r.u1))
-            .filter((x): x is string => typeof x === "string" && x.length > 0)
-        )
-      );
-
-      if (ids.length) {
-        const { data: ps, error: pe } = await supabase
-          .from("profiles")
-          .select("id,full_name,company_name,avatar_url,is_online,last_seen_at")
-          .in("id", ids);
-
-        if (pe) throw pe;
-
-        const pmap: Record<string, MiniProfile> = {};
-        (ps ?? []).forEach((p: any) => (pmap[p.id] = p as MiniProfile));
-        setProfiles(pmap);
-      } else {
-        setProfiles({});
-      }
+      if (!mountedRef.current) return;
+      setRows(cleaned as VConv[]);
     } catch (e: any) {
-      toast({ variant: "error", title: "Sohbetler yüklenemedi", message: e?.message ?? "Hata oluştu." });
+      toast({
+        variant: "error",
+        title: "Sohbetler yüklenemedi",
+        message: e?.message ?? "Hata oluştu.",
+      });
     } finally {
-      setLoading(false);
+      if (mountedRef.current) setLoading(false);
     }
   }
 
-  async function upsertSetting(peerId: string, patch: Partial<ConvSettings>) {
+  async function upsertSetting(
+    peerId: string,
+    patch: Partial<Pick<VConv, "archived" | "pinned" | "muted">>
+  ) {
     const uid = myId;
     if (!uid) return;
 
-    const cur: ConvSettings = settings[peerId] ?? { pinned: false, archived: false, muted: false };
-    const next: ConvSettings = { ...cur, ...patch };
+    const pid = safeStr(peerId);
+    if (!isUuid(pid)) {
+      toast({
+        variant: "error",
+        title: "Kaydedilemedi",
+        message: `Geçersiz peer_id: '${pid}'`,
+      });
+      return;
+    }
 
-    setSettings((prev) => ({ ...prev, [peerId]: next }));
+    const current = rows.find((x) => safeStr(x.peer_id) === pid);
+
+    const next = {
+      archived: patch.archived ?? current?.archived ?? false,
+      pinned: patch.pinned ?? current?.pinned ?? false,
+      muted: patch.muted ?? current?.muted ?? false,
+    };
+
+    // ✅ optimistik
+    setRows((prev) =>
+      prev.map((r) =>
+        safeStr(r.peer_id) === pid
+          ? { ...r, ...patch, archived: next.archived, pinned: next.pinned, muted: next.muted }
+          : r
+      )
+    );
 
     const { error } = await supabase
       .from("conversation_settings")
       .upsert(
         {
           user_id: uid,
-          peer_id: peerId,
-          pinned: next.pinned,
-          archived: next.archived,
-          muted: next.muted,
+          peer_id: pid,
+          archived: !!next.archived,
+          pinned: !!next.pinned,
+          muted: !!next.muted,
+          updated_at: new Date().toISOString(),
         },
         { onConflict: "user_id,peer_id" }
       );
 
     if (error) {
-      setSettings((prev) => ({ ...prev, [peerId]: cur }));
       toast({ variant: "error", title: "Kaydedilemedi", message: error.message });
-      return;
-    }
-
-    if (patch.archived === true) {
-      toast({ variant: "success", title: "Arşive alındı", message: "Sohbet arşive taşındı." });
-    }
-    if (patch.archived === false) {
-      toast({ variant: "success", title: "Arşivden çıkarıldı", message: "Sohbet geri taşındı." });
+      await load();
     }
   }
 
-  function setupRealtime(uid: string) {
-    // önce varsa kapat
-    if (channelRef.current) {
-      supabase.removeChannel(channelRef.current);
-      channelRef.current = null;
-    }
+  // ✅ realtime subscribe (messages + settings)
+  useEffect(() => {
+    mountedRef.current = true;
 
-    const ch = supabase.channel(`rt_conversations_${uid}`);
+    (async () => {
+      const uid = await ensureSession();
+      if (!uid) return;
 
-    // messages değişirse (yeni mesaj vs) -> reload
-    ch.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "messages" },
-      () => {
-        load();
-      }
-    );
+      if (chRef.current) supabase.removeChannel(chRef.current);
 
-    // settings değişirse -> reload
-    ch.on(
-      "postgres_changes",
-      { event: "*", schema: "public", table: "conversation_settings", filter: `user_id=eq.${uid}` },
-      () => {
-        load();
-      }
-    );
+      const ch = supabase.channel("halapp-conversations");
 
-    // profile online/last_seen değişirse -> reload (hafif)
-    ch.on(
-      "postgres_changes",
-      { event: "UPDATE", schema: "public", table: "profiles" },
-      () => {
-        // sadece hızlı yenile
-        load();
-      }
-    );
+      ch.on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "messages" },
+        () => scheduleReload()
+      );
 
-    ch.subscribe();
+      ch.on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "conversation_settings",
+          filter: `user_id=eq.${uid}`,
+        },
+        () => scheduleReload()
+      );
 
-    channelRef.current = ch;
-  }
+      ch.subscribe();
+      chRef.current = ch;
+    })();
+
+    return () => {
+      mountedRef.current = false;
+      if (chRef.current) supabase.removeChannel(chRef.current);
+      chRef.current = null;
+      if (reloadTimerRef.current) clearTimeout(reloadTimerRef.current);
+      reloadTimerRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    if (!myId) return;
-    setupRealtime(myId);
-    return () => {
-      if (channelRef.current) {
-        supabase.removeChannel(channelRef.current);
-        channelRef.current = null;
-      }
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myId]);
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
 
-  const visible = useMemo(() => {
-    const uid = myId;
-    if (!uid) return [];
+    const base = rows.filter((r) =>
+      tab === "archived" ? !!r.archived : !r.archived
+    );
 
-    const list = rows
-      .map((r) => {
-        const peerId = r.u1 === uid ? r.u2 : r.u1;
-        const s = settings[peerId] ?? { pinned: false, archived: false, muted: false };
-        return { r, peerId, s };
-      })
-      .filter((x) => !x.s.archived); // ana listede arşiv yok
+    const withSearch = !needle
+      ? base
+      : base.filter((r) => {
+          const name =
+            (r.peer_company_name?.trim()
+              ? r.peer_company_name
+              : r.peer_full_name) ?? "";
+          return name.toLowerCase().includes(needle);
+        });
 
-    // pinned önce
-    list.sort((a, b) => {
-      const pa = a.s.pinned ? 1 : 0;
-      const pb = b.s.pinned ? 1 : 0;
-      if (pa !== pb) return pb - pa;
-
-      const ta = a.r.last_created_at ? new Date(a.r.last_created_at).getTime() : 0;
-      const tb = b.r.last_created_at ? new Date(b.r.last_created_at).getTime() : 0;
+    return withSearch.sort((a, b) => {
+      const p = Number(!!b.pinned) - Number(!!a.pinned);
+      if (p !== 0) return p;
+      const ta = a.last_created_at ? new Date(a.last_created_at).getTime() : 0;
+      const tb = b.last_created_at ? new Date(b.last_created_at).getTime() : 0;
       return tb - ta;
     });
-
-    return list;
-  }, [rows, settings, myId]);
+  }, [rows, tab, q]);
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-4">
+      {/* header */}
       <div className="flex items-end justify-between gap-3">
-        <div>
-          <div className="text-2xl font-black tracking-tight">Sohbetler</div>
+        <div className="min-w-0">
+          <div className="text-2xl font-black tracking-tight">Mesajlar</div>
           <div className="mt-1 text-sm text-black/60 dark:text-white/60">
-            Mesajlar, okunmamışlar, pin ve arşiv yönetimi.
+            WhatsApp / Sahibinden mantığı: pinned + arşiv.
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Link
-            href="/conversations/archived"
-            className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold text-black/75 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10 transition"
-          >
-            Arşiv
-          </Link>
+        <Link
+          href="/"
+          className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold text-black/75 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10 transition"
+        >
+          ← Ana sayfa
+        </Link>
+      </div>
 
-          <Link
-            href="/new-chat"
-            className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-black hover:bg-emerald-400 transition"
-          >
-            + Yeni
-          </Link>
+      {/* search + tabs */}
+      <div className="rounded-[28px] border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <input
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            placeholder="Sohbet ara…"
+            className="h-11 w-full rounded-2xl border border-black/10 bg-white/70 px-4 text-sm font-semibold outline-none focus:border-emerald-500/40 dark:border-white/10 dark:bg-black/30 dark:text-white"
+          />
+
+          <div className="flex shrink-0 rounded-2xl border border-black/10 bg-black/[0.03] p-1 dark:border-white/10 dark:bg-white/5">
+            <button
+              type="button"
+              onClick={() => setTab("active")}
+              className={`h-9 rounded-xl px-4 text-sm font-extrabold transition ${
+                tab === "active"
+                  ? "bg-emerald-500 text-black"
+                  : "text-black/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5"
+              }`}
+            >
+              Sohbetler
+            </button>
+            <button
+              type="button"
+              onClick={() => setTab("archived")}
+              className={`h-9 rounded-xl px-4 text-sm font-extrabold transition ${
+                tab === "archived"
+                  ? "bg-emerald-500 text-black"
+                  : "text-black/70 hover:bg-black/5 dark:text-white/70 dark:hover:bg-white/5"
+              }`}
+            >
+              Arşiv
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* list */}
       <div className="rounded-[28px] border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-white/[0.04]">
         {loading ? (
-          <div className="p-4 text-sm text-black/60 dark:text-white/60">Yükleniyor…</div>
-        ) : visible.length === 0 ? (
-          <div className="p-4 text-sm text-black/60 dark:text-white/60">Sohbet yok.</div>
+          <div className="p-4 text-sm text-black/60 dark:text-white/60">
+            Yükleniyor…
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-4 text-sm text-black/60 dark:text-white/60">
+            {tab === "archived" ? "Arşivde sohbet yok." : "Henüz sohbet yok."}
+          </div>
         ) : (
           <div className="space-y-2">
-            {visible.map(({ r, peerId, s }) => {
-              const p = profiles[peerId];
-              const name = (p?.company_name?.trim() ? p.company_name : p?.full_name) ?? "Kullanıcı";
+            {filtered.map((r) => {
+              const peerId = safeStr(r.peer_id);
+              const okPeer = isUuid(peerId);
+
+              const name =
+                (r.peer_company_name?.trim()
+                  ? r.peer_company_name
+                  : r.peer_full_name) ?? "Kullanıcı";
+
               const unread = Number(r.unread_count ?? 0);
 
               return (
                 <div
-                  key={`${r.u1}-${r.u2}`}
+                  key={r.conversation_id}
                   className="flex items-center gap-3 rounded-2xl border border-black/10 bg-black/5 p-3 dark:border-white/10 dark:bg-white/5"
                 >
-                  <Link href={`/chat/user/${peerId}`} className="flex min-w-0 flex-1 items-center gap-3">
+                  {/* SOL (open chat) */}
+                  <button
+                    type="button"
+                    disabled={!okPeer}
+                    className={`flex min-w-0 flex-1 items-center gap-3 text-left transition ${
+                      okPeer
+                        ? "cursor-pointer hover:opacity-95"
+                        : "cursor-not-allowed opacity-60"
+                    }`}
+                    onClick={() => {
+                      if (!okPeer) {
+                        toast({
+                          variant: "error",
+                          title: "Sohbet açılamadı",
+                          message: `Geçersiz kullanıcı id: '${peerId}'`,
+                        });
+                        return;
+                      }
+                      // ✅ encode: Safari/Next edge-case
+                      router.push(`/chat/user/${encodeURIComponent(peerId)}`);
+                    }}
+                  >
                     <div className="relative h-12 w-12 overflow-hidden rounded-2xl ring-1 ring-black/10 bg-white/60 dark:ring-white/10 dark:bg-black/30">
-                      {p?.avatar_url ? (
-                        <>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={bust(p.avatar_url)} alt="Avatar" className="h-full w-full object-cover" />
-                        </>
+                      {r.peer_avatar_url ? (
+                        <img
+                          src={r.peer_avatar_url}
+                          alt="Avatar"
+                          className="h-full w-full object-cover"
+                        />
                       ) : (
                         <div className="flex h-full w-full items-center justify-center text-xs font-black text-black/70 dark:text-white/75">
                           {initials(name)}
                         </div>
                       )}
-
-                      {/* Online dot */}
-                      {p?.is_online ? (
-                        <span className="absolute bottom-1 right-1 h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white/80 dark:ring-black/60" />
+                      {r.peer_is_online ? (
+                        <span className="absolute bottom-1 right-1 h-3 w-3 rounded-full bg-emerald-500 ring-2 ring-white dark:ring-black" />
                       ) : null}
                     </div>
 
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <div className="flex min-w-0 items-center gap-2">
-                          <div className="truncate text-sm font-extrabold text-black/90 dark:text-white/90">{name}</div>
-
-                          {s.pinned ? (
-                            <span className="shrink-0 rounded-full border border-black/10 bg-white/70 px-2 py-0.5 text-[10px] font-black text-black/70 dark:border-white/10 dark:bg-black/30 dark:text-white/70">
-                              📌
+                        <div className="truncate text-sm font-extrabold text-black/90 dark:text-white/90">
+                          {name}
+                          {!!r.pinned ? (
+                            <span className="ml-2 text-[11px] font-black text-emerald-700 dark:text-emerald-300">
+                              • Sabit
                             </span>
                           ) : null}
-
-                          {s.muted ? (
-                            <span className="shrink-0 rounded-full border border-black/10 bg-white/70 px-2 py-0.5 text-[10px] font-black text-black/60 dark:border-white/10 dark:bg-black/30 dark:text-white/60">
-                              🔇
+                          {!!r.muted ? (
+                            <span className="ml-2 text-[11px] font-black text-black/40 dark:text-white/40">
+                              • Sessiz
                             </span>
                           ) : null}
                         </div>
@@ -366,7 +427,9 @@ export default function ConversationsClient() {
                       </div>
 
                       <div className="mt-1 flex items-center justify-between gap-2">
-                        <div className="min-w-0 truncate text-xs text-black/60 dark:text-white/60">{previewText(r)}</div>
+                        <div className="min-w-0 truncate text-xs text-black/60 dark:text-white/60">
+                          {previewText(r)}
+                        </div>
 
                         {unread > 0 ? (
                           <span className="shrink-0 rounded-full bg-emerald-500 px-2 py-0.5 text-[11px] font-black text-black">
@@ -375,41 +438,50 @@ export default function ConversationsClient() {
                         ) : null}
                       </div>
                     </div>
-                  </Link>
+                  </button>
 
-                  {/* Actions */}
+                  {/* SAĞ AKSİYONLAR */}
                   <div className="flex items-center gap-2">
                     <button
                       type="button"
-                      onClick={() => upsertSetting(peerId, { pinned: !s.pinned })}
-                      className={clsx(
-                        "rounded-2xl border border-black/10 bg-white/70 px-3 py-2 text-xs font-black text-black/70 hover:bg-white transition",
-                        "dark:border-white/10 dark:bg-black/30 dark:text-white/70 dark:hover:bg-black/20"
-                      )}
-                      title="Pin"
+                      disabled={!okPeer}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!okPeer) return;
+                        upsertSetting(peerId, { pinned: !r.pinned });
+                      }}
+                      className="rounded-2xl border border-black/10 bg-white/70 px-3 py-2 text-xs font-black hover:bg-white disabled:opacity-60 dark:border-white/10 dark:bg-black/30 dark:hover:bg-black/20"
                     >
-                      {s.pinned ? "Unpin" : "Pin"}
+                      {!!r.pinned ? "Sabit ✓" : "Sabit"}
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => upsertSetting(peerId, { muted: !s.muted })}
-                      className={clsx(
-                        "rounded-2xl border border-black/10 bg-white/70 px-3 py-2 text-xs font-black text-black/70 hover:bg-white transition",
-                        "dark:border-white/10 dark:bg-black/30 dark:text-white/70 dark:hover:bg-black/20"
-                      )}
-                      title="Sessize al"
+                      disabled={!okPeer}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!okPeer) return;
+                        upsertSetting(peerId, { muted: !r.muted });
+                      }}
+                      className="rounded-2xl border border-black/10 bg-white/70 px-3 py-2 text-xs font-black hover:bg-white disabled:opacity-60 dark:border-white/10 dark:bg-black/30 dark:hover:bg-black/20"
                     >
-                      {s.muted ? "Unmute" : "Mute"}
+                      {!!r.muted ? "Sessiz ✓" : "Sessiz"}
                     </button>
 
                     <button
                       type="button"
-                      onClick={() => upsertSetting(peerId, { archived: true })}
-                      className="rounded-2xl bg-emerald-500 px-3 py-2 text-xs font-black text-black hover:bg-emerald-400 transition"
-                      title="Arşivle"
+                      disabled={!okPeer}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (!okPeer) return;
+                        upsertSetting(peerId, { archived: !r.archived });
+                      }}
+                      className="rounded-2xl bg-emerald-500 px-3 py-2 text-xs font-black text-black hover:bg-emerald-400 disabled:opacity-60"
                     >
-                      Arşiv
+                      {!!r.archived ? "Çıkar" : "Arşivle"}
                     </button>
                   </div>
                 </div>

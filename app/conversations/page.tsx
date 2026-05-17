@@ -1,19 +1,10 @@
+// app/conversations/page.tsx
 import { Suspense } from "react";
 import ConversationsClient from "./ui/conversations-client";
 
-export const dynamic = "force-dynamic";
-
 export default function ConversationsPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="mx-auto w-full max-w-3xl p-4">
-          <div className="rounded-[22px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
-            Yükleniyor…
-          </div>
-        </div>
-      }
-    >
+    <Suspense fallback={<div className="p-6 text-sm opacity-70">Yükleniyor…</div>}>
       <ConversationsClient />
     </Suspense>
   );

@@ -1,566 +1,1389 @@
 "use client";
 
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
 
-type SellerMini = { id: string; name: string; avatar_url?: string | null };
+import { supabase } from "@/lib/supabaseClient";
+import SellerChip from "./seller-chip";
+import { Lightbox, SquareMedia } from "@/app/my-listings/ui/listing-card";
 
-type Listing = {
-  id: string;
-  title: string;
-  description: string | null;
-  product_name: string | null;
-  product_type: string | null;
-  post_type: string | null;
-  city: string | null;
-  district: string | null;
-  neighborhood: string | null;
-  market_name: string | null;
-  price: number | null;
-  price_per_unit: number | null;
-  unit: string | null;
-  quantity: number | null;
-  min_quantity: number | null;
-  is_boosted: boolean;
-  created_at: string | null;
-  seller_id: string | null;
+type MediaType = "image" | "video";
+type LocationsMap = Record<string, Record<string, string[]>>;
 
-  cover_url: string | null;
-  seller: SellerMini | null;
-};
+const PRODUCTS = [
+  "Ahududu",
+  "Altınçilek",
+  "Amme(Cennet Meyvesi)",
+  "Ananas",
+  "Armut",
+  "Avokado",
+  "Ayva",
+  "Biber",
+  "Biber Çarli",
+  "Biber Kapya",
+  "Biber Sivri",
+  "Biber Üçburun",
+  "Blue Berry",
+  "Böğürtlen",
+  "Brokoli",
+  "Çilek",
+  "Dereotu",
+  "Domates",
+  "Domates (Ceri)",
+  "Domates (Pembe)",
+  "Domates Kokteyl",
+  "Elma (Golden)",
+  "Elma (Grann Smith)",
+  "Elma (Starking)",
+  "Fasulye",
+  "Fesleğen",
+  "Frenk Üzümü",
+  "Greyfurt",
+  "Havuç",
+  "Hıyar",
+  "Hindistan Cevizi",
+  "Ispanak",
+  "Kabak (Bal)",
+  "Kabak (Sakız)",
+  "Karadeniz Yaprağı",
+  "Karnabahar",
+  "Kavun(Kırkağaç)",
+  "Kereviz",
+  "Kivi",
+  "Kuzu Kulağı",
+  "Lahana (Beyaz)",
+  "Lahana (Kırmızı)",
+  "Lime Limon",
+  "Limon",
+  "Mandarin(Paket)",
+  "Mango",
+  "Mantar",
+  "Marul (Aysberk)",
+  "Marul (Düz)",
+  "Marul (Kıvırcık)",
+  "Maydonoz",
+  "Muz (Yerli)",
+  "Muz İthal",
+  "Nane",
+  "Nar",
+  "Pancar",
+  "Patates",
+  "Patates (Baby)",
+  "Patates (Kumpirlik)",
+  "Patlıcan",
+  "Patlıcan (Topak)",
+  "Pazı Bağ",
+  "Pırasa",
+  "Portakal (Sıkmalık)",
+  "Portakal (Valencia Pak)",
+  "Roka Bağ",
+  "Sarımsak (Taze)",
+  "Semizotu Bağ",
+  "Soğan (Arpacık)",
+  "Soğan (Kırmız)",
+  "Soğan (Yeşil) Bağ",
+  "Soğan Kuru",
+  "Tere Bağ",
+  "Tere Su",
+  "Turp (Kırmızı)",
+  "Turp(Fındık)",
+  "Üzüm (Beyaz)",
+  "Üzüm (Siyah)",
+  "Zencefil",
+];
 
-function clsx(...a: (string | false | null | undefined)[]) {
+function cn(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
 
-function fmtMoney(v: any) {
+function fmtNum(v: any) {
+  if (v == null) return "—";
   const n = Number(v);
   if (!Number.isFinite(n)) return "—";
-  return new Intl.NumberFormat("tr-TR").format(n);
+  return n.toLocaleString("tr-TR");
 }
 
-function timeAgo(iso?: string | null) {
-  if (!iso) return "";
-  const t = new Date(iso).getTime();
-  if (!Number.isFinite(t)) return "";
-  const diff = Date.now() - t;
-  const mins = Math.floor(diff / 60000);
-  if (mins < 60) return `${Math.max(1, mins)} dk önce`;
-  const hrs = Math.floor(diff / 3600000);
-  if (hrs < 24) return `${hrs} saat önce`;
-  const days = Math.floor(diff / 86400000);
-  return `${Math.max(1, days)} gün önce`;
+function fmtDate(d: any) {
+  const s = String(d ?? "").trim();
+  if (!s) return "—";
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return s;
+  return dt.toLocaleDateString("tr-TR");
 }
 
-function initials(name?: string | null) {
-  const s = String(name ?? "").trim();
-  if (!s) return "S";
-  const parts = s.split(/\s+/).filter(Boolean);
-  const a = parts[0]?.[0] ?? "S";
-  const b = parts.length > 1 ? parts[parts.length - 1]?.[0] ?? "" : "";
-  return (a + b).toUpperCase();
+function daysLeft(expiresAt: any) {
+  const s = String(expiresAt ?? "").trim();
+  if (!s) return null;
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return null;
+  const now = new Date();
+  const diff = Math.ceil((dt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+  return diff;
 }
 
-const PRODUCTS = [
-  "Ahududu","Altınçilek","Amme(Cennet Meyvesi)","Ananas","Armut","Avokado","Ayva","Biber","Biber Çarli","Biber Kapya","Biber Sivri","Biber Üçburun",
-  "Blue Berry","Böğürtlen","Brokoli","Çilek","Dereotu","Domates","Domates (Ceri)","Domates (Pembe)","Domates Kokteyl",
-  "Elma (Golden)","Elma (Grann Smith)","Elma (Starking)","Fasulye","Fesleğen","Frenk Üzümü","Greyfurt","Havuç","Hıyar","Hindistan Cevizi",
-  "Ispanak","Kabak (Bal)","Kabak (Sakız)","Karadeniz Yaprağı","Karnabahar","Kavun(Kırkağaç)","Kereviz","Kivi","Kuzu Kulağı",
-  "Lahana (Beyaz)","Lahana (Kırmızı)","Lime Limon","Limon","Mandarin(Paket)","Mango","Mantar","Marul (Aysberk)","Marul (Düz)","Marul (Kıvırcık)",
-  "Maydonoz","Muz (Yerli)","Muz İthal","Nane","Nar","Pancar","Patates","Patates (Baby)","Patates (Kumpirlik)","Patlıcan","Patlıcan (Topak)",
-  "Pazı Bağ","Pırasa","Portakal (Sıkmalık)","Portakal (Valencia Pak)","Roka Bağ","Sarımsak (Taze)","Semizotu Bağ","Soğan (Arpacık)","Soğan (Kırmız)",
-  "Soğan (Yeşil) Bağ","Soğan Kuru","Tere Bağ","Tere Su","Turp (Kırmızı)","Turp(Fındık)","Üzüm (Beyaz)","Üzüm (Siyah)","Zencefil",
-];
+function fmtPrice(x: any) {
+  const unit = x?.unit ? String(x.unit) : null;
 
-type Locations = Record<string, Record<string, string[]>>;
+  const ppu = x?.price_per_unit;
+  const price = x?.price;
+  const minP = x?.min_price;
+  const maxP = x?.max_price;
+
+  const hasPPU = ppu != null && Number.isFinite(Number(ppu));
+  const hasPrice = price != null && Number.isFinite(Number(price));
+  const hasMin = minP != null && Number.isFinite(Number(minP));
+  const hasMax = maxP != null && Number.isFinite(Number(maxP));
+
+  if (hasPPU) return { main: fmtNum(ppu), sub: unit ? `/ ${unit}` : "" };
+  if (hasPrice) return { main: fmtNum(price), sub: "Toplam" };
+  if (hasMin && hasMax) return { main: `${fmtNum(minP)} - ${fmtNum(maxP)}`, sub: "Aralık" };
+  if (hasMin) return { main: fmtNum(minP), sub: "Min" };
+  if (hasMax) return { main: fmtNum(maxP), sub: "Max" };
+  return { main: "—", sub: "" };
+}
+
+function isVideoType(t: any): t is "video" {
+  return String(t) === "video";
+}
+
+function getMedia(listing: any): { urls: string[]; types: MediaType[] } {
+  const urls: string[] = Array.isArray(listing?.media_urls) ? listing.media_urls : [];
+  const typesRaw: any[] = Array.isArray(listing?.media_types) ? listing.media_types : [];
+  const types: MediaType[] = typesRaw.map((t) => (isVideoType(t) ? "video" : "image"));
+  const len = Math.min(urls.length, types.length);
+  return { urls: urls.slice(0, len), types: types.slice(0, len) };
+}
+
+/** listing_media tablosundan (DB tablo) medya çek (varsa) */
+async function fetchListingMediaFor(listingIds: string[]) {
+  const map = new Map<string, { urls: string[]; types: MediaType[] }>();
+  const uniq = Array.from(new Set(listingIds)).filter(Boolean);
+  if (!uniq.length) return map;
+
+  const { data, error } = await supabase
+    .from("listing_media")
+    .select("listing_id,url,type,sort_order")
+    .in("listing_id", uniq)
+    .order("sort_order", { ascending: true });
+
+  if (error || !data) return map;
+
+  for (const r of data as any[]) {
+    const id = String(r.listing_id);
+    const url = String(r.url);
+    const type: MediaType = String(r.type) === "video" ? "video" : "image";
+    const cur = map.get(id) ?? { urls: [], types: [] };
+    cur.urls.push(url);
+    cur.types.push(type);
+    map.set(id, cur);
+  }
+  return map;
+}
+
+type SellerProfile = {
+  id: string;
+  full_name: string | null;
+  avatar_url: string | null;
+  is_premium?: boolean | null;
+};
+
+type SellerStats = {
+  seller_id: string;
+  listings_count: number;
+  sales_count: number;
+};
+
+async function fetchSellerProfiles(sellerIds: string[]) {
+  const map = new Map<string, SellerProfile>();
+  const uniq = Array.from(new Set(sellerIds))
+    .map((x) => String(x || "").trim())
+    .filter((x) => x && x !== "null" && x !== "undefined");
+
+  if (!uniq.length) return map;
+
+  const { data, error } = await supabase.rpc("get_public_profiles", { ids: uniq });
+
+  if (error) {
+    console.error("get_public_profiles error:", (error as any)?.message ?? error);
+    return map;
+  }
+
+  for (const p of (data ?? []) as any[]) {
+    map.set(String(p.id), {
+      id: String(p.id),
+      full_name: p.full_name ?? null,
+      avatar_url: p.avatar_url ?? null,
+      is_premium: p.is_premium ?? null,
+    });
+  }
+  return map;
+}
+
+/** Opsiyonel: satıcı mini istatistik (RPC varsa alır, yoksa 0 döner) */
+async function fetchSellerStats(sellerIds: string[]) {
+  const map = new Map<string, SellerStats>();
+  const uniq = Array.from(new Set(sellerIds))
+    .map((x) => String(x || "").trim())
+    .filter((x) => x && x !== "null" && x !== "undefined");
+
+  if (!uniq.length) return map;
+
+  try {
+    const { data, error } = await supabase.rpc("get_seller_stats", { ids: uniq });
+    if (error) throw error;
+
+    for (const r of (data ?? []) as any[]) {
+      map.set(String(r.seller_id), {
+        seller_id: String(r.seller_id),
+        listings_count: Number(r.listings_count ?? 0) || 0,
+        sales_count: Number(r.sales_count ?? 0) || 0,
+      });
+    }
+  } catch {
+    // boş
+  }
+  return map;
+}
+
+/** Opsiyonel: görüntülenme sayısı (RPC varsa alır) */
+async function fetchListingViews(listingIds: string[]) {
+  const map = new Map<string, number>();
+  const uniq = Array.from(new Set(listingIds)).filter(Boolean);
+  if (!uniq.length) return map;
+
+  try {
+    const { data, error } = await supabase.rpc("get_listing_views", { ids: uniq });
+    if (error) throw error;
+    for (const r of (data ?? []) as any[]) {
+      map.set(String(r.listing_id), Number(r.views ?? r.view_count ?? 0) || 0);
+    }
+  } catch {
+    // boş
+  }
+  return map;
+}
+
+/** Opsiyonel: view increment (RPC varsa) */
+async function bumpView(listingId: string) {
+  try {
+    await supabase.rpc("increment_listing_view", { listing_id: listingId });
+  } catch {
+    // sessiz
+  }
+}
+
+async function fetchMyFavoriteIds(userId: string) {
+  const { data, error } = await supabase.from("listing_favorites").select("listing_id").eq("user_id", userId);
+  if (error) throw error;
+  return new Set((data ?? []).map((r: any) => String(r.listing_id)));
+}
+
+/** ✅ Haftanın ilanları: RPC (get_featured_listings) */
+async function fetchFeaturedListings(limit = 12) {
+  try {
+    const { data, error } = await supabase.rpc("get_featured_listings", { lim: limit });
+    if (error) throw error;
+    return (data ?? []) as any[];
+  } catch {
+    return [];
+  }
+}
+
+function withinDays(d: any, days: number) {
+  const s = String(d ?? "").trim();
+  if (!s) return false;
+  const dt = new Date(s);
+  if (Number.isNaN(dt.getTime())) return false;
+  const now = new Date();
+  const diff = (now.getTime() - dt.getTime()) / (1000 * 60 * 60 * 24);
+  return diff <= days;
+}
+
+/** mini Featured card */
+function FeaturedCard({
+  x,
+  seller,
+  isFav,
+  busy,
+  views,
+  onFav,
+  onOpenMedia,
+}: {
+  x: any;
+  seller?: SellerProfile;
+  isFav: boolean;
+  busy: boolean;
+  views?: number;
+  onFav: () => void;
+  onOpenMedia: (urls: string[], types: MediaType[], title: string) => void;
+}) {
+  const { urls, types } = getMedia(x);
+  const priceView = fmtPrice(x);
+  const sellerName = seller?.full_name?.trim() || `Kullanıcı • ${String(x?.seller_id ?? "").slice(0, 6)}…`;
+  const isPremiumSeller = !!seller?.is_premium;
+  const left = daysLeft(x?.expires_at);
+
+  return (
+    <div className="snap-start">
+      <div className="w-[min(78vw,360px)] overflow-hidden rounded-[26px] border border-black/10 bg-white shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-zinc-950">
+        <div className="p-4">
+          <SquareMedia
+            title={x.title ?? "İlan"}
+            urls={urls}
+            types={types}
+            isBoosted={!!x.is_boosted}
+            isPremiumSeller={isPremiumSeller}
+            onOpen={() => {
+              onOpenMedia(urls, types, x.title ?? "İlan");
+            }}
+          />
+
+          <div className="mt-3 flex items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="truncate text-base font-black text-zinc-900 dark:text-zinc-100">{x.title ?? "İlan"}</div>
+              <div className="mt-1 truncate text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                {x.product_name ?? x.product_type ?? "—"}
+              </div>
+            </div>
+
+            {left != null ? (
+              <span
+                className={cn(
+                  "shrink-0 rounded-full border px-3 py-1 text-[11px] font-black",
+                  left <= 3
+                    ? "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-200"
+                    : "border-black/10 bg-white text-zinc-700 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-200"
+                )}
+              >
+                {left <= 0 ? "Bitti" : `${left} gün`}
+              </span>
+            ) : null}
+          </div>
+
+          <div className="mt-3 grid grid-cols-2 gap-2">
+            <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
+              <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Fiyat</div>
+              <div className="mt-1 flex items-end gap-2">
+                <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">{priceView.main}</div>
+                {priceView.sub ? (
+                  <div className="pb-[2px] text-xs font-black text-zinc-500 dark:text-zinc-400">{priceView.sub}</div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
+              <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">👁️ Görünt.</div>
+              <div className="mt-1 text-lg font-black text-zinc-900 dark:text-zinc-100">
+                {views == null ? "—" : fmtNum(views)}
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
+            <SellerChip
+              name={sellerName}
+              avatarUrl={seller?.avatar_url ?? null}
+              sub={[x.city, x.district].filter(Boolean).join(" / ") || "—"}
+            />
+          </div>
+
+          <div className="mt-3 grid gap-2">
+            <button
+              disabled={busy}
+              onClick={onFav}
+              className={cn(
+                "w-full rounded-2xl border px-4 py-3 text-sm font-black disabled:opacity-50",
+                isFav
+                  ? "border-rose-200 bg-rose-50 text-rose-900 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-900/30"
+                  : "border-black/10 bg-white text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-950/40 dark:text-zinc-100 dark:hover:bg-white/5"
+              )}
+            >
+              {busy ? "Bekle..." : isFav ? "❤️ Favoriden Çıkar" : "🤍 Favorile"}
+            </button>
+
+            <div className="grid grid-cols-2 gap-2">
+              <Link
+                href={`/pazar/${String(x.id)}`}
+                onClick={() => bumpView(String(x.id))}
+                className="block w-full rounded-2xl bg-zinc-900 px-4 py-3 text-center text-sm font-black text-white hover:opacity-90 dark:bg-white dark:text-zinc-900"
+              >
+                Detay
+              </Link>
+              <Link
+                href={x?.seller_id ? `/chat/user/${String(x.seller_id)}` : "#"}
+                className={cn(
+                  "block w-full rounded-2xl border px-4 py-3 text-center text-sm font-black",
+                  x?.seller_id
+                    ? "border-black/10 bg-white text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-950/40 dark:text-zinc-100 dark:hover:bg-white/5"
+                    : "border-black/10 bg-zinc-50 text-zinc-400 dark:border-white/10 dark:bg-zinc-900/20 dark:text-zinc-500"
+                )}
+              >
+                💬 Mesaj
+              </Link>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between gap-2 text-[11px] font-semibold text-zinc-500 dark:text-zinc-500">
+            <span className="truncate">Oluşturma: {fmtDate(x.created_at)}</span>
+            <span className="font-mono font-black">{String(x.id).slice(0, 8)}…</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default function PazarClient() {
-  const [q, setQ] = useState("");
-  const [product, setProduct] = useState("all");
-  const [city, setCity] = useState("all");
-  const [district, setDistrict] = useState("all");
-  const [liveOnly, setLiveOnly] = useState(false);
-
-  const [priceEnabled, setPriceEnabled] = useState(false);
-  const [min, setMin] = useState(0);
-  const [max, setMax] = useState(5000);
-
-  const [sort, setSort] = useState<"new" | "cheap" | "expensive">("new");
-
-  const [items, setItems] = useState<Listing[]>([]);
-  const [total, setTotal] = useState(0);
-  const [page, setPage] = useState(1);
-  const limit = 12;
-
-  const [loading, setLoading] = useState(true);
-  const [err, setErr] = useState<string | null>(null);
-
-  const [favIds, setFavIds] = useState<Set<string>>(new Set());
+  // auth + base
+  const [me, setMe] = useState<string | null>(null);
+  const [favSet, setFavSet] = useState<Set<string>>(new Set());
   const [busyFav, setBusyFav] = useState<string | null>(null);
 
-  const [loc, setLoc] = useState<Locations | null>(null);
+  // data
+  const [rows, setRows] = useState<any[]>([]);
+  const [featured, setFeatured] = useState<any[]>([]);
+  const [sellerMap, setSellerMap] = useState<Map<string, SellerProfile>>(new Map());
+  const [sellerStats, setSellerStats] = useState<Map<string, SellerStats>>(new Map());
+  const [viewsMap, setViewsMap] = useState<Map<string, number>>(new Map());
 
-  const cityList = useMemo(() => (loc ? Object.keys(loc).sort((a, b) => a.localeCompare(b, "tr")) : []), [loc]);
-  const districtList = useMemo(() => {
-    if (!loc) return [];
-    if (city === "all") return [];
-    return Object.keys(loc[city] ?? {}).sort((a, b) => a.localeCompare(b, "tr"));
-  }, [loc, city]);
+  // ui state
+  const [loading, setLoading] = useState(true);
+  const [loadingFeatured, setLoadingFeatured] = useState(true);
+  const [err, setErr] = useState<string | null>(null);
+
+  // filters
+  const [q, setQ] = useState("");
+  const [product, setProduct] = useState("");
+  const [city, setCity] = useState("");
+  const [district, setDistrict] = useState("");
+  const [neighborhood, setNeighborhood] = useState("");
+  const [minPrice, setMinPrice] = useState<string>("");
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  const [onlyFeatured, setOnlyFeatured] = useState(false);
+
+  // locations.json
+  const [locMap, setLocMap] = useState<LocationsMap>({});
 
   useEffect(() => {
-    (async () => {
-      try {
-        const r = await fetch("/locations.json", { cache: "no-store" });
-        if (!r.ok) return;
-        const j = await r.json();
-        setLoc(j as Locations);
-      } catch {}
-    })();
+    fetch("/locations.json")
+      .then((r) => r.json())
+      .then((j) => setLocMap(j || {}))
+      .catch((e) => console.error("locations.json error", e));
   }, []);
 
-  async function load(nextPage = 1) {
+  const cities = useMemo(() => Object.keys(locMap).sort((a, b) => a.localeCompare(b, "tr")), [locMap]);
+
+  const districts = useMemo(() => {
+    if (!city) return [];
+    return Object.keys(locMap[city] || {}).sort((a, b) => a.localeCompare(b, "tr"));
+  }, [locMap, city]);
+
+  const neighborhoods = useMemo(() => {
+    if (!city || !district) return [];
+    return locMap[city]?.[district] || [];
+  }, [locMap, city, district]);
+
+  // lightbox
+  const [lbOpen, setLbOpen] = useState(false);
+  const [lbTitle, setLbTitle] = useState("");
+  const [lbUrls, setLbUrls] = useState<string[]>([]);
+  const [lbTypes, setLbTypes] = useState<MediaType[]>([]);
+  const [lbPosters, setLbPosters] = useState<Array<string | null>>([]);
+  const [lbStart, setLbStart] = useState(0);
+
+  // pagination / infinite scroll
+  const PAGE = 18;
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+
+  // featured carousel container (optional scroll buttons)
+  const featuredWrapRef = useRef<HTMLDivElement | null>(null);
+  function scrollFeatured(dir: "left" | "right") {
+    const el = featuredWrapRef.current;
+    if (!el) return;
+    const by = Math.round(el.clientWidth * 0.85);
+    el.scrollBy({ left: dir === "left" ? -by : by, behavior: "smooth" });
+  }
+
+  async function loadFeatured() {
+    setLoadingFeatured(true);
     try {
-      setLoading(true);
-      setErr(null);
+      // 1) RPC ile getir
+      let list = await fetchFeaturedListings(12);
 
-      const qs = new URLSearchParams();
-      if (q.trim()) qs.set("q", q.trim());
-      qs.set("product", product);
-      qs.set("city", city);
-      qs.set("district", district);
-      qs.set("sort", sort);
-      qs.set("live", liveOnly ? "1" : "0");
+      // 2) RPC yoksa fallback: son 7 gün + boost_score + created_at (kaba)
+      if (!list.length) {
+        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const { data } = await supabase
+          .from("listings")
+          .select(
+            [
+              "id",
+              "title",
+              "description",
+              "product_name",
+              "product_type",
+              "city",
+              "district",
+              "neighborhood",
+              "market_name",
+              "unit",
+              "price_per_unit",
+              "price",
+              "min_price",
+              "max_price",
+              "min_quantity",
+              "quantity",
+              "is_active",
+              "is_boosted",
+              "boost_score",
+              "boost_until",
+              "expires_at",
+              "created_at",
+              "seller_id",
+              "media_urls",
+              "media_types",
+              "deleted_at",
+            ].join(",")
+          )
+          .is("deleted_at", null)
+          .eq("is_active", true)
+          .gte("created_at", since)
+          .order("is_boosted", { ascending: false })
+          .order("boost_score", { ascending: false })
+          .order("created_at", { ascending: false })
+          .limit(12);
 
-      qs.set("price", priceEnabled ? "1" : "0");
-      qs.set("min", String(min));
-      qs.set("max", String(max));
+        list = data ?? [];
+      }
 
-      qs.set("page", String(nextPage));
-      qs.set("limit", String(limit));
+      // listing_media override
+      const ids = list.map((x: any) => String(x.id));
+      const mediaMap = await fetchListingMediaFor(ids);
+      const fixed = list.map((x: any) => {
+        const cur = getMedia(x);
+        if (cur.urls.length === 0 && mediaMap.has(String(x.id))) {
+          const m = mediaMap.get(String(x.id))!;
+          return { ...x, media_urls: m.urls, media_types: m.types };
+        }
+        return x;
+      });
 
-      const r = await fetch(`/api/pazar?${qs.toString()}`, { cache: "no-store" });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) throw new Error(j?.error || "pazar_error");
+      setFeatured(fixed);
 
-      setItems(j.items ?? []);
-      setTotal(Number(j.total ?? 0));
-      setPage(nextPage);
+      // merge seller profiles + views into global maps
+      const sellerIds = fixed.map((x: any) => String(x.seller_id)).filter(Boolean);
+      const [pmapNew, vmapNew] = await Promise.all([fetchSellerProfiles(sellerIds), fetchListingViews(ids)]);
 
-      const rf = await fetch(`/api/pazar/favorites`, { cache: "no-store" });
-      const jf = await rf.json().catch(() => ({}));
-      const ids: string[] = jf?.ids ?? [];
-      setFavIds(new Set(ids));
+      setSellerMap((prev) => {
+        const n = new Map(prev);
+        for (const [k, v] of pmapNew.entries()) n.set(k, v);
+        return n;
+      });
+
+      setViewsMap((prev) => {
+        const n = new Map(prev);
+        for (const [k, v] of vmapNew.entries()) n.set(k, v);
+        return n;
+      });
+    } finally {
+      setLoadingFeatured(false);
+    }
+  }
+
+  async function loadFirst() {
+    setLoading(true);
+    setErr(null);
+    setPage(0);
+    setHasMore(true);
+
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      setMe(user?.id ?? null);
+
+      // ✅ ilk sayfa
+      const { data, error } = await supabase
+        .from("listings")
+        .select(
+          [
+            "id",
+            "title",
+            "description",
+            "product_name",
+            "product_type",
+            "city",
+            "district",
+            "neighborhood",
+            "market_name",
+            "unit",
+            "price_per_unit",
+            "price",
+            "min_price",
+            "max_price",
+            "min_quantity",
+            "quantity",
+            "is_active",
+            "is_boosted",
+            "boost_score",
+            "boost_until",
+            "expires_at",
+            "created_at",
+            "seller_id",
+            "media_urls",
+            "media_types",
+            "deleted_at",
+          ].join(",")
+        )
+        .is("deleted_at", null)
+        .eq("is_active", true)
+        .order("is_boosted", { ascending: false })
+        .order("boost_score", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(0, PAGE - 1);
+
+      if (error) throw error;
+
+      const list = data ?? [];
+
+      // listing_media override
+      const ids = list.map((x: any) => String(x.id));
+      const mediaMap = await fetchListingMediaFor(ids);
+      const fixed = list.map((x: any) => {
+        const cur = getMedia(x);
+        if (cur.urls.length === 0 && mediaMap.has(String(x.id))) {
+          const m = mediaMap.get(String(x.id))!;
+          return { ...x, media_urls: m.urls, media_types: m.types };
+        }
+        return x;
+      });
+
+      setRows(fixed);
+      setHasMore(fixed.length >= PAGE);
+
+      // seller profiles + stats + views
+      const sellerIds = fixed.map((x: any) => String(x.seller_id)).filter(Boolean);
+      const [pmap, smap] = await Promise.all([fetchSellerProfiles(sellerIds), fetchSellerStats(sellerIds)]);
+      setSellerMap(pmap);
+      setSellerStats(smap);
+
+      const vmap = await fetchListingViews(ids);
+      setViewsMap(vmap);
+
+      // favorites
+      if (user?.id) setFavSet(await fetchMyFavoriteIds(user.id));
+      else setFavSet(new Set());
     } catch (e: any) {
-      setErr(e?.message ?? "Hata");
-      setItems([]);
-      setTotal(0);
+      setErr(e?.message ? String(e.message) : "Pazar yüklenemedi");
     } finally {
       setLoading(false);
     }
   }
 
+  async function loadMore() {
+    if (loadingMore || loading || !hasMore) return;
+    setLoadingMore(true);
+    setErr(null);
+
+    const nextPage = page + 1;
+    const from = nextPage * PAGE;
+    const to = from + PAGE - 1;
+
+    try {
+      const { data, error } = await supabase
+        .from("listings")
+        .select(
+          [
+            "id",
+            "title",
+            "description",
+            "product_name",
+            "product_type",
+            "city",
+            "district",
+            "neighborhood",
+            "market_name",
+            "unit",
+            "price_per_unit",
+            "price",
+            "min_price",
+            "max_price",
+            "min_quantity",
+            "quantity",
+            "is_active",
+            "is_boosted",
+            "boost_score",
+            "boost_until",
+            "expires_at",
+            "created_at",
+            "seller_id",
+            "media_urls",
+            "media_types",
+            "deleted_at",
+          ].join(",")
+        )
+        .is("deleted_at", null)
+        .eq("is_active", true)
+        .order("is_boosted", { ascending: false })
+        .order("boost_score", { ascending: false })
+        .order("created_at", { ascending: false })
+        .range(from, to);
+
+      if (error) throw error;
+
+      const list = data ?? [];
+      const ids = list.map((x: any) => String(x.id));
+
+      const mediaMap = await fetchListingMediaFor(ids);
+      const fixed = list.map((x: any) => {
+        const cur = getMedia(x);
+        if (cur.urls.length === 0 && mediaMap.has(String(x.id))) {
+          const m = mediaMap.get(String(x.id))!;
+          return { ...x, media_urls: m.urls, media_types: m.types };
+        }
+        return x;
+      });
+
+      setRows((prev) => {
+        const seen = new Set(prev.map((r: any) => String(r.id)));
+        const merged = [...prev];
+        for (const r of fixed) {
+          const id = String(r.id);
+          if (!seen.has(id)) merged.push(r);
+        }
+        return merged;
+      });
+
+      setHasMore(fixed.length >= PAGE);
+      setPage(nextPage);
+
+      // seller profiles/stats/views merge
+      const sellerIds = fixed.map((x: any) => String(x.seller_id)).filter(Boolean);
+      const [pmapNew, statsNew] = await Promise.all([fetchSellerProfiles(sellerIds), fetchSellerStats(sellerIds)]);
+
+      setSellerMap((prev) => {
+        const n = new Map(prev);
+        for (const [k, v] of pmapNew.entries()) n.set(k, v);
+        return n;
+      });
+
+      setSellerStats((prev) => {
+        const n = new Map(prev);
+        for (const [k, v] of statsNew.entries()) n.set(k, v);
+        return n;
+      });
+
+      const vmapNew = await fetchListingViews(ids);
+      setViewsMap((prev) => {
+        const n = new Map(prev);
+        for (const [k, v] of vmapNew.entries()) n.set(k, v);
+        return n;
+      });
+    } catch (e: any) {
+      setErr(e?.message ? String(e.message) : "Daha fazla yüklenemedi");
+      setHasMore(false);
+    } finally {
+      setLoadingMore(false);
+    }
+  }
+
   useEffect(() => {
-    load(1);
+    // ilk yükleme: hem featured hem liste
+    loadFeatured();
+    loadFirst();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function toggleFav(listingId: string) {
-    try {
-      setBusyFav(listingId);
-      const r = await fetch(`/api/pazar/favorites`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ listing_id: listingId }),
-      });
-      const j = await r.json().catch(() => ({}));
-      if (!r.ok) return;
+  // Infinite scroll observer
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
 
-      setFavIds((prev) => {
-        const next = new Set(prev);
-        if (j.favorited) next.add(listingId);
-        else next.delete(listingId);
-        return next;
-      });
+    const io = new IntersectionObserver(
+      (entries) => {
+        const hit = entries.some((e) => e.isIntersecting);
+        if (hit) loadMore();
+      },
+      { rootMargin: "600px 0px" }
+    );
+
+    io.observe(el);
+    return () => io.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, loading, loadingMore, page]);
+
+  const featuredIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const x of featured) ids.add(String(x.id));
+    // fallback (featured boşsa): liste üzerinden kaba “haftalık”
+    if (!ids.size) {
+      for (const x of rows) {
+        const boosted = !!x?.is_boosted;
+        const score = Number(x?.boost_score ?? 0) || 0;
+        const week = withinDays(x?.created_at, 7);
+        if (boosted || score >= 10 || week) ids.add(String(x.id));
+      }
+    }
+    return ids;
+  }, [featured, rows]);
+
+  const filtered = useMemo(() => {
+    const qq = q.trim().toLowerCase();
+
+    const minP = minPrice.trim() ? Number(minPrice) : null;
+    const maxP = maxPrice.trim() ? Number(maxPrice) : null;
+
+    const okNum = (n: any) => n != null && Number.isFinite(Number(n));
+
+    function listingBasePrice(x: any) {
+      if (okNum(x?.price_per_unit)) return Number(x.price_per_unit);
+      if (okNum(x?.price)) return Number(x.price);
+      if (okNum(x?.min_price)) return Number(x.min_price);
+      if (okNum(x?.max_price)) return Number(x.max_price);
+      return null;
+    }
+
+    return rows.filter((x) => {
+      if (onlyFeatured && !featuredIds.has(String(x.id))) return false;
+
+      if (qq) {
+        const hay =
+          `${x.title ?? ""} ${x.description ?? ""} ${x.product_name ?? ""} ${x.product_type ?? ""} ` +
+          `${x.city ?? ""} ${x.district ?? ""} ${x.neighborhood ?? ""} ${x.market_name ?? ""}`.toLowerCase();
+        if (!hay.includes(qq)) return false;
+      }
+
+      if (product) {
+        const pn = String(x.product_name ?? x.product_type ?? "").trim();
+        if (pn !== product) return false;
+      }
+
+      if (city && String(x.city ?? "") !== city) return false;
+      if (district && String(x.district ?? "") !== district) return false;
+      if (neighborhood && String(x.neighborhood ?? "") !== neighborhood) return false;
+
+      const base = listingBasePrice(x);
+      if (minP != null && (base == null || base < minP)) return false;
+      if (maxP != null && (base == null || base > maxP)) return false;
+
+      return true;
+    });
+  }, [rows, q, product, city, district, neighborhood, minPrice, maxPrice, onlyFeatured, featuredIds]);
+
+  async function toggleFavorite(listingId: string) {
+    if (!me) {
+      setErr("Favorilemek için giriş yapmalısın.");
+      return;
+    }
+
+    setBusyFav(listingId);
+    setErr(null);
+
+    try {
+      const isFav = favSet.has(String(listingId));
+      if (isFav) {
+        const { error } = await supabase.from("listing_favorites").delete().eq("user_id", me).eq("listing_id", listingId);
+        if (error) throw error;
+        setFavSet((prev) => {
+          const n = new Set(prev);
+          n.delete(String(listingId));
+          return n;
+        });
+      } else {
+        const { error } = await supabase.from("listing_favorites").insert([{ user_id: me, listing_id: listingId }]);
+        if (error) throw error;
+        setFavSet((prev) => {
+          const n = new Set(prev);
+          n.add(String(listingId));
+          return n;
+        });
+      }
+    } catch (e: any) {
+      setErr(e?.message ? String(e.message) : "Favori işlemi başarısız");
     } finally {
       setBusyFav(null);
     }
   }
 
-  const pages = Math.max(1, Math.ceil(total / limit));
+  function clearFilters() {
+    setQ("");
+    setProduct("");
+    setCity("");
+    setDistrict("");
+    setNeighborhood("");
+    setMinPrice("");
+    setMaxPrice("");
+    setOnlyFeatured(false);
+  }
 
   return (
-    <div className="space-y-4">
-      {/* Filters */}
-      <div className="rounded-[22px] border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="flex items-center justify-between gap-3">
-          <div className="text-sm font-black">🧩 Pazar Filtresi</div>
+    <div className="mx-auto w-full max-w-7xl px-4 py-7 md:py-10">
+      <Lightbox
+        open={lbOpen}
+        title={lbTitle}
+        urls={lbUrls}
+        types={lbTypes}
+        posters={lbPosters}
+        startIndex={lbStart}
+        onClose={() => setLbOpen(false)}
+      />
 
-          <div className="flex gap-2">
+      {/* Header */}
+      <div className="rounded-[28px] border border-black/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-950 md:p-6">
+        <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">Pazar</div>
+              <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-200">
+                Premium görünüm
+              </span>
+              <button
+                onClick={() => setOnlyFeatured((p) => !p)}
+                className={cn(
+                  "rounded-full border px-3 py-1 text-[11px] font-black",
+                  onlyFeatured
+                    ? "border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200"
+                    : "border-black/10 bg-white text-zinc-700 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-200 dark:hover:bg-white/5"
+                )}
+              >
+                🏆 {onlyFeatured ? "Öne çıkanlar: Açık" : "Öne çıkanlar"}
+              </button>
+            </div>
+            <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+              🔍 Gelişmiş filtreler • 🚀 Boost rozetleri • ⭐ Premium satıcı • ⚡ Infinite scroll
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-3 md:flex-row md:items-center">
             <button
-              type="button"
               onClick={() => {
-                setQ("");
-                setProduct("all");
-                setCity("all");
-                setDistrict("all");
-                setLiveOnly(false);
-                setPriceEnabled(false);
-                setMin(0);
-                setMax(5000);
-                setSort("new");
-                load(1);
+                loadFeatured();
+                loadFirst();
               }}
-              className="rounded-2xl bg-black/5 px-4 py-2 text-xs font-black hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
+              className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-100 dark:hover:bg-white/5"
             >
-              Temizle
+              Yenile
             </button>
 
             <button
-              type="button"
-              onClick={() => load(1)}
-              className="rounded-2xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400"
+              onClick={clearFilters}
+              className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-100 dark:hover:bg-white/5"
             >
-              Uygula
+              Filtreyi Sıfırla
             </button>
           </div>
         </div>
 
-        <div className="mt-4 grid gap-3 md:grid-cols-4">
-          <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Ürün, mağaza, şehir…"
-            className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm font-semibold outline-none dark:border-white/10 dark:bg-black/30"
-          />
+        {/* Filters */}
+        <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-12">
+          <div className="lg:col-span-4">
+            <input
+              value={q}
+              onChange={(e) => setQ(e.target.value)}
+              placeholder="Ara: başlık, ürün, şehir..."
+              className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-black/25 dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100 dark:focus:border-white/25"
+            />
+          </div>
 
-          <select
-            value={product}
-            onChange={(e) => setProduct(e.target.value)}
-            className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm font-semibold outline-none dark:border-white/10 dark:bg-black/30"
-          >
-            <option value="all">Ürün (Tümü)</option>
-            {PRODUCTS.map((p) => (
-              <option key={p} value={p}>
-                {p}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={city}
-            onChange={(e) => {
-              setCity(e.target.value);
-              setDistrict("all");
-            }}
-            className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm font-semibold outline-none dark:border-white/10 dark:bg-black/30"
-          >
-            <option value="all">İl (Tümü)</option>
-            {cityList.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-
-          <select
-            value={district}
-            onChange={(e) => setDistrict(e.target.value)}
-            disabled={city === "all"}
-            className={clsx(
-              "rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm font-semibold outline-none dark:border-white/10 dark:bg-black/30",
-              city === "all" ? "opacity-60" : ""
-            )}
-          >
-            <option value="all">{city === "all" ? "Önce il seç" : "İlçe (Tümü)"}</option>
-            {districtList.map((d) => (
-              <option key={d} value={d}>
-                {d}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="mt-4 grid gap-3 md:grid-cols-3">
-          <label className="flex items-center gap-2 text-sm font-semibold text-black/70 dark:text-white/70">
-            <input type="checkbox" checked={liveOnly} onChange={(e) => setLiveOnly(e.target.checked)} />
-            Sadece öne çıkanlar (boosted)
-          </label>
-
-          <label className="flex items-center justify-between gap-2 text-sm font-semibold text-black/70 dark:text-white/70">
-            <span>Fiyat filtresi</span>
-            <span className="flex items-center gap-2">
-              <span className="text-xs text-black/50 dark:text-white/50">{priceEnabled ? "Açık" : "Kapalı"}</span>
-              <input type="checkbox" checked={priceEnabled} onChange={(e) => setPriceEnabled(e.target.checked)} />
-            </span>
-          </label>
-
-          <div className="flex items-center justify-end gap-2">
-            <span className="text-xs font-black text-black/50 dark:text-white/50">Sıralama</span>
-            <div className="flex rounded-2xl bg-black/5 p-1 dark:bg-white/5">
-              {(["new", "cheap", "expensive"] as const).map((k) => (
-                <button
-                  type="button"
-                  key={k}
-                  onClick={() => setSort(k)}
-                  className={clsx(
-                    "rounded-2xl px-4 py-2 text-xs font-black",
-                    sort === k ? "bg-black/80 text-white dark:bg-white/20" : "text-black/70 dark:text-white/70"
-                  )}
-                >
-                  {k === "new" ? "Yeni" : k === "cheap" ? "Ucuz" : "Pahalı"}
-                </button>
+          <div className="lg:col-span-3">
+            <select
+              value={product}
+              onChange={(e) => setProduct(e.target.value)}
+              className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm font-semibold text-zinc-900 outline-none dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100"
+            >
+              <option value="">Ürün (tümü)</option>
+              {PRODUCTS.map((p) => (
+                <option key={p} value={p}>
+                  {p}
+                </option>
               ))}
-            </div>
-          </div>
-        </div>
-
-        <div
-          className={clsx(
-            "mt-4 rounded-2xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.04]",
-            !priceEnabled ? "opacity-60" : ""
-          )}
-        >
-          <div className="flex items-center justify-between">
-            <div className="text-sm font-black">Fiyat Aralığı</div>
-            <div className="text-sm font-black text-emerald-700 dark:text-emerald-300">
-              {min} – {max} ₺
-            </div>
+            </select>
           </div>
 
-          <div className="mt-3 relative h-10">
-            <div className="absolute inset-y-1 left-0 right-0 rounded-full bg-emerald-500/20 dark:bg-emerald-500/15" />
-            <div
-              className="absolute inset-y-1 rounded-full bg-emerald-500"
-              style={{
-                left: `${(min / 5000) * 100}%`,
-                width: `${Math.max(0, ((max - min) / 5000) * 100)}%`,
+          <div className="lg:col-span-2">
+            <select
+              value={city}
+              onChange={(e) => {
+                setCity(e.target.value);
+                setDistrict("");
+                setNeighborhood("");
               }}
-            />
+              className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm font-semibold text-zinc-900 outline-none dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100"
+            >
+              <option value="">Şehir</option>
+              {cities.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+          </div>
 
+          <div className="lg:col-span-2">
+            <select
+              value={district}
+              disabled={!city}
+              onChange={(e) => {
+                setDistrict(e.target.value);
+                setNeighborhood("");
+              }}
+              className={cn(
+                "w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none",
+                !city
+                  ? "border-black/10 bg-zinc-50 text-zinc-400 dark:border-white/10 dark:bg-zinc-900/20 dark:text-zinc-500"
+                  : "border-black/10 bg-white/80 text-zinc-900 dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100"
+              )}
+            >
+              <option value="">İlçe</option>
+              {districts.map((d) => (
+                <option key={d} value={d}>
+                  {d}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="lg:col-span-2">
+            <select
+              value={neighborhood}
+              disabled={!district}
+              onChange={(e) => setNeighborhood(e.target.value)}
+              className={cn(
+                "w-full rounded-2xl border px-4 py-3 text-sm font-semibold outline-none",
+                !district
+                  ? "border-black/10 bg-zinc-50 text-zinc-400 dark:border-white/10 dark:bg-zinc-900/20 dark:text-zinc-500"
+                  : "border-black/10 bg-white/80 text-zinc-900 dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100"
+              )}
+            >
+              <option value="">Mahalle</option>
+              {neighborhoods.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="lg:col-span-2">
             <input
-              type="range"
-              min={0}
-              max={5000}
-              value={min}
-              disabled={!priceEnabled}
-              onChange={(e) => setMin(Math.min(Number(e.target.value), max))}
-              className="absolute left-0 right-0 top-0 h-10 w-full appearance-none bg-transparent"
+              value={minPrice}
+              onChange={(e) => setMinPrice(e.target.value.replace(/[^\d.]/g, ""))}
+              inputMode="numeric"
+              placeholder="Min fiyat"
+              className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-black/25 dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100 dark:focus:border-white/25"
             />
+          </div>
+
+          <div className="lg:col-span-2">
             <input
-              type="range"
-              min={0}
-              max={5000}
-              value={max}
-              disabled={!priceEnabled}
-              onChange={(e) => setMax(Math.max(Number(e.target.value), min))}
-              className="absolute left-0 right-0 top-0 h-10 w-full appearance-none bg-transparent"
+              value={maxPrice}
+              onChange={(e) => setMaxPrice(e.target.value.replace(/[^\d.]/g, ""))}
+              inputMode="numeric"
+              placeholder="Max fiyat"
+              className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-black/25 dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100 dark:focus:border-white/25"
             />
           </div>
-
-          <div className="mt-1 flex justify-between text-xs text-black/50 dark:text-white/50">
-            <span>0</span>
-            <span>5000</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Results header */}
-      <div className="rounded-[22px] border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="flex items-center justify-between">
-          <div className="text-sm font-black">
-            Sonuç: {total} <span className="text-black/50 dark:text-white/50">(Sayfa {page}/{pages})</span>
-          </div>
-          <button
-            type="button"
-            onClick={() => load(page)}
-            className="rounded-2xl bg-black/5 px-4 py-2 text-xs font-black hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10"
-          >
-            Yenile
-          </button>
         </div>
 
         {err ? (
-          <div className="mt-3 rounded-2xl border border-rose-500/20 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-200">
-            API Hatası: {err}
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+            {err}
           </div>
         ) : null}
       </div>
 
-      {/* Cards */}
-      <div className="grid gap-3 md:grid-cols-2">
-        {loading ? (
-          <div className="rounded-[22px] border border-black/10 bg-white/70 p-6 text-sm text-black/60 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/60">
-            Yükleniyor…
-          </div>
-        ) : items.length === 0 ? (
-          <div className="rounded-[22px] border border-black/10 bg-white/70 p-6 text-sm text-black/60 dark:border-white/10 dark:bg-white/[0.04] dark:text-white/60">
-            Kayıt bulunamadı.
-          </div>
-        ) : (
-          items.map((x) => {
-            const isFav = favIds.has(x.id);
-            const busy = busyFav === x.id;
-            const priceShown = x.price ?? x.price_per_unit;
-            const location = [x.city, x.district, x.neighborhood].filter(Boolean).join(" / ");
-            const detailHref = `/pazar/${encodeURIComponent(String(x.id))}`;
-
-            return (
-              <div
-                key={x.id}
-                className="relative overflow-hidden rounded-[22px] border border-black/10 bg-white/80 p-4 shadow-sm hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
-              >
-                {/* ✅ Kartın tamamı tıklanabilir: iOS/SPA sorunlarını bitirir */}
-                <Link
-                  href={detailHref}
-                  className="absolute inset-0 z-10"
-                  aria-label={`${x.title} ilan detayı`}
-                />
-
-                <div className="relative z-20 flex gap-3">
-                  {/* photo */}
-                  <div className="shrink-0">
-                    <div className="h-20 w-20 overflow-hidden rounded-2xl bg-black/10 dark:bg-white/10">
-                      {x.cover_url ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={x.cover_url} alt={x.title} className="h-full w-full object-cover" />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center text-xs font-black text-black/40 dark:text-white/40">
-                          Foto
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="min-w-0">
-                        <div className="truncate text-base font-black">{x.title}</div>
-                        <div className="mt-0.5 truncate text-xs text-black/60 dark:text-white/60">
-                          {x.product_name || x.product_type || "Ürün"} {x.market_name ? `• ${x.market_name}` : ""}
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={(e) => {
-                          e.preventDefault(); // ✅ overlay Link'i kes
-                          e.stopPropagation();
-                          toggleFav(x.id);
-                        }}
-                        className={clsx(
-                          "rounded-2xl px-3 py-2 text-sm font-black transition",
-                          isFav
-                            ? "bg-rose-500/15 text-rose-700 dark:text-rose-200"
-                            : "bg-black/5 text-black/70 dark:bg-white/5 dark:text-white/70",
-                          busy ? "opacity-60 cursor-not-allowed" : "hover:bg-black/10 dark:hover:bg-white/10"
-                        )}
-                        title="Favori"
-                      >
-                        {isFav ? "❤️" : "🤍"}
-                      </button>
-                    </div>
-
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs font-black">
-                      <span className="rounded-full bg-emerald-500/15 px-3 py-1 text-emerald-800 dark:text-emerald-200">
-                        {x.post_type?.toUpperCase() || "İLAN"}
-                      </span>
-                      <span className="rounded-full bg-black/5 px-3 py-1 text-black/70 dark:bg-white/5 dark:text-white/70">
-                        ⏱ {timeAgo(x.created_at)}
-                      </span>
-                      {x.is_boosted ? (
-                        <span className="rounded-full bg-yellow-500/15 px-3 py-1 text-yellow-800 dark:text-yellow-200">
-                          🏅 Gold
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="mt-2 text-lg font-black text-emerald-700 dark:text-emerald-300">
-                      {fmtMoney(priceShown)} ₺{" "}
-                      <span className="text-sm text-black/50 dark:text-white/50">{x.unit ? ` / ${x.unit}` : ""}</span>
-                    </div>
-
-                    <div className="mt-1 text-xs text-black/60 dark:text-white/60">📍 {location || "—"}</div>
-
-                    <div className="mt-3 flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2 min-w-0">
-                        {x.seller?.avatar_url ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={x.seller.avatar_url}
-                            alt="seller"
-                            className="h-7 w-7 rounded-full object-cover bg-black/10 dark:bg-white/10"
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                          />
-                        ) : (
-                          <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500/15 text-[11px] font-black text-emerald-800 dark:text-emerald-200">
-                            {initials(x.seller?.name)}
-                          </div>
-                        )}
-                        <div className="truncate text-xs font-black text-black/70 dark:text-white/70">
-                          {x.seller?.name || "Satıcı"}
-                        </div>
-                        <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-black text-emerald-800 dark:text-emerald-200">
-                          Güvenli
-                        </span>
-                      </div>
-
-                      {/* ✅ sadece görsel buton – tıklanınca zaten detay açılacak */}
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          // overlay zaten detaya götürüyor; burası sadece premium "CTA"
-                          window.location.href = detailHref;
-                        }}
-                        className="rounded-2xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400"
-                      >
-                        Detay →
-                      </button>
-                    </div>
-                  </div>
-                </div>
+      {/* ✅ Haftanın İlanları — Yatay Slider / Carousel */}
+      <div className="mt-6">
+        <div className="rounded-[28px] border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-950 md:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">🏆 Haftanın İlanları</div>
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
+                  Boost + Son 7 gün + Views
+                </span>
               </div>
-            );
-          })
-        )}
+              <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Yatay kaydır • Snap’li carousel • Premium kartlar</div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => scrollFeatured("left")}
+                className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-black text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-100 dark:hover:bg-white/5"
+                aria-label="Sola kaydır"
+              >
+                ‹
+              </button>
+              <button
+                onClick={() => scrollFeatured("right")}
+                className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-black text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-100 dark:hover:bg-white/5"
+                aria-label="Sağa kaydır"
+              >
+                ›
+              </button>
+              <button
+                onClick={loadFeatured}
+                className="rounded-2xl bg-zinc-900 px-4 py-2 text-sm font-black text-white hover:opacity-90 dark:bg-white dark:text-zinc-900"
+              >
+                Yenile
+              </button>
+            </div>
+          </div>
+
+          <div
+            ref={featuredWrapRef}
+            className={cn(
+              "mt-4 flex gap-4 overflow-x-auto pb-2",
+              "snap-x snap-mandatory",
+              "scrollbar-thin scrollbar-thumb-black/10 dark:scrollbar-thumb-white/10"
+            )}
+          >
+            {loadingFeatured ? (
+              <>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="snap-start w-[min(78vw,360px)] animate-pulse rounded-[26px] border border-black/10 bg-white p-4 dark:border-white/10 dark:bg-zinc-950"
+                  >
+                    <div className="aspect-square w-full rounded-2xl bg-black/5 dark:bg-white/5" />
+                    <div className="mt-3 h-4 w-2/3 rounded bg-black/5 dark:bg-white/5" />
+                    <div className="mt-2 h-3 w-1/3 rounded bg-black/5 dark:bg-white/5" />
+                    <div className="mt-3 h-10 w-full rounded-2xl bg-black/5 dark:bg-white/5" />
+                  </div>
+                ))}
+              </>
+            ) : featured.length ? (
+              featured.map((x) => {
+                const sellerId = String(x.seller_id ?? "");
+                const seller = sellerId ? sellerMap.get(sellerId) : undefined;
+                const isFav = favSet.has(String(x.id));
+                const busy = busyFav === String(x.id);
+                const views = viewsMap.get(String(x.id));
+
+                return (
+                  <FeaturedCard
+                    key={String(x.id)}
+                    x={x}
+                    seller={seller}
+                    isFav={isFav}
+                    busy={busy}
+                    views={views}
+                    onFav={() => toggleFavorite(String(x.id))}
+                    onOpenMedia={(urls, types, title) => {
+                      setLbTitle(title);
+                      setLbUrls(urls);
+                      setLbTypes(types);
+                      setLbPosters(urls.map((u, idx) => (types[idx] === "video" ? null : u)));
+                      setLbStart(0);
+                      setLbOpen(true);
+                    }}
+                  />
+                );
+              })
+            ) : (
+              <div className="w-full rounded-2xl border border-black/10 bg-white p-4 text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200">
+                Haftanın ilanı bulunamadı.
+              </div>
+            )}
+          </div>
+        </div>
       </div>
 
-      {/* Pagination */}
-      <div className="flex items-center justify-between rounded-[22px] border border-black/10 bg-white/80 p-4 dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="text-sm text-black/60 dark:text-white/60">
-          Sayfa {page}/{pages} • toplam {total}
-        </div>
+      {/* Content */}
+      <div className="mt-6">
+        {loading ? (
+          <div className="rounded-[28px] border border-black/10 bg-white p-6 text-sm font-semibold text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200">
+            Yükleniyor...
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="rounded-[28px] border border-black/10 bg-white p-6 text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200">
+            İlan bulunamadı.
+          </div>
+        ) : (
+          <>
+            {/* ✅ Grid layout + mobil optimize */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filtered.map((x) => {
+                const { urls, types } = getMedia(x);
+                const priceView = fmtPrice(x);
 
-        <div className="flex gap-2">
-          <button
-            type="button"
-            disabled={page <= 1 || loading}
-            onClick={() => load(Math.max(1, page - 1))}
-            className={clsx(
-              "rounded-2xl bg-black/5 px-4 py-2 text-sm font-black hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10",
-              page <= 1 || loading ? "opacity-50 cursor-not-allowed" : ""
-            )}
-          >
-            ←
-          </button>
+                const sellerId = String(x.seller_id ?? "");
+                const seller = sellerId ? sellerMap.get(sellerId) : undefined;
 
-          <button
-            type="button"
-            disabled={page >= pages || loading}
-            onClick={() => load(Math.min(pages, page + 1))}
-            className={clsx(
-              "rounded-2xl bg-black/5 px-4 py-2 text-sm font-black hover:bg-black/10 dark:bg-white/5 dark:hover:bg-white/10",
-              page >= pages || loading ? "opacity-50 cursor-not-allowed" : ""
-            )}
-          >
-            →
-          </button>
-        </div>
+                const sellerName =
+                  seller?.full_name?.trim() || (sellerId ? `Kullanıcı • ${sellerId.slice(0, 6)}…` : "Kullanıcı");
+
+                const sellerSub =
+                  [x.city, x.district].filter(Boolean).join(" / ") || (sellerId ? `ID: ${sellerId.slice(0, 6)}…` : "—");
+
+                const isFav = favSet.has(String(x.id));
+                const busy = busyFav === String(x.id);
+
+                const left = daysLeft(x.expires_at);
+                const views = viewsMap.get(String(x.id));
+
+                const stats = sellerId ? sellerStats.get(sellerId) : undefined;
+                const isPremiumSeller = !!seller?.is_premium;
+
+                return (
+                  <div
+                    key={x.id}
+                    className="group relative overflow-hidden rounded-[28px] border border-black/10 bg-white shadow-sm transition hover:shadow-md dark:border-white/10 dark:bg-zinc-950"
+                  >
+                    <div className="p-4">
+                      <SquareMedia
+                        title={x.title ?? "İlan"}
+                        urls={urls}
+                        types={types}
+                        isBoosted={!!x.is_boosted}
+                        isPremiumSeller={isPremiumSeller}
+                        onOpen={(startIndex, posters) => {
+                          setLbTitle(x.title ?? "İlan");
+                          setLbUrls(urls);
+                          setLbTypes(types);
+                          setLbPosters(posters);
+                          setLbStart(startIndex);
+                          setLbOpen(true);
+                        }}
+                      />
+
+                      <div className="mt-3 flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <div className="truncate text-base font-black text-zinc-900 dark:text-zinc-100">
+                            {x.title ?? "İlan"}
+                          </div>
+                          <div className="mt-1 truncate text-xs font-semibold text-zinc-600 dark:text-zinc-400">
+                            {x.product_name ?? x.product_type ?? "—"}
+                          </div>
+                        </div>
+
+                        {left != null ? (
+                          <span
+                            className={cn(
+                              "shrink-0 rounded-full border px-3 py-1 text-[11px] font-black",
+                              left <= 3
+                                ? "border-rose-200 bg-rose-50 text-rose-900 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-200"
+                                : "border-black/10 bg-white text-zinc-700 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-200"
+                            )}
+                          >
+                            {left <= 0 ? "Süresi doldu" : `${left} gün`}
+                          </span>
+                        ) : null}
+                      </div>
+
+                      <div className="mt-3 grid grid-cols-2 gap-2">
+                        <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
+                          <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Fiyat</div>
+                          <div className="mt-1 flex items-end gap-2">
+                            <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">{priceView.main}</div>
+                            {priceView.sub ? (
+                              <div className="pb-[2px] text-xs font-black text-zinc-500 dark:text-zinc-400">
+                                {priceView.sub}
+                              </div>
+                            ) : null}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
+                          <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Konum</div>
+                          <div className="mt-1 line-clamp-2 text-xs font-black text-zinc-900 dark:text-zinc-100">
+                            {[x.city, x.district, x.neighborhood].filter(Boolean).join(" / ") || "—"}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Satıcı</div>
+                          {isPremiumSeller ? (
+                            <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-900 dark:border-indigo-900/40 dark:bg-indigo-950/40 dark:text-indigo-200">
+                              ⭐ Premium satıcı
+                            </span>
+                          ) : null}
+                        </div>
+
+                        <div className="mt-2">
+                          <SellerChip name={sellerName} avatarUrl={seller?.avatar_url ?? null} sub={sellerSub} />
+                        </div>
+
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-950/35 dark:text-zinc-200">
+                            📦 {stats ? stats.listings_count : "—"} ilan
+                          </span>
+                          <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-950/35 dark:text-zinc-200">
+                            🧾 {stats ? stats.sales_count : "—"} satış
+                          </span>
+                          <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-950/35 dark:text-zinc-200">
+                            👁️ {views == null ? "—" : fmtNum(views)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid gap-2">
+                        <button
+                          disabled={busy}
+                          onClick={() => toggleFavorite(String(x.id))}
+                          className={cn(
+                            "w-full rounded-2xl border px-4 py-3 text-sm font-black disabled:opacity-50",
+                            isFav
+                              ? "border-rose-200 bg-rose-50 text-rose-900 hover:bg-rose-100 dark:border-rose-900/40 dark:bg-rose-950/40 dark:text-rose-200 dark:hover:bg-rose-900/30"
+                              : "border-black/10 bg-white text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-950/40 dark:text-zinc-100 dark:hover:bg-white/5"
+                          )}
+                        >
+                          {busy ? "Bekle..." : isFav ? "❤️ Favoriden Çıkar" : "🤍 Favorile"}
+                        </button>
+
+                        <div className="grid grid-cols-2 gap-2">
+                          <Link
+                            href={`/pazar/${String(x.id)}`}
+                            onClick={() => bumpView(String(x.id))}
+                            className="block w-full rounded-2xl bg-zinc-900 px-4 py-3 text-center text-sm font-black text-white hover:opacity-90 dark:bg-white dark:text-zinc-900"
+                          >
+                            Detay
+                          </Link>
+
+                          <Link
+                            href={sellerId ? `/chat/user/${sellerId}` : "#"}
+                            className={cn(
+                              "block w-full rounded-2xl border px-4 py-3 text-center text-sm font-black",
+                              sellerId
+                                ? "border-black/10 bg-white text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-950/40 dark:text-zinc-100 dark:hover:bg-white/5"
+                                : "border-black/10 bg-zinc-50 text-zinc-400 dark:border-white/10 dark:bg-zinc-900/20 dark:text-zinc-500"
+                            )}
+                          >
+                            💬 Mesaj
+                          </Link>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 flex items-center justify-between gap-2 text-[11px] font-semibold text-zinc-500 dark:text-zinc-500">
+                        <span className="truncate">Oluşturma: {fmtDate(x.created_at)}</span>
+                        <span className="font-mono font-black">{String(x.id).slice(0, 8)}…</span>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            <div ref={sentinelRef} className="h-10" />
+
+            {loadingMore ? (
+              <div className="mt-4 rounded-[28px] border border-black/10 bg-white p-4 text-sm font-semibold text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200">
+                Daha fazla yükleniyor...
+              </div>
+            ) : null}
+
+            {!hasMore ? (
+              <div className="mt-4 rounded-[28px] border border-black/10 bg-white p-4 text-sm text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200">
+                Hepsi bu kadar ✅
+              </div>
+            ) : null}
+          </>
+        )}
       </div>
     </div>
   );
