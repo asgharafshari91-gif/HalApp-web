@@ -1,7 +1,4 @@
-// ===============================
-// PART 1 / 4
-// LiveCard.tsx
-// ===============================
+
 
 "use client";
 
@@ -309,9 +306,6 @@ export default function LiveCard({
   const isSellerVerified = Boolean(
     seller?.verified
   );
-// ===============================
-// PART 2 / 4
-// ===============================
 
   useEffect(() => {
     document.body.style.overflow =
@@ -749,9 +743,6 @@ ${reason}
       return next;
     });
   }
-// ===============================
-// PART 3 / 4
-// ===============================
 
   useEffect(() => {
     function onDoc(
@@ -1090,9 +1081,6 @@ ${reason}
 
         </div>
      </article>
-// ===============================
-// PART 4 / 4
-// ===============================
 
       {open && (
         <div className="fixed inset-0 z-[70]">
