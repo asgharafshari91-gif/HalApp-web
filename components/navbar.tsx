@@ -2,6 +2,12 @@
 
 import React, { useEffect, useState } from "react";
 import HalAppLogo from "./halapp-logo";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 type NavItem = {
   label: string;
@@ -23,6 +29,9 @@ export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  const [user, setUser] = useState<any>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+
   useEffect(() => {
     const onScroll = () => {
       setScrolled(window.scrollY > 10);
@@ -36,6 +45,49 @@ export default function Navbar() {
 
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadUser = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+
+      if (!mounted) return;
+
+      setUser(session?.user ?? null);
+      setLoadingUser(false);
+    };
+
+    loadUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null);
+      setLoadingUser(false);
+    });
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  const handleGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: "google",
+      options: {
+        redirectTo: window.location.origin,
+      },
+    });
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    window.location.reload();
+  };
 
   return (
     <>
@@ -118,6 +170,52 @@ export default function Navbar() {
                   Web’e Gir
                 </a>
 
+                {/* USER AREA */}
+                {!loadingUser && !user && (
+                  <button
+                    onClick={handleGoogleLogin}
+                    className={[
+                      "inline-flex items-center justify-center",
+                      "rounded-2xl border border-white/10",
+                      "bg-white/[0.04] px-4 py-2.5",
+                      "text-sm font-bold text-white",
+                      "transition hover:bg-white/10",
+                    ].join(" ")}
+                  >
+                    Giriş Yap
+                  </button>
+                )}
+
+                {!loadingUser && user && (
+                  <div className="hidden sm:flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-2">
+                    <img
+                      src={
+                        user.user_metadata?.avatar_url ||
+                        "https://ui-avatars.com/api/?name=User"
+                      }
+                      alt="avatar"
+                      className="h-9 w-9 rounded-full border border-white/10"
+                    />
+
+                    <div className="max-w-[120px]">
+                      <div className="truncate text-sm font-black text-white">
+                        {user.user_metadata?.full_name || "Kullanıcı"}
+                      </div>
+
+                      <div className="truncate text-[11px] text-white/50">
+                        {user.email}
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={handleLogout}
+                      className="rounded-xl bg-red-500/15 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500/25"
+                    >
+                      Çıkış
+                    </button>
+                  </div>
+                )}
+
                 {/* CTA */}
                 <a
                   href="#pricing"
@@ -181,6 +279,46 @@ export default function Navbar() {
                       </a>
                     ))}
                   </nav>
+
+                  {!loadingUser && !user && (
+                    <button
+                      onClick={handleGoogleLogin}
+                      className="mt-4 w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-black"
+                    >
+                      Google ile Giriş Yap
+                    </button>
+                  )}
+
+                  {!loadingUser && user && (
+                    <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                      <div className="flex items-center gap-3">
+                        <img
+                          src={
+                            user.user_metadata?.avatar_url ||
+                            "https://ui-avatars.com/api/?name=User"
+                          }
+                          className="h-11 w-11 rounded-full"
+                        />
+
+                        <div>
+                          <div className="text-sm font-black text-white">
+                            {user.user_metadata?.full_name || "Kullanıcı"}
+                          </div>
+
+                          <div className="text-xs text-white/50">
+                            {user.email}
+                          </div>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleLogout}
+                        className="mt-4 w-full rounded-2xl bg-red-500/15 px-4 py-3 text-sm font-bold text-red-300"
+                      >
+                        Çıkış Yap
+                      </button>
+                    </div>
+                  )}
 
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     <a
