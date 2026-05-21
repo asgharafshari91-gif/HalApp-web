@@ -2,12 +2,6 @@
 
 import React, { useEffect, useState } from "react";
 import HalAppLogo from "./halapp-logo";
-import { createClient } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
 
 type NavItem = {
   label: string;
@@ -15,101 +9,101 @@ type NavItem = {
 };
 
 const items: NavItem[] = [
-  { label: "Özellikler", href: "#features" },
-  { label: "Canlı İlanlar", href: "#live" },
-  { label: "Premium", href: "#pricing" },
-  { label: "İndir", href: "#download" },
+  {
+    label: "Özellikler",
+    href: "#features",
+  },
+  {
+    label: "Canlı İlanlar",
+    href: "#live",
+  },
+  {
+    label: "Fiyat",
+    href: "#pricing",
+  },
 ];
 
-function clsx(...a: (string | false | null | undefined)[]) {
+function clsx(
+  ...a: (
+    | string
+    | false
+    | null
+    | undefined
+  )[]
+) {
   return a.filter(Boolean).join(" ");
 }
 
 export default function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] =
+    useState(false);
 
-  const [user, setUser] = useState<any>(null);
-  const [loadingUser, setLoadingUser] = useState(true);
+  const [mobileOpen, setMobileOpen] =
+    useState(false);
 
   useEffect(() => {
     const onScroll = () => {
-      setScrolled(window.scrollY > 10);
+      setScrolled(
+        window.scrollY > 8
+      );
     };
 
     onScroll();
 
-    window.addEventListener("scroll", onScroll, {
-      passive: true,
-    });
+    window.addEventListener(
+      "scroll",
+      onScroll,
+      {
+        passive: true,
+      }
+    );
 
-    return () => window.removeEventListener("scroll", onScroll);
+    return () =>
+      window.removeEventListener(
+        "scroll",
+        onScroll
+      );
   }, []);
 
   useEffect(() => {
-    let mounted = true;
-
-    const loadUser = async () => {
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-
-      if (!mounted) return;
-
-      setUser(session?.user ?? null);
-      setLoadingUser(false);
-    };
-
-    loadUser();
-
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setLoadingUser(false);
-    });
+    document.body.style.overflow =
+      mobileOpen
+        ? "hidden"
+        : "";
 
     return () => {
-      mounted = false;
-      subscription.unsubscribe();
+      document.body.style.overflow =
+        "";
     };
-  }, []);
-
-  const handleGoogleLogin = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: "google",
-      options: {
-        redirectTo: window.location.origin,
-      },
-    });
-  };
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    window.location.reload();
-  };
+  }, [mobileOpen]);
 
   return (
     <>
-      <header className="sticky top-0 z-[100] w-full">
+      {/* HEADER */}
+      <header className="sticky top-0 z-10 pointer-events-none w-full">
         <div className="mx-auto w-full max-w-7xl px-4 pt-4 sm:px-6 lg:px-8">
           <div
             className={clsx(
-              "relative overflow-hidden rounded-[28px] border transition-all duration-300",
-              "backdrop-blur-2xl",
+              "pointer-events-auto",
+              "relative overflow-hidden rounded-[28px]",
+              "border transition-all duration-300",
               "px-4 py-3 sm:px-5",
+              "backdrop-blur-2xl",
               scrolled
-                ? "border-white/10 bg-black/55 shadow-[0_20px_80px_rgba(0,0,0,0.45)]"
-                : "border-white/10 bg-black/30"
+                ? "border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(0,0,0,0.45)]"
+                : "border-white/10 bg-black/35"
             )}
           >
             {/* PREMIUM GLOW */}
             <div className="pointer-events-none absolute inset-0">
               <div className="absolute left-[-80px] top-[-80px] h-48 w-48 rounded-full bg-emerald-500/20 blur-3xl" />
-              <div className="absolute right-[-80px] top-[-50px] h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
+
+              <div className="absolute right-[-80px] top-[-60px] h-48 w-48 rounded-full bg-emerald-400/10 blur-3xl" />
+
               <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_20%,rgba(16,185,129,.18),transparent_38%),radial-gradient(circle_at_80%_0%,rgba(34,197,94,.10),transparent_35%)]" />
             </div>
 
+            {/* CONTENT */}
             <div className="relative flex items-center justify-between gap-3">
               {/* LOGO */}
               <a
@@ -135,10 +129,14 @@ export default function Navbar() {
                   <a
                     key={it.href}
                     href={it.href}
-                    className={[
-                      "rounded-2xl px-4 py-2 text-sm font-bold transition",
-                      "text-white/70 hover:bg-white/5 hover:text-white",
-                    ].join(" ")}
+                    className={clsx(
+                      "rounded-2xl px-4 py-2",
+                      "text-sm font-bold",
+                      "text-white/70",
+                      "transition",
+                      "hover:bg-white/5",
+                      "hover:text-white"
+                    )}
                   >
                     {it.label}
                   </a>
@@ -156,95 +154,68 @@ export default function Navbar() {
                   </span>
                 </div>
 
-                {/* WEB */}
+                {/* AUTH */}
                 <a
-                  href="#live"
-                  className={[
-                    "hidden sm:inline-flex items-center justify-center",
-                    "rounded-2xl border border-white/10",
-                    "bg-white/[0.04] px-4 py-2.5",
-                    "text-sm font-bold text-white/80",
-                    "transition hover:bg-white/10 hover:text-white",
-                  ].join(" ")}
+                  href="/auth"
+                  className={clsx(
+                    "hidden sm:inline-flex",
+                    "items-center justify-center",
+                    "rounded-2xl",
+                    "border border-white/10",
+                    "bg-white/[0.04]",
+                    "px-4 py-2.5",
+                    "text-sm font-bold",
+                    "text-white/80",
+                    "transition",
+                    "hover:bg-white/10",
+                    "hover:text-white"
+                  )}
                 >
                   Web’e Gir
                 </a>
 
-                {/* USER AREA */}
-                {!loadingUser && !user && (
-                  <button
-                    onClick={handleGoogleLogin}
-                    className={[
-                      "inline-flex items-center justify-center",
-                      "rounded-2xl border border-white/10",
-                      "bg-white/[0.04] px-4 py-2.5",
-                      "text-sm font-bold text-white",
-                      "transition hover:bg-white/10",
-                    ].join(" ")}
-                  >
-                    Giriş Yap
-                  </button>
-                )}
-
-                {!loadingUser && user && (
-                  <div className="hidden sm:flex items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.05] px-3 py-2">
-                    <img
-                      src={
-                        user.user_metadata?.avatar_url ||
-                        "https://ui-avatars.com/api/?name=User"
-                      }
-                      alt="avatar"
-                      className="h-9 w-9 rounded-full border border-white/10"
-                    />
-
-                    <div className="max-w-[120px]">
-                      <div className="truncate text-sm font-black text-white">
-                        {user.user_metadata?.full_name || "Kullanıcı"}
-                      </div>
-
-                      <div className="truncate text-[11px] text-white/50">
-                        {user.email}
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={handleLogout}
-                      className="rounded-xl bg-red-500/15 px-3 py-2 text-xs font-bold text-red-300 transition hover:bg-red-500/25"
-                    >
-                      Çıkış
-                    </button>
-                  </div>
-                )}
-
-                {/* CTA */}
+                {/* PREMIUM */}
                 <a
                   href="#pricing"
-                  className={[
+                  className={clsx(
                     "inline-flex items-center justify-center",
                     "rounded-2xl bg-emerald-500",
                     "px-4 py-2.5",
                     "text-sm font-black text-black",
-                    "transition hover:scale-[1.02] hover:bg-emerald-400",
-                    "shadow-[0_20px_60px_rgba(34,197,94,.25)]",
-                  ].join(" ")}
+                    "transition",
+                    "hover:scale-[1.02]",
+                    "hover:bg-emerald-400",
+                    "shadow-[0_20px_60px_rgba(34,197,94,.25)]"
+                  )}
                 >
-                  Premium
+                  Premium Başla
                 </a>
 
                 {/* MOBILE BTN */}
                 <button
                   type="button"
-                  onClick={() => setMobileOpen((s) => !s)}
-                  className={[
-                    "inline-flex h-11 w-11 items-center justify-center",
-                    "rounded-2xl border border-white/10",
-                    "bg-white/[0.04] text-white",
-                    "transition hover:bg-white/10 lg:hidden",
-                  ].join(" ")}
+                  onClick={() =>
+                    setMobileOpen(
+                      (s) => !s
+                    )
+                  }
+                  className={clsx(
+                    "inline-flex h-11 w-11",
+                    "items-center justify-center",
+                    "rounded-2xl",
+                    "border border-white/10",
+                    "bg-white/[0.04]",
+                    "text-white",
+                    "transition",
+                    "hover:bg-white/10",
+                    "lg:hidden"
+                  )}
                 >
                   <div className="space-y-1">
                     <div className="h-[2px] w-5 rounded-full bg-white" />
+
                     <div className="h-[2px] w-5 rounded-full bg-white" />
+
                     <div className="h-[2px] w-5 rounded-full bg-white" />
                   </div>
                 </button>
@@ -267,82 +238,53 @@ export default function Navbar() {
                       <a
                         key={it.href}
                         href={it.href}
-                        onClick={() => setMobileOpen(false)}
-                        className={[
+                        onClick={() =>
+                          setMobileOpen(
+                            false
+                          )
+                        }
+                        className={clsx(
                           "rounded-2xl border border-white/5",
-                          "bg-white/[0.03] px-4 py-3",
+                          "bg-white/[0.03]",
+                          "px-4 py-3",
                           "text-sm font-bold text-white/80",
-                          "transition hover:bg-white/10 hover:text-white",
-                        ].join(" ")}
+                          "transition",
+                          "hover:bg-white/10",
+                          "hover:text-white"
+                        )}
                       >
                         {it.label}
                       </a>
                     ))}
                   </nav>
 
-                  {!loadingUser && !user && (
-                    <button
-                      onClick={handleGoogleLogin}
-                      className="mt-4 w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-black"
-                    >
-                      Google ile Giriş Yap
-                    </button>
-                  )}
-
-                  {!loadingUser && user && (
-                    <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
-                      <div className="flex items-center gap-3">
-                        <img
-                          src={
-                            user.user_metadata?.avatar_url ||
-                            "https://ui-avatars.com/api/?name=User"
-                          }
-                          className="h-11 w-11 rounded-full"
-                        />
-
-                        <div>
-                          <div className="text-sm font-black text-white">
-                            {user.user_metadata?.full_name || "Kullanıcı"}
-                          </div>
-
-                          <div className="text-xs text-white/50">
-                            {user.email}
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        onClick={handleLogout}
-                        className="mt-4 w-full rounded-2xl bg-red-500/15 px-4 py-3 text-sm font-bold text-red-300"
-                      >
-                        Çıkış Yap
-                      </button>
-                    </div>
-                  )}
-
                   <div className="mt-4 grid gap-2 sm:grid-cols-2">
                     <a
-                      href="#live"
-                      className={[
+                      href="/auth"
+                      className={clsx(
                         "inline-flex items-center justify-center",
                         "rounded-2xl border border-white/10",
-                        "bg-white/[0.04] px-4 py-3",
+                        "bg-white/[0.04]",
+                        "px-4 py-3",
                         "text-sm font-bold text-white/80",
-                        "transition hover:bg-white/10 hover:text-white",
-                      ].join(" ")}
+                        "transition",
+                        "hover:bg-white/10",
+                        "hover:text-white"
+                      )}
                     >
                       Web’e Gir
                     </a>
 
                     <a
                       href="#pricing"
-                      className={[
+                      className={clsx(
                         "inline-flex items-center justify-center",
                         "rounded-2xl bg-emerald-500",
                         "px-4 py-3",
                         "text-sm font-black text-black",
-                        "transition hover:bg-emerald-400",
-                      ].join(" ")}
+                        "transition",
+                        "hover:bg-emerald-400"
+                      )}
                     >
                       Premium Başla
                     </a>

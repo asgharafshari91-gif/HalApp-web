@@ -323,7 +323,10 @@ export default function Navbar() {
   }, [me.profile]);
 
   const isPremium = Boolean((me.profile as any)?.is_premium);
-
+const isAuthPage =
+  pathname.startsWith("/auth") ||
+  pathname.startsWith("/login") ||
+  pathname.startsWith("/register");
   // ✅ ADMIN (me.profile varsa oradan, yoksa DB’den)
   const [isAdmin, setIsAdmin] = useState(false);
 
@@ -500,25 +503,31 @@ export default function Navbar() {
             </Link>
 
             {/* Center: Nav */}
-            <nav className="hidden items-center gap-1 md:flex">
-              {nav.map((x) => (
-                <a key={x.href} href={anchorHref(onHome, x.href)} className={desktopLinkCls}>
-                  {x.label}
-                </a>
-              ))}
+           {!isAuthPage && (
+  <nav className="hidden items-center gap-1 md:flex">
+    {nav.map((x) => (
+      <a
+        key={x.href}
+        href={anchorHref(onHome, x.href)}
+        className={desktopLinkCls}
+      >
+        {x.label}
+      </a>
+    ))}
 
-              <Link href="/pazar" className={desktopLinkCls}>
-                Pazar
-              </Link>
-              <Link href="/favorites" className={desktopLinkCls}>
-                Favoriler
-              </Link>
+    <Link href="/pazar" className={desktopLinkCls}>
+      Pazar
+    </Link>
 
-              <Link href="/conversations" className={desktopLinkCls}>
-                Mesajlar <UnreadBadge n={unread} />
-              </Link>
-            </nav>
+    <Link href="/favorites" className={desktopLinkCls}>
+      Favoriler
+    </Link>
 
+    <Link href="/conversations" className={desktopLinkCls}>
+      Mesajlar <UnreadBadge n={unread} />
+    </Link>
+  </nav>
+)}
             {/* Right: Actions */}
             <div className="hidden items-center gap-2 md:flex">
               <ThemeButton onClick={toggleTheme} theme={theme} />
