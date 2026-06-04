@@ -244,7 +244,49 @@ async function bumpView(listingId: string) {
     // sessiz
   }
 }
+async function trackListingView(listingId: string) {
+  try {
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+    const isMobileWeb =
+      /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(ua);
 
+    const payload = {
+      listing_id: listingId,
+      source: "detail",
+      platform: "web",
+      device_type: isMobileWeb ? "mobile_web" : "desktop_web",
+    };
+
+    const functionUrl =
+      `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/track-listing-view`;
+
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    // Mobil tarayıcı için daha sağlam
+    if (isMobileWeb && navigator.sendBeacon) {
+      const blob = new Blob([JSON.stringify(payload)], {
+        type: "application/json",
+      });
+
+      const ok = navigator.sendBeacon(functionUrl, blob);
+      console.log("TRACK BEACON:", ok, payload);
+
+      // sendBeacon header gönderemediği için function JWT zorunlu değilse çalışır.
+      return;
+    }
+
+    const { data, error } = await supabase.functions.invoke(
+      "track-listing-view",
+      {
+        body: payload,
+      }
+    );
+
+    console.log("TRACK RESULT:", data, error);
+  } catch (e) {
+    console.log("TRACK CATCH:", e);
+  }
+}
 async function fetchMyFavoriteIds(userId: string) {
   const { data, error } = await supabase.from("listing_favorites").select("listing_id").eq("user_id", userId);
   if (error) throw error;
@@ -355,11 +397,12 @@ export default function PazarDetailClient({ id }: { id: string }) {
         }
 
         // views
-        const v = await fetchViews(String(listing.id));
-        if (!cancelled) setViews(v);
+const v = await fetchViews(String(listing.id));
+if (!cancelled) setViews(v);
 
-        // bump view
-        bumpView(String(listing.id));
+// bump view + harita sinyali
+bumpView(String(listing.id));
+trackListingView(String(listing.id));
 
         // favorites
         if (user?.id) {
