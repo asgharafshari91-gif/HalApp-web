@@ -244,12 +244,34 @@ async function bumpView(listingId: string) {
     // sessiz
   }
 }
+async function trackListingView(listingId: string) {
+  try {
+    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
+
+    const isMobileWeb =
+      /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(ua);
+
+    await supabase.functions.invoke("track-listing-view", {
+      body: {
+        listing_id: listingId,
+        source: "detail",
+        platform: "web",
+        device_type: isMobileWeb ? "mobile_web" : "desktop_web",
+      },
+    });
+  } catch (e) {
+    console.log("track invoke error:", e);
+  }
+}
+
 function trackListingViewPixel(listingId: string) {
   try {
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
 
     const isMobileWeb =
       /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(ua);
+
+    if (!isMobileWeb) return;
 
     const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     if (!baseUrl) return;
@@ -258,13 +280,15 @@ function trackListingViewPixel(listingId: string) {
       listing_id: listingId,
       source: "detail",
       platform: "web",
-      device_type: isMobileWeb ? "mobile_web" : "desktop_web",
+      device_type: "mobile_web",
       t: String(Date.now()),
     });
 
     const img = new Image();
     img.src = `${baseUrl}/functions/v1/track-listing-view?${params.toString()}`;
-  } catch {}
+  } catch (e) {
+    console.log("track pixel error:", e);
+  }
 }
 async function fetchMyFavoriteIds(userId: string) {
   const { data, error } = await supabase.from("listing_favorites").select("listing_id").eq("user_id", userId);
@@ -381,6 +405,7 @@ const v = await fetchViews(String(listing.id));
 if (!cancelled) setViews(v);
 
 bumpView(String(listing.id));
+trackListingView(String(listing.id));
 trackListingViewPixel(String(listing.id));
 
         // favorites
