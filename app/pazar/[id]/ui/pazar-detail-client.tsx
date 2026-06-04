@@ -244,6 +244,30 @@ async function bumpView(listingId: string) {
     // sessiz
   }
 }
+function getGpsLocation(): Promise<{ lat: number; lng: number } | null> {
+  return new Promise((resolve) => {
+    if (typeof navigator === "undefined" || !navigator.geolocation) {
+      resolve(null);
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        resolve({
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+        });
+      },
+      () => resolve(null),
+      {
+        enableHighAccuracy: true,
+        timeout: 7000,
+        maximumAge: 1000 * 60 * 5,
+      }
+    );
+  });
+}
+
 async function trackListingView(listingId: string) {
   try {
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
@@ -251,19 +275,24 @@ async function trackListingView(listingId: string) {
     const isMobileWeb =
       /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(ua);
 
+    const gps = await getGpsLocation();
+
     await supabase.functions.invoke("track-listing-view", {
       body: {
         listing_id: listingId,
         source: "detail",
         platform: "web",
         device_type: isMobileWeb ? "mobile_web" : "desktop_web",
+
+        latitude: gps?.lat ?? null,
+        longitude: gps?.lng ?? null,
+        location_source: gps ? "gps" : "ip",
       },
     });
   } catch (e) {
     console.log("track invoke error:", e);
   }
 }
-
 function trackListingViewPixel(listingId: string) {
   try {
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
@@ -281,14 +310,13 @@ function trackListingViewPixel(listingId: string) {
       source: "detail",
       platform: "web",
       device_type: "mobile_web",
+      location_source: "ip",
       t: String(Date.now()),
     });
 
     const img = new Image();
     img.src = `${baseUrl}/functions/v1/track-listing-view?${params.toString()}`;
-  } catch (e) {
-    console.log("track pixel error:", e);
-  }
+  } catch {}
 }
 async function fetchMyFavoriteIds(userId: string) {
   const { data, error } = await supabase.from("listing_favorites").select("listing_id").eq("user_id", userId);
