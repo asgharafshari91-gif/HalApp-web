@@ -50,7 +50,32 @@ function supabaseServer() {
   if (!url || !key) throw new Error("Missing Supabase env");
   return createClient(url, key, { auth: { persistSession: false } });
 }
+async function trackListingViewServer(listingId: string) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
+    if (!baseUrl || !anonKey) return;
+
+    await fetch(`${baseUrl}/functions/v1/track-listing-view`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        apikey: anonKey,
+        Authorization: `Bearer ${anonKey}`,
+      },
+      body: JSON.stringify({
+        listing_id: listingId,
+        source: "detail",
+        platform: "web",
+        device_type: "mobile_web",
+      }),
+      cache: "no-store",
+    });
+  } catch {
+    // sessiz
+  }
+}
 function safeText(v: any, fallback: string) {
   const s = typeof v === "string" ? v.trim() : "";
   return s ? s : fallback;
@@ -198,7 +223,7 @@ export default async function ListingDetailPage({
 
   const listing = data;
   const seller = listing.seller ?? null;
-
+trackListingViewServer(listing.id);
   const sellerName = safeText(
     seller?.company_name?.trim() ? seller?.company_name : seller?.full_name,
     "Satıcı"
