@@ -8,16 +8,23 @@ import { supabase } from "@/lib/supabaseClient";
 type CitySignal = {
   city: string;
   signals: number;
+  recentSignals?: number;
+  gpsSignals?: number;
+  ipSignals?: number;
+  lastSignalAt?: string;
 };
 
 type LatestSignal = {
   city: string;
   district?: string;
-  source?: string;
   platform?: string;
   deviceType?: string;
+  locationSource?: string;
   createdAt?: string;
+  listingId?: string;
   listingTitle?: string;
+  productName?: string;
+  postType?: string;
 };
 
 type DashboardData = {
@@ -25,13 +32,19 @@ type DashboardData = {
   activeSellers: number;
   buyerRequests: number;
   activeSignalCities: number;
+  totalSignals24h: number;
+  totalSignals5m: number;
   citySignals: CitySignal[];
+  hotCities: CitySignal[];
   latestSignals: LatestSignal[];
 };
 
 type TooltipState = {
   city: string;
   signals: number;
+  recentSignals: number;
+  gpsSignals: number;
+  ipSignals: number;
   x: number;
   y: number;
 } | null;
@@ -41,29 +54,12 @@ const emptyDashboard: DashboardData = {
   activeSellers: 0,
   buyerRequests: 0,
   activeSignalCities: 0,
+  totalSignals24h: 0,
+  totalSignals5m: 0,
   citySignals: [],
+  hotCities: [],
   latestSignals: [],
 };
-
-const labelCities = [
-  "İstanbul",
-  "Ankara",
-  "İzmir",
-  "Antalya",
-  "Adana",
-  "Mersin",
-  "Konya",
-  "Gaziantep",
-  "Şanlıurfa",
-  "Diyarbakır",
-  "Samsun",
-  "Trabzon",
-  "Erzurum",
-  "Van",
-  "Bursa",
-  "Kayseri",
-  "Isparta",
-];
 
 function normalizeCityName(value?: string) {
   if (!value) return "";
@@ -73,10 +69,12 @@ function normalizeCityName(value?: string) {
   const fixes: Record<string, string> = {
     Istanbul: "İstanbul",
     istanbul: "İstanbul",
+    ISTANBUL: "İstanbul",
     İSTANBUL: "İstanbul",
 
     Izmir: "İzmir",
     izmir: "İzmir",
+    IZMIR: "İzmir",
     İZMİR: "İzmir",
 
     Ankara: "Ankara",
@@ -101,11 +99,22 @@ function normalizeCityName(value?: string) {
     Sanliurfa: "Şanlıurfa",
     "Şanlı Urfa": "Şanlıurfa",
 
-    "K.Maraş": "Kahramanmaraş",
     Kahramanmaras: "Kahramanmaraş",
+    "K.Maraş": "Kahramanmaraş",
   };
 
   return fixes[v] || v;
+}
+
+function cityKey(value?: string) {
+  return normalizeCityName(value)
+    .toLocaleLowerCase("tr-TR")
+    .replaceAll("ı", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c");
 }
 
 function readProvinceName(d: any) {
@@ -121,7 +130,7 @@ function readProvinceName(d: any) {
   );
 }
 
-function fmt(n: number) {
+function fmt(n: any) {
   return Number(n || 0).toLocaleString("tr-TR");
 }
 
@@ -129,75 +138,82 @@ function timeAgoTR(value?: string) {
   if (!value) return "az önce";
 
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "az önce";
+
   const diff = Date.now() - date.getTime();
+  const sec = Math.floor(diff / 1000);
   const min = Math.floor(diff / 60000);
-
-  if (min < 1) return "az önce";
-  if (min < 60) return `${min} dk önce`;
-
   const hour = Math.floor(min / 60);
-  if (hour < 24) return `${hour} saat önce`;
+
+  if (sec < 30) return "şimdi";
+  if (min < 1) return `${sec} sn önce`;
+  if (min < 60) return `${min} dk önce`;
+  if (hour < 24) return `${hour} sa önce`;
 
   return `${Math.floor(hour / 24)} gün önce`;
 }
 
-function signalLevel(count: number) {
-  if (count >= 100) return "veryHigh";
-  if (count >= 50) return "high";
-  if (count >= 20) return "mid";
-  if (count > 0) return "low";
-  return "none";
+function productEmoji(title: any) {
+  const t = cityKey(String(title ?? ""));
+
+  if (t.includes("limon")) return "🍋";
+  if (t.includes("avokado")) return "🥑";
+  if (t.includes("blue") || t.includes("yaban")) return "🫐";
+  if (t.includes("kayisi") || t.includes("seftali")) return "🍑";
+  if (t.includes("domates")) return "🍅";
+  if (t.includes("portakal") || t.includes("mandalina")) return "🍊";
+  if (t.includes("elma")) return "🍎";
+  if (t.includes("uzum")) return "🍇";
+  if (t.includes("salatalik")) return "🥒";
+  if (t.includes("karpuz")) return "🍉";
+  if (t.includes("kavun")) return "🍈";
+  if (t.includes("biber")) return "🌶️";
+  if (t.includes("patlican")) return "🍆";
+  if (t.includes("kuskonmaz")) return "🌱";
+
+  return "📍";
 }
 
-function signalFill(count: number) {
-  const level = signalLevel(count);
+function signalColor(s?: CitySignal) {
+  const count = Number(s?.signals ?? 0);
+  const gps = Number(s?.gpsSignals ?? 0);
+  const recent = Number(s?.recentSignals ?? 0);
 
-  if (level === "veryHigh") return "rgba(239,68,68,.78)";
-  if (level === "high") return "rgba(249,115,22,.72)";
-  if (level === "mid") return "rgba(250,204,21,.65)";
-  if (level === "low") return "rgba(52,211,153,.55)";
+  if (gps > 0) return "#2dd4bf";
+  if (recent > 0) return "#22c55e";
+  if (count >= 100) return "#ff4d5a";
+  if (count >= 50) return "#ff8a2a";
+  if (count >= 20) return "#ffe257";
+  if (count > 0) return "#86efac";
 
-  return "rgba(15,118,110,.30)";
+  return "#2f5c43";
 }
 
-function signalStroke(count: number) {
-  const level = signalLevel(count);
+function signalFill(s?: CitySignal) {
+  const count = Number(s?.signals ?? 0);
+  const gps = Number(s?.gpsSignals ?? 0);
+  const recent = Number(s?.recentSignals ?? 0);
 
-  if (level === "veryHigh") return "rgba(248,113,113,.95)";
-  if (level === "high") return "rgba(251,146,60,.95)";
-  if (level === "mid") return "rgba(253,224,71,.95)";
-  if (level === "low") return "rgba(110,231,183,.95)";
+  if (gps > 0) return "rgba(45,212,191,.42)";
+  if (recent > 0) return "rgba(34,197,94,.34)";
+  if (count >= 100) return "rgba(255,77,90,.34)";
+  if (count >= 50) return "rgba(255,138,42,.30)";
+  if (count >= 20) return "rgba(255,226,87,.24)";
+  if (count > 0) return "rgba(134,239,172,.20)";
 
-  return "rgba(167,243,208,.38)";
+  return "rgba(16,73,59,.42)";
 }
 
-function heatFill(count: number) {
-  const level = signalLevel(count);
+function signalSentence(s: LatestSignal) {
+  const city = s.city || "Türkiye";
+  const district = s.district ? ` / ${s.district}` : "";
+  const product = s.productName || s.listingTitle || "ilan";
 
-  if (level === "veryHigh") return "rgba(239,68,68,.30)";
-  if (level === "high") return "rgba(249,115,22,.26)";
-  if (level === "mid") return "rgba(250,204,21,.22)";
-  if (level === "low") return "rgba(52,211,153,.18)";
-
-  return "transparent";
-}
-
-function glowClass(count: number) {
-  const level = signalLevel(count);
-
-  if (level === "veryHigh") {
-    return "bg-red-500 shadow-red-500/70 ring-red-400/40";
+  if (s.postType === "request") {
+    return `${city}${district} konumundan ${product} talebi görüntülendi`;
   }
 
-  if (level === "high") {
-    return "bg-orange-400 shadow-orange-400/70 ring-orange-300/40";
-  }
-
-  if (level === "mid") {
-    return "bg-yellow-300 shadow-yellow-300/70 ring-yellow-300/40";
-  }
-
-  return "bg-emerald-400 shadow-emerald-400/70 ring-emerald-300/40";
+  return `${city}${district} konumundan ${product} ilanına bakıldı`;
 }
 
 function AnimatedNumber({ value }: { value: number }) {
@@ -223,7 +239,7 @@ function AnimatedNumber({ value }: { value: number }) {
   return <>{fmt(current)}</>;
 }
 
-function StatBox({
+function StatCard({
   icon,
   label,
   value,
@@ -235,33 +251,77 @@ function StatBox({
   sub: string;
 }) {
   return (
-    <div className="rounded-[24px] border border-white/10 bg-white/[0.055] p-4 shadow-[0_18px_70px_rgba(0,0,0,.18)] backdrop-blur-xl">
-      <div className="flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-400/12 text-2xl ring-1 ring-emerald-400/15">
+    <div className="rounded-[22px] border border-white/10 bg-[#061612]/95 p-4 shadow-[0_18px_70px_rgba(0,0,0,.34)] backdrop-blur-xl">
+      <div className="flex items-center gap-4">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-emerald-300/20 bg-emerald-300/10 text-3xl shadow-[0_0_28px_rgba(52,211,153,.12)]">
           {icon}
         </div>
 
-        <div>
-          <div className="text-xs font-black text-white/70">{label}</div>
+        <div className="min-w-0">
+          <div className="text-sm font-semibold text-white/82">{label}</div>
 
-          <div className="mt-1 text-3xl font-black tracking-tight text-white">
+          <div className="mt-1 text-3xl font-black leading-none text-white">
             <AnimatedNumber value={value} />
           </div>
 
-          <div className="mt-1 text-[11px] font-bold text-white/38">{sub}</div>
+          <div className="mt-2 text-xs font-medium text-white/62">{sub}</div>
         </div>
       </div>
     </div>
   );
 }
 
+function AdvantageCard({
+  icon,
+  title,
+  text,
+  active,
+}: {
+  icon: string;
+  title: string;
+  text: string;
+  active?: boolean;
+}) {
+  return (
+    <div
+      className={[
+        "rounded-2xl border p-4 transition hover:-translate-y-0.5",
+        active
+          ? "border-yellow-300/20 bg-yellow-300/10"
+          : "border-white/10 bg-black/24 hover:bg-white/[0.06]",
+      ].join(" ")}
+    >
+      <div className="flex gap-4">
+        <div className="text-3xl">{icon}</div>
+
+        <div>
+          <div
+            className={[
+              "font-black",
+              active ? "text-yellow-200" : "text-emerald-200",
+            ].join(" ")}
+          >
+            {title}
+          </div>
+
+          <div className="mt-1 text-sm font-medium leading-relaxed text-white/68">
+            {text}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 export default function TurkeyHeatMap() {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   const [geo, setGeo] = useState<any>(null);
   const [dashboard, setDashboard] = useState<DashboardData>(emptyDashboard);
-  const [tooltip, setTooltip] = useState<TooltipState>(null);
   const [mapReady, setMapReady] = useState(false);
+  const [zoomText, setZoomText] = useState("%100");
+  const [lastRefresh, setLastRefresh] = useState("");
+  const [tooltip, setTooltip] = useState<TooltipState>(null);
 
   async function loadDashboard() {
     const { data, error } = await supabase.rpc("get_home_live_dashboard");
@@ -278,11 +338,28 @@ export default function TurkeyHeatMap() {
       activeSellers: Number(raw.activeSellers ?? 0),
       buyerRequests: Number(raw.buyerRequests ?? 0),
       activeSignalCities: Number(raw.activeSignalCities ?? 0),
+      totalSignals24h: Number(raw.totalSignals24h ?? 0),
+      totalSignals5m: Number(raw.totalSignals5m ?? 0),
 
       citySignals: Array.isArray(raw.citySignals)
         ? raw.citySignals.map((x: any) => ({
             city: normalizeCityName(x.city),
             signals: Number(x.signals ?? 0),
+            recentSignals: Number(x.recentSignals ?? 0),
+            gpsSignals: Number(x.gpsSignals ?? 0),
+            ipSignals: Number(x.ipSignals ?? 0),
+            lastSignalAt: x.lastSignalAt ?? "",
+          }))
+        : [],
+
+      hotCities: Array.isArray(raw.hotCities)
+        ? raw.hotCities.map((x: any) => ({
+            city: normalizeCityName(x.city),
+            signals: Number(x.signals ?? 0),
+            recentSignals: Number(x.recentSignals ?? 0),
+            gpsSignals: Number(x.gpsSignals ?? 0),
+            ipSignals: Number(x.ipSignals ?? 0),
+            lastSignalAt: x.lastSignalAt ?? "",
           }))
         : [],
 
@@ -290,14 +367,25 @@ export default function TurkeyHeatMap() {
         ? raw.latestSignals.map((x: any) => ({
             city: normalizeCityName(x.city),
             district: x.district ?? "",
-            source: x.source ?? "",
             platform: x.platform ?? "",
             deviceType: x.deviceType ?? "",
+            locationSource: x.locationSource ?? "",
             createdAt: x.createdAt ?? "",
+            listingId: x.listingId ?? "",
             listingTitle: x.listingTitle ?? "İlan",
+            productName: x.productName ?? "",
+            postType: x.postType ?? "",
           }))
         : [],
     });
+
+    setLastRefresh(
+      new Date().toLocaleTimeString("tr-TR", {
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      })
+    );
   }
 
   useEffect(() => {
@@ -309,8 +397,7 @@ export default function TurkeyHeatMap() {
       .then((json) => {
         if (json.type === "Topology") {
           const key = Object.keys(json.objects)[0];
-          const converted = feature(json, json.objects[key]) as any;
-          setGeo(converted);
+          setGeo(feature(json, json.objects[key]) as any);
         } else {
           setGeo(json);
         }
@@ -347,18 +434,23 @@ export default function TurkeyHeatMap() {
   }, []);
 
   const signalMap = useMemo(() => {
-    const map = new Map<string, number>();
-
-    dashboard.citySignals.forEach((s) => {
-      map.set(normalizeCityName(s.city), Number(s.signals || 0));
-    });
-
+    const map = new Map<string, CitySignal>();
+    dashboard.citySignals.forEach((s) => map.set(cityKey(s.city), s));
     return map;
   }, [dashboard.citySignals]);
 
-  const topCities = dashboard.citySignals.slice(0, 5);
-  const latest = dashboard.latestSignals.slice(0, 5);
-  const ticker = latest[0];
+  const topCities = dashboard.hotCities.length
+    ? dashboard.hotCities.slice(0, 8)
+    : dashboard.citySignals.slice(0, 8);
+
+  const latest = dashboard.latestSignals.slice(0, 8);
+  const tickerFlow = latest.length ? [...latest, ...latest] : [];
+
+  const lastSignal = latest[0];
+  const lastSignalCity = lastSignal?.city || "Sinyal bekleniyor";
+  const lastSignalTitle =
+    lastSignal?.productName || lastSignal?.listingTitle || "Canlı veri bekleniyor";
+  const lastSignalSource = lastSignal?.locationSource === "gps" ? "GPS" : "IP";
 
   useEffect(() => {
     if (!geo || !svgRef.current) return;
@@ -368,8 +460,8 @@ export default function TurkeyHeatMap() {
     const svg = d3.select(svgRef.current);
     svg.selectAll("*").remove();
 
-    const width = 1120;
-    const height = 500;
+    const width = 1400;
+    const height = 760;
 
     const projection = d3.geoMercator().fitSize([width, height], geo);
     const path = d3.geoPath(projection);
@@ -380,405 +472,701 @@ export default function TurkeyHeatMap() {
 
     const defs = root.append("defs");
 
-    const glow = defs.append("filter").attr("id", "provinceGlow");
-    glow
-      .append("feGaussianBlur")
-      .attr("stdDeviation", "3.2")
-      .attr("result", "blur");
+    const glow = defs
+      .append("filter")
+      .attr("id", "provinceGlow")
+      .attr("x", "-80%")
+      .attr("y", "-80%")
+      .attr("width", "260%")
+      .attr("height", "260%");
+
+    glow.append("feGaussianBlur").attr("stdDeviation", "4").attr("result", "blur");
 
     const merge = glow.append("feMerge");
     merge.append("feMergeNode").attr("in", "blur");
     merge.append("feMergeNode").attr("in", "SourceGraphic");
 
-    const heatGlow = defs.append("filter").attr("id", "heatGlow");
-    heatGlow
-      .append("feGaussianBlur")
-      .attr("stdDeviation", "10")
-      .attr("result", "blur");
+    const signalGlow = defs
+      .append("filter")
+      .attr("id", "signalGlow")
+      .attr("x", "-130%")
+      .attr("y", "-130%")
+      .attr("width", "360%")
+      .attr("height", "360%");
 
-    const heatMerge = heatGlow.append("feMerge");
-    heatMerge.append("feMergeNode").attr("in", "blur");
-    heatMerge.append("feMergeNode").attr("in", "SourceGraphic");
+    signalGlow.append("feGaussianBlur").attr("stdDeviation", "12").attr("result", "blur");
 
-    const g = root.append("g").attr("class", "map-layer");
+    const merge2 = signalGlow.append("feMerge");
+    merge2.append("feMergeNode").attr("in", "blur");
+    merge2.append("feMergeNode").attr("in", "SourceGraphic");
+
+    const mapLayer = root.append("g").attr("class", "map-layer");
 
     const features = Array.isArray(geo.features) ? geo.features : [];
 
-    g.selectAll("path.province")
+    mapLayer
+      .selectAll("path.province")
       .data(features)
       .enter()
       .append("path")
       .attr("class", "province")
       .attr("d", path as any)
       .attr("fill", (d: any) => {
-        const name = readProvinceName(d);
-        const count = signalMap.get(name) ?? 0;
-        return signalFill(count);
+        const city = readProvinceName(d);
+        return signalFill(signalMap.get(cityKey(city)));
       })
       .attr("stroke", (d: any) => {
-        const name = readProvinceName(d);
-        const count = signalMap.get(name) ?? 0;
-        return signalStroke(count);
+        const city = readProvinceName(d);
+        const signal = signalMap.get(cityKey(city));
+        return signal?.signals ? "rgba(167,243,208,.68)" : "rgba(167,243,208,.28)";
       })
       .attr("stroke-width", (d: any) => {
-        const name = readProvinceName(d);
-        const count = signalMap.get(name) ?? 0;
-        return count > 0 ? 1.15 : 0.72;
+        const city = readProvinceName(d);
+        const signal = signalMap.get(cityKey(city));
+        return signal?.signals ? 1.15 : 0.72;
       })
       .attr("filter", "url(#provinceGlow)")
       .style("cursor", "pointer")
       .on("mousemove", function (event: MouseEvent, d: any) {
-        const name = readProvinceName(d);
-        const signals = signalMap.get(name) ?? 0;
+        const city = readProvinceName(d);
+        const item = signalMap.get(cityKey(city));
+        const rect = svgRef.current?.getBoundingClientRect();
+
+        setTooltip({
+          city,
+          signals: Number(item?.signals ?? 0),
+          recentSignals: Number(item?.recentSignals ?? 0),
+          gpsSignals: Number(item?.gpsSignals ?? 0),
+          ipSignals: Number(item?.ipSignals ?? 0),
+          x: event.clientX - (rect?.left ?? 0),
+          y: event.clientY - (rect?.top ?? 0),
+        });
 
         d3.select(this)
           .attr("stroke", "rgba(255,255,255,.95)")
-          .attr("stroke-width", 1.8);
-
-        const rect = svgRef.current?.getBoundingClientRect();
-        const x = event.clientX - (rect?.left ?? 0);
-        const y = event.clientY - (rect?.top ?? 0);
-
-        setTooltip({
-          city: name || "İl",
-          signals,
-          x,
-          y,
-        });
+          .attr("stroke-width", 2);
       })
       .on("mouseleave", function (_event: MouseEvent, d: any) {
-        const name = readProvinceName(d);
-        const count = signalMap.get(name) ?? 0;
+        const city = readProvinceName(d);
+        const item = signalMap.get(cityKey(city));
 
         d3.select(this)
-          .attr("stroke", signalStroke(count))
-          .attr("stroke-width", count > 0 ? 1.15 : 0.72);
+          .attr("stroke", item?.signals ? "rgba(167,243,208,.68)" : "rgba(167,243,208,.28)")
+          .attr("stroke-width", item?.signals ? 1.15 : 0.72);
 
         setTooltip(null);
       });
 
-   const activeFeatures = features.filter((d: any) => {
-  const name = readProvinceName(d);
-  return (signalMap.get(name) ?? 0) > 0;
-});
+    const activeCities = features.filter((d: any) => {
+      const city = readProvinceName(d);
+      const signal = signalMap.get(cityKey(city));
+      return Number(signal?.signals ?? 0) > 0;
+    });
 
-g.selectAll("circle.heat")
-  .data(activeFeatures)
-  .enter()
-  .append("circle")
-  .attr("class", "heat")
-  .attr("cx", (d: any) => path.centroid(d)[0])
-  .attr("cy", (d: any) => path.centroid(d)[1])
-  .attr("r", (d: any) => {
-    const count = signalMap.get(readProvinceName(d)) ?? 0;
-    return Math.min(60, 16 + count * 0.5);
-  })
-  .attr("fill", (d: any) => {
-    const count = signalMap.get(readProvinceName(d)) ?? 0;
-    return heatFill(count);
-  })
-  .attr("opacity", 0.95)
-  .attr("filter", "url(#heatGlow)")
-  .style("pointer-events", "none");
+    activeCities.forEach((d: any) => {
+      const city = readProvinceName(d);
+      const signal = signalMap.get(cityKey(city));
+      if (!signal) return;
 
-g.selectAll("circle.signal-ring")
-  .data(activeFeatures)
-  .enter()
-  .append("circle")
-  .attr("class", "signal-ring")
-  .attr("cx", (d: any) => path.centroid(d)[0])
-  .attr("cy", (d: any) => path.centroid(d)[1])
-  .attr("r", 7)
-  .attr("fill", "none")
-  .attr("stroke", (d: any) => signalStroke(signalMap.get(readProvinceName(d)) ?? 0))
-  .attr("stroke-width", 3)
-  .attr("opacity", 0.9)
-  .style("pointer-events", "none")
-  .append("animate")
-  .attr("attributeName", "r")
-  .attr("from", "7")
-  .attr("to", "34")
-  .attr("dur", "1.7s")
-  .attr("repeatCount", "indefinite");
+      const [cx, cy] = path.centroid(d);
+      const color = signalColor(signal);
 
-g.selectAll("circle.signal-ring-opacity")
-  .data(activeFeatures)
-  .enter()
-  .append("circle")
-  .attr("cx", (d: any) => path.centroid(d)[0])
-  .attr("cy", (d: any) => path.centroid(d)[1])
-  .attr("r", 7)
-  .attr("fill", "none")
-  .attr("stroke", (d: any) => signalStroke(signalMap.get(readProvinceName(d)) ?? 0))
-  .attr("stroke-width", 2)
-  .style("pointer-events", "none")
-  .append("animate")
-  .attr("attributeName", "opacity")
-  .attr("from", "0.9")
-  .attr("to", "0")
-  .attr("dur", "1.7s")
-  .attr("repeatCount", "indefinite");
+      const radius =
+        signal.signals >= 100
+          ? 34
+          : signal.signals >= 50
+          ? 28
+          : signal.signals >= 20
+          ? 24
+          : 18;
 
-g.selectAll("circle.signal-dot")
-  .data(activeFeatures)
-  .enter()
-  .append("circle")
-  .attr("class", "signal-dot")
-  .attr("cx", (d: any) => path.centroid(d)[0])
-  .attr("cy", (d: any) => path.centroid(d)[1])
-  .attr("r", 5)
-  .attr("fill", (d: any) => signalStroke(signalMap.get(readProvinceName(d)) ?? 0))
-  .attr("stroke", "rgba(255,255,255,.85)")
-  .attr("stroke-width", 1.5)
-  .attr("filter", "url(#heatGlow)")
-  .style("pointer-events", "none");
+      mapLayer
+        .append("circle")
+        .attr("cx", cx)
+        .attr("cy", cy)
+        .attr("r", radius)
+        .attr("fill", color)
+        .attr("opacity", 0.15)
+        .attr("filter", "url(#signalGlow)")
+        .style("pointer-events", "none");
+
+      for (let i = 0; i < 3; i++) {
+        mapLayer
+          .append("circle")
+          .attr("cx", cx)
+          .attr("cy", cy)
+          .attr("r", 8)
+          .attr("fill", "none")
+          .attr("stroke", color)
+          .attr("stroke-width", 2)
+          .attr("opacity", 0.9)
+          .style("pointer-events", "none")
+          .append("animate")
+          .attr("attributeName", "r")
+          .attr("from", "8")
+          .attr("to", radius + 30)
+          .attr("dur", "2.4s")
+          .attr("begin", `${i * 0.8}s`)
+          .attr("repeatCount", "indefinite");
+
+        mapLayer
+          .append("circle")
+          .attr("cx", cx)
+          .attr("cy", cy)
+          .attr("r", 8)
+          .attr("fill", "none")
+          .attr("stroke", color)
+          .attr("stroke-width", 2)
+          .style("pointer-events", "none")
+          .append("animate")
+          .attr("attributeName", "opacity")
+          .attr("from", "0.9")
+          .attr("to", "0")
+          .attr("dur", "2.4s")
+          .attr("begin", `${i * 0.8}s`)
+          .attr("repeatCount", "indefinite");
+      }
+
+      mapLayer
+        .append("circle")
+        .attr("cx", cx)
+        .attr("cy", cy)
+        .attr("r", signal.gpsSignals ? 8 : 6.5)
+        .attr("fill", color)
+        .attr("stroke", "#ffffff")
+        .attr("stroke-width", 2)
+        .attr("filter", "url(#signalGlow)")
+        .style("pointer-events", "none");
+
+      mapLayer
+        .append("circle")
+        .attr("cx", cx)
+        .attr("cy", cy)
+        .attr("r", 2.8)
+        .attr("fill", "#ffffff")
+        .style("pointer-events", "none");
+    });
+
     const zoom = d3
       .zoom<SVGSVGElement, unknown>()
-      .scaleExtent([1, 5])
+      .scaleExtent([1, 6])
       .translateExtent([
-        [-80, -80],
-        [width + 80, height + 80],
+        [-120, -120],
+        [width + 120, height + 120],
       ])
       .on("zoom", (event) => {
-        g.attr("transform", event.transform);
+        mapLayer.attr("transform", event.transform);
+        setZoomText(`%${Math.round(event.transform.k * 100)}`);
       });
 
+    zoomRef.current = zoom;
     svg.call(zoom as any);
 
     setMapReady(true);
   }, [geo, signalMap]);
 
-  return (
-    <section id="live-map" className="mt-16">
-      <div className="relative overflow-hidden rounded-[44px] border border-black/10 bg-[#06110e] p-5 shadow-[0_30px_140px_rgba(0,0,0,.22)] dark:border-white/10 sm:p-7 lg:p-9">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-32 -top-32 h-[420px] w-[420px] rounded-full bg-emerald-500/20 blur-[120px]" />
-          <div className="absolute -right-32 top-24 h-[460px] w-[460px] rounded-full bg-teal-400/12 blur-[120px]" />
-          <div className="absolute bottom-[-180px] left-1/3 h-[420px] w-[420px] rounded-full bg-lime-400/10 blur-[120px]" />
-        </div>
+  function zoomIn() {
+    if (!svgRef.current || !zoomRef.current) return;
 
-        <div className="relative flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+    d3.select(svgRef.current)
+      .transition()
+      .duration(250)
+      .call(zoomRef.current.scaleBy as any, 1.25);
+  }
+
+  function zoomOut() {
+    if (!svgRef.current || !zoomRef.current) return;
+
+    d3.select(svgRef.current)
+      .transition()
+      .duration(250)
+      .call(zoomRef.current.scaleBy as any, 0.8);
+  }
+
+  function resetZoom() {
+    if (!svgRef.current || !zoomRef.current) return;
+
+    d3.select(svgRef.current)
+      .transition()
+      .duration(350)
+      .call(zoomRef.current.transform as any, d3.zoomIdentity);
+
+    setZoomText("%100");
+ }
+return (
+    <section id="live-map" className="mt-16">
+      <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-[34px] border border-white/10 bg-[#020908] p-4 text-white shadow-[0_34px_140px_rgba(0,0,0,.38)] sm:rounded-[42px] sm:p-7">
+        <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
           <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-400/25 bg-emerald-400/10 px-4 py-2 text-xs font-black text-emerald-200">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-400" />
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-100">
+              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,.9)]" />
               CANLI TÜRKİYE HARİTASI
             </div>
 
-            <h2 className="mt-5 max-w-3xl text-3xl font-black tracking-tight text-white sm:text-4xl">
+            <h2 className="mt-5 max-w-4xl text-[34px] font-black leading-[1.03] tracking-[-0.055em] text-white sm:text-5xl lg:text-[64px]">
               Türkiye’nin{" "}
-              <span className="text-emerald-300">hal hareketi anlık</span>{" "}
-              burada.
+              <span className="bg-gradient-to-r from-emerald-200 via-lime-200 to-emerald-100 bg-clip-text text-transparent">
+                hal hareketi
+              </span>{" "}
+              anlık burada.
             </h2>
 
-            <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/60 sm:text-base">
+            <p className="mt-4 max-w-3xl text-base font-medium leading-relaxed text-white/76">
               İlan ve talep sinyalleri il bazlı olarak haritada canlı görünür.
+              GPS destekli kayıtlar turkuaz renkle öne çıkar.
             </p>
           </div>
 
-          <div className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-4 py-2 text-xs font-black text-emerald-200">
-            ● CANLI
+          <div className="flex flex-col gap-3 sm:flex-row lg:w-[340px] lg:flex-col">
+            <button
+              type="button"
+              onClick={loadDashboard}
+              className="inline-flex h-14 items-center justify-center rounded-2xl border border-white/10 bg-[#071713] px-6 text-sm font-black text-white shadow-[0_18px_70px_rgba(0,0,0,.22)] transition hover:bg-[#0b211b]"
+            >
+              <span className="mr-2 h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(110,231,183,.9)]" />
+              Canlı Veriyi Yenile ↻
+            </button>
+
+            <div className="rounded-2xl border border-white/10 bg-[#071713] px-5 py-3 text-xs font-bold text-white/62">
+              Son güncelleme:
+              <span className="ml-2 font-black text-white">
+                {lastRefresh || "yükleniyor"}
+              </span>
+            </div>
+
+            <div className="relative overflow-hidden rounded-[24px] border border-emerald-300/20 bg-[#071713] p-5 shadow-[0_22px_90px_rgba(0,0,0,.26)]">
+              <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-300/14 blur-3xl" />
+              <div className="pointer-events-none absolute -bottom-10 left-1/2 h-28 w-28 -translate-x-1/2 rounded-full bg-cyan-300/10 blur-3xl" />
+
+              <div className="relative flex items-center gap-4">
+                <div className="relative flex h-24 w-24 shrink-0 items-center justify-center [perspective:900px]">
+                  <div className="absolute inset-0 animate-ping rounded-full border border-emerald-300/18" />
+                  <div className="absolute h-16 w-16 rounded-full bg-emerald-300/12 blur-2xl" />
+
+                  <div className="animate-[halappSatellite3D_3.8s_ease-in-out_infinite] text-6xl drop-shadow-[0_0_26px_rgba(110,231,183,.55)] [transform-style:preserve-3d]">
+                    🛰️
+                  </div>
+
+                  <span className="absolute left-1/2 top-1/2 h-[2px] w-20 origin-left animate-[satelliteSignalBeam_1.6s_ease-in-out_infinite] bg-gradient-to-r from-emerald-300 via-cyan-200 to-transparent shadow-[0_0_18px_rgba(103,232,249,.7)]" />
+                  <span className="absolute left-1/2 top-1/2 h-[2px] w-16 origin-left rotate-[28deg] animate-[satelliteSignalBeam_1.9s_ease-in-out_infinite] bg-gradient-to-r from-lime-200 via-emerald-200 to-transparent shadow-[0_0_18px_rgba(190,242,100,.7)]" />
+                  <span className="absolute left-1/2 top-1/2 h-[2px] w-14 origin-left -rotate-[26deg] animate-[satelliteSignalBeam_2.2s_ease-in-out_infinite] bg-gradient-to-r from-cyan-200 via-emerald-200 to-transparent shadow-[0_0_18px_rgba(103,232,249,.7)]" />
+                </div>
+
+                <div className="min-w-0">
+                  <div className="inline-flex rounded-full bg-emerald-300/10 px-3 py-1 text-[10px] font-black text-emerald-200">
+                    SON SİNYAL
+                  </div>
+
+                  <div className="mt-3 text-2xl font-black text-white">
+                    {lastSignalCity}
+                  </div>
+
+                  <div className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-white/68">
+                    {lastSignalTitle}
+                  </div>
+
+                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black">
+                    <span className="rounded-full bg-cyan-300/10 px-2.5 py-1 text-cyan-200">
+                      {lastSignalSource}
+                    </span>
+
+                    <span className="rounded-full bg-white/8 px-2.5 py-1 text-white/70">
+                      {timeAgoTR(lastSignal?.createdAt)}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="pointer-events-none absolute right-5 top-5 animate-[lastCityBlink_1.4s_ease-in-out_infinite] rounded-full border border-emerald-300/30 bg-emerald-300/12 px-3 py-1 text-[11px] font-black text-emerald-100">
+                {lastSignalCity}
+              </div>
+            </div>
           </div>
         </div>
 
-        <div className="relative mt-7 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-          <StatBox
-            icon="📦"
-            label="Aktif İlan"
-            value={dashboard.activeListings}
-            sub="Yayındaki akış"
-          />
-
-          <StatBox
-            icon="👥"
-            label="Aktif Satıcı"
-            value={dashboard.activeSellers}
-            sub="Türkiye genelinde"
-          />
-
-          <StatBox
-            icon="🎯"
-            label="Alıcı Talebi"
-            value={dashboard.buyerRequests}
-            sub="Pazarda bekleyen"
-          />
-
-          <StatBox
-            icon="🏙️"
-            label="Sinyal Veren İl"
-            value={dashboard.activeSignalCities}
-            sub="Son 24 saat"
-          />
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard icon="📦" label="Aktif İlan" value={dashboard.activeListings} sub="Yayındaki akış" />
+          <StatCard icon="👥" label="Aktif Satıcı" value={dashboard.activeSellers} sub="Türkiye genelinde" />
+          <StatCard icon="🎯" label="Alıcı Talebi" value={dashboard.buyerRequests} sub="Pazarda bekleyen" />
+          <StatCard icon="🏙️" label="Sinyal Veren İl" value={dashboard.activeSignalCities} sub="Son 24 saat" />
+          <StatCard icon="⚡" label="5dk Sinyal" value={dashboard.totalSignals5m} sub="Anlık radar hareketi" />
         </div>
 
-        <div className="relative mt-6 overflow-hidden rounded-[34px] border border-white/10 bg-[#071b15] p-4 shadow-[0_24px_100px_rgba(0,0,0,.25)]">
-          <div className="relative aspect-[16/6.3] min-h-[390px] overflow-hidden rounded-[28px] border border-white/10 bg-[#061713]">
-            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.035)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.035)_1px,transparent_1px)] bg-[size:42px_42px]" />
-            <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_22%,rgba(52,211,153,.22),transparent_26%),radial-gradient(circle_at_72%_55%,rgba(45,212,191,.14),transparent_32%)]" />
+        <div className="mt-6 overflow-hidden rounded-[32px] border border-white/10 bg-[#061512] p-3 shadow-[0_28px_110px_rgba(0,0,0,.26)] sm:p-4">
+          <div className="relative min-h-[440px] overflow-hidden rounded-[26px] border border-white/10 bg-[#03100d] lg:min-h-[560px]">
+            <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.038)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.038)_1px,transparent_1px)] bg-[size:36px_36px]" />
+            <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(52,211,153,.18),transparent_26%),radial-gradient(circle_at_78%_62%,rgba(45,212,191,.12),transparent_32%)]" />
 
-            <div className="absolute left-5 top-5 z-40 max-w-[310px] rounded-2xl border border-white/10 bg-black/40 px-4 py-3 text-xs font-bold text-white/75 backdrop-blur-xl">
-              <span className="mr-2 inline-flex h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-400" />
-              {ticker
-                ? `Şu an ${ticker.city} bölgesinde hareket var`
-                : "Canlı sinyal bekleniyor"}
+            <div className="absolute left-4 top-4 z-30 rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-sm font-black text-white backdrop-blur-xl sm:left-5 sm:top-5">
+              CANLI TÜRKİYE HARİTASI
+
+              <div className="mt-3 flex flex-wrap gap-3 text-xs font-semibold text-white/78">
+                <span>🟢 Düşük</span>
+                <span>🟡 Orta</span>
+                <span>🟠 Yüksek</span>
+                <span>🔴 Çok Yüksek</span>
+                <span className="text-cyan-200">● GPS Sinyal</span>
+              </div>
             </div>
 
-            <div className="absolute right-5 top-5 z-40 hidden rounded-2xl border border-white/10 bg-black/35 px-4 py-3 text-[11px] font-bold text-white/70 backdrop-blur-xl lg:flex lg:items-center lg:gap-4">
-              <span>SİNYAL YOĞUNLUĞU</span>
-              <span className="flex items-center gap-1">
-                <i className="h-2.5 w-2.5 rounded-full bg-emerald-400" /> Düşük
-              </span>
-              <span className="flex items-center gap-1">
-                <i className="h-2.5 w-2.5 rounded-full bg-yellow-300" /> Orta
-              </span>
-              <span className="flex items-center gap-1">
-                <i className="h-2.5 w-2.5 rounded-full bg-orange-400" /> Yüksek
-              </span>
-              <span className="flex items-center gap-1">
-                <i className="h-2.5 w-2.5 rounded-full bg-red-500" /> Çok Yüksek
-              </span>
+            <div className="absolute right-4 top-4 z-30 hidden items-center gap-3 lg:flex">
+              <button
+                type="button"
+                onClick={zoomOut}
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/45 text-lg font-black text-white transition hover:bg-white/10"
+              >
+                −
+              </button>
+
+              <button
+                type="button"
+                onClick={resetZoom}
+                className="h-11 rounded-xl border border-white/10 bg-black/45 px-4 text-sm font-black text-white transition hover:bg-white/10"
+              >
+                {zoomText}
+              </button>
+
+              <button
+                type="button"
+                onClick={zoomIn}
+                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/45 text-lg font-black text-white transition hover:bg-white/10"
+              >
+                +
+              </button>
             </div>
 
             {!mapReady && (
-              <div className="absolute inset-0 z-20 flex items-center justify-center">
-                <div className="rounded-2xl border border-white/10 bg-black/45 px-5 py-4 text-sm font-black text-white/70 backdrop-blur-xl">
+              <div className="absolute inset-0 z-30 flex items-center justify-center">
+                <div className="rounded-2xl border border-white/10 bg-black/70 px-5 py-4 text-sm font-black text-white backdrop-blur-xl">
                   Türkiye haritası yükleniyor...
                 </div>
               </div>
             )}
 
-            <svg ref={svgRef} className="relative z-10 h-full w-full" />
+            <svg
+              ref={svgRef}
+              className="relative z-10 h-full min-h-[440px] w-full lg:min-h-[560px]"
+            />
 
             {tooltip && (
               <div
-                className="pointer-events-none absolute z-50 rounded-2xl border border-white/10 bg-black/80 px-4 py-3 text-xs font-black text-white shadow-xl backdrop-blur-xl"
-                style={{ left: tooltip.x + 16, top: tooltip.y + 16 }}
+                className="pointer-events-none absolute z-50 w-[240px] rounded-2xl border border-white/15 bg-black/85 p-4 text-white shadow-[0_22px_70px_rgba(0,0,0,.38)] backdrop-blur-2xl"
+                style={{
+                  left: Math.min(tooltip.x + 18, 880),
+                  top: Math.max(tooltip.y - 20, 12),
+                }}
               >
-                {tooltip.city}
+                <div className="flex items-center justify-between gap-3">
+                  <div className="truncate text-base font-black">
+                    {tooltip.city}
+                  </div>
 
-                <div className="mt-1 text-emerald-300">
-                  {tooltip.signals} canlı sinyal
+                  <span className="rounded-full bg-emerald-400/12 px-2 py-1 text-[10px] font-black text-emerald-200">
+                    LIVE
+                  </span>
+                </div>
+
+                <div className="mt-3 grid grid-cols-2 gap-2 text-center">
+                  <div className="rounded-xl bg-white/10 p-2">
+                    <div className="text-lg font-black">{tooltip.signals}</div>
+                    <div className="text-[10px] font-bold text-white/55">24s Sinyal</div>
+                  </div>
+
+                  <div className="rounded-xl bg-emerald-400/12 p-2">
+                    <div className="text-lg font-black text-emerald-200">
+                      {tooltip.recentSignals}
+                    </div>
+                    <div className="text-[10px] font-bold text-white/55">5dk</div>
+                  </div>
+
+                  <div className="rounded-xl bg-cyan-400/12 p-2">
+                    <div className="text-lg font-black text-cyan-200">
+                      {tooltip.gpsSignals}
+                    </div>
+                    <div className="text-[10px] font-bold text-white/55">GPS</div>
+                  </div>
+
+                  <div className="rounded-xl bg-orange-400/12 p-2">
+                    <div className="text-lg font-black text-orange-200">
+                      {tooltip.ipSignals}
+                    </div>
+                    <div className="text-[10px] font-bold text-white/55">IP</div>
+                  </div>
                 </div>
               </div>
             )}
+
+            <div className="absolute bottom-4 left-4 z-30 rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-sm font-semibold text-white backdrop-blur-xl sm:bottom-5 sm:left-5">
+              <div className="font-black">81 il kapsanıyor</div>
+              <div className="mt-1 text-xs text-white/65">
+                Gerçek zamanlı izleniyor
+              </div>
+            </div>
+
+            <div className="absolute bottom-4 right-4 z-30 hidden max-w-[390px] rounded-2xl border border-white/10 bg-black/60 px-4 py-3 text-xs font-semibold leading-relaxed text-white/78 backdrop-blur-xl sm:bottom-5 sm:right-5 sm:block">
+              <span className="text-emerald-200">● GPS doğruluğu</span> olan
+              sinyaller turkuaz renkte gösterilir.
+              <br />
+              <span className="text-yellow-200">● IP tabanlı</span> sinyaller
+              yoğunluğa göre renklendirilir.
+            </div>
           </div>
         </div>
 
-        <div className="relative mt-6 grid gap-5 lg:grid-cols-12">
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-5 backdrop-blur-xl lg:col-span-4">
-            <div className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-white/55">
-              En Fazla Sinyal Gelen İller
+        <div className="mt-6 grid gap-5 lg:grid-cols-[1fr_1.25fr_1fr]">
+          <div className="rounded-[26px] border border-white/10 bg-[#061512] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-black tracking-wide text-white">
+                EN FAZLA SİNYAL ALAN İLLER
+              </div>
+
+              <span className="rounded-full bg-emerald-300/10 px-3 py-1 text-[11px] font-black text-emerald-200">
+                24 SAAT
+              </span>
             </div>
 
-            <div className="space-y-3">
+            <div className="mt-5 divide-y divide-white/8">
               {(topCities.length
                 ? topCities
-                : [{ city: "Antalya", signals: 0 }]
-              ).map((s, i) => (
-                <div key={`${s.city}-${i}`} className="flex items-center gap-3">
-                  <span className="w-4 text-xs font-black text-white/50">
-                    {i + 1}
-                  </span>
+                : [{ city: "Sinyal bekleniyor", signals: 0 }]
+              ).map((s, i) => {
+                const city = s as CitySignal;
+                const color = signalColor(city);
 
-                  <span className={`h-3 w-3 rounded-full ${glowClass(s.signals)}`} />
+                return (
+                  <button
+                    type="button"
+                    key={`${city.city}-${i}`}
+                    className="flex w-full items-center gap-3 py-3 text-left transition hover:translate-x-1"
+                  >
+                    <div className="w-5 text-sm font-black text-white/78">
+                      {i + 1}
+                    </div>
 
-                  <span className="flex-1 text-sm font-black text-white">
-                    {s.city}
-                  </span>
+                    <div
+                      className="h-3.5 w-3.5 rounded-full shadow-[0_0_18px]"
+                      style={{
+                        backgroundColor: color,
+                        boxShadow: `0 0 18px ${color}`,
+                      }}
+                    />
 
-                  <span className="text-xs font-bold text-white/70">
-                    {s.signals} sinyal
-                  </span>
-                </div>
-              ))}
+                    <div className="min-w-0 flex-1 truncate text-sm font-black text-white">
+                      {city.city}
+                    </div>
+
+                    <div className="text-right text-xs font-semibold text-white/70">
+                      {city.signals ?? 0} sinyal
+                      <div className="mt-1 inline-flex rounded-md bg-emerald-400/10 px-2 py-0.5 text-[10px] font-black text-emerald-200">
+                        {city.gpsSignals ? "GPS" : "IP"}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
+
+            <a
+              href="/pazar"
+              className="mt-5 flex h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm font-black text-white transition hover:bg-white/10"
+            >
+              Tüm şehirleri görüntüle →
+            </a>
           </div>
 
-          <div className="rounded-[28px] border border-white/10 bg-white/[0.045] p-5 backdrop-blur-xl lg:col-span-4">
-            <div className="mb-4 text-xs font-black uppercase tracking-[0.18em] text-white/55">
-              Canlı Sinyal Akışı
+          <div className="rounded-[26px] border border-white/10 bg-[#061512] p-5">
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm font-black tracking-wide text-white">
+                CANLI PAZAR NABZI
+              </div>
+
+              <span className="rounded-full bg-emerald-300/10 px-3 py-1 text-[11px] font-black text-emerald-200">
+                LIVE
+              </span>
             </div>
 
-            <div className="space-y-4">
-              {(latest.length
-                ? latest
-                : [{ city: "Bekleniyor", listingTitle: "Canlı veri bekleniyor" }]
-              ).map((s, i) => (
-                <div key={`${s.city}-${i}`} className="flex gap-3">
-                  <span className="mt-1 h-3 w-3 animate-pulse rounded-full bg-emerald-400 shadow-[0_0_20px_rgba(52,211,153,.7)]" />
+            <div className="relative mt-5 h-[360px] overflow-hidden">
+              <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-8 bg-gradient-to-b from-[#061512] to-transparent" />
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-8 bg-gradient-to-t from-[#061512] to-transparent" />
 
-                  <div className="min-w-0">
-                    <div className="text-[11px] font-bold text-white/40">
-                      {timeAgoTR(s.createdAt)}
-                    </div>
+              {tickerFlow.length ? (
+                <div className="animate-[tickerFlow_20s_linear_infinite] space-y-3 hover:[animation-play-state:paused]">
+                  {tickerFlow.map((s, i) => (
+                    <a
+                      key={`${s.createdAt}-${i}`}
+                      href={s.listingId ? `/pazar/${s.listingId}` : "/pazar"}
+                      className="flex items-center gap-4 rounded-2xl border border-white/10 bg-black/30 p-4 transition hover:bg-white/[0.06]"
+                    >
+                      <div className="h-3 w-3 shrink-0 rounded-full border-2 border-emerald-300 shadow-[0_0_16px_rgba(110,231,183,.8)]" />
 
-                    <div className="truncate text-sm font-black text-white">
-                      Şu an {s.city} bölgesinde hareket var
-                    </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="text-[11px] font-semibold text-white/55">
+                          {timeAgoTR(s.createdAt)}
+                        </div>
 
-                    <div className="truncate text-xs font-semibold text-white/55">
-                      {s.listingTitle}
-                    </div>
-                  </div>
+                        <div className="mt-1 line-clamp-2 text-sm font-semibold leading-relaxed text-white">
+                          {signalSentence(s)}
+                        </div>
+
+                        <div className="mt-2 flex gap-2 text-xs font-medium text-white/58">
+                          <span>{s.deviceType || "web"}</span>
+                          <span>•</span>
+                          <span
+                            className={
+                              s.locationSource === "gps"
+                                ? "text-cyan-200"
+                                : "text-orange-200"
+                            }
+                          >
+                            {s.locationSource === "gps" ? "GPS" : "IP"}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="text-4xl">
+                        {productEmoji(s.productName || s.listingTitle)}
+                      </div>
+                    </a>
+                  ))}
                 </div>
-              ))}
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm font-black text-white/60">
+                  Canlı sinyal bekleniyor.
+                </div>
+              )}
             </div>
+
+            <a
+              href="/pazar"
+              className="mt-4 flex h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm font-black text-white transition hover:bg-white/10"
+            >
+              Tüm akışı görüntüle →
+            </a>
           </div>
 
-          <div className="rounded-[28px] border border-emerald-400/15 bg-emerald-400/8 p-5 backdrop-blur-xl lg:col-span-4">
-            <div className="flex items-start gap-5">
-              <div className="relative flex h-20 w-20 shrink-0 items-center justify-center [perspective:700px]">
-                <div className="absolute inset-0 rounded-full bg-emerald-400/18 blur-2xl" />
-
-                <div className="animate-[satellite3d_4s_ease-in-out_infinite] text-5xl drop-shadow-[0_0_24px_rgba(52,211,153,.55)] [transform-style:preserve-3d]">
-                  🛰️
-                </div>
-
-                <span className="absolute h-28 w-28 animate-ping rounded-full border border-emerald-300/20" />
-              </div>
-
-              <div>
-                <h3 className="text-xl font-black text-emerald-300">
-                  Pazar her yerde hareket ediyor
-                </h3>
-
-                <p className="mt-2 text-sm leading-relaxed text-white/60">
-                  HalApp, Türkiye genelindeki hal ve pazar sinyallerini gerçek
-                  zamanlı izler.
-                </p>
-              </div>
+          <div className="rounded-[26px] border border-white/10 bg-[#061512] p-5">
+            <div className="text-sm font-black tracking-wide text-white">
+              HALAPP AVANTAJLARI
             </div>
 
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {[
-                ["👥", "Gerçek Zamanlı", "Anlık ilan ve talep"],
-                ["🗺️", "81 İl Kapsamı", "Türkiye’nin her ili"],
-                ["🛡️", "Güvenli Ticaret", "Doğru alıcı, doğru satıcı"],
-              ].map(([icon, title, text]) => (
-                <div
-                  key={title}
-                  className="rounded-2xl border border-white/10 bg-white/[0.045] p-4 transition hover:-translate-y-1 hover:bg-white/[0.075]"
-                >
-                  <div className="text-2xl">{icon}</div>
-                  <div className="mt-3 text-sm font-black text-white">{title}</div>
-                  <div className="mt-1 text-xs font-semibold text-white/45">
+            <div className="mt-5 space-y-3">
+              <AdvantageCard icon="⚡" title="Gerçek Zamanlı" text="Anlık ilan ve talep sinyalleri" />
+              <AdvantageCard icon="🗺️" title="81 İl Kapsamı" text="Türkiye’nin her ilinden canlı veri" />
+              <AdvantageCard icon="🎯" title="GPS Doğruluğu" text="İzin veren kullanıcının kesin konumu" />
+              <AdvantageCard icon="🛡️" title="Güvenli Ticaret" text="Doğru alıcı, doğru satıcı ile buluşur" />
+              <AdvantageCard icon="🛰️" title="Pazar her yerde hareket ediyor!" text="HalApp ile anlık takipte kalın." active />
+            </div>
+          </div>
+        </div>
+
+        <div className="mt-6 rounded-[24px] border border-white/10 bg-[#061512] p-5">
+          <div className="text-sm font-black tracking-wide text-white">
+            SİNYAL YOĞUNLUĞU REHBERİ
+          </div>
+
+          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+            {[
+              ["#86efac", "Düşük", "0 - 20 sinyal"],
+              ["#fde047", "Orta", "20 - 50 sinyal"],
+              ["#fb923c", "Yüksek", "50 - 100 sinyal"],
+              ["#ef4444", "Çok Yüksek", "100+ sinyal"],
+              ["#2dd4bf", "GPS Sinyal", "Kesin konum"],
+            ].map(([color, title, text]) => (
+              <div key={title} className="flex items-center gap-3">
+                <span className="relative flex h-5 w-5 items-center justify-center">
+                  <span
+                    className="absolute h-5 w-5 animate-[legendSignalPulse_1.8s_ease-out_infinite] rounded-full border"
+                    style={{
+                      borderColor: color,
+                      boxShadow: `0 0 18px ${color}`,
+                    }}
+                  />
+
+                  <span
+                    className="absolute h-3.5 w-3.5 animate-[legendSignalSoft_1.8s_ease-in-out_infinite] rounded-full"
+                    style={{
+                      backgroundColor: color,
+                      boxShadow: `0 0 16px ${color}`,
+                    }}
+                  />
+
+                  <span className="relative h-2 w-2 rounded-full bg-white/90" />
+                </span>
+
+                <div>
+                  <div className="text-sm font-black text-white">{title}</div>
+                  <div className="text-xs font-medium text-white/55">
                     {text}
                   </div>
                 </div>
-              ))}
-            </div>
-
-            <style jsx>{`
-              @keyframes satellite3d {
-                0%, 100% {
-                  transform: rotateX(12deg) rotateY(-18deg) translateY(0) scale(1);
-                }
-                50% {
-                  transform: rotateX(-8deg) rotateY(22deg) translateY(-10px) scale(1.08);
-                }
-              }
-            `}</style>
+              </div>
+            ))}
           </div>
         </div>
+
+        <style jsx>{`
+          @keyframes tickerFlow {
+            0% {
+              transform: translateY(0);
+            }
+            100% {
+              transform: translateY(-50%);
+            }
+          }
+
+          @keyframes halappSatellite3D {
+            0%, 100% {
+              transform: rotateX(14deg) rotateY(-18deg) translateY(0) scale(1);
+            }
+            50% {
+              transform: rotateX(-8deg) rotateY(22deg) translateY(-10px) scale(1.08);
+            }
+          }
+
+          @keyframes satelliteSignalBeam {
+            0%, 100% {
+              opacity: 0.15;
+              transform: scaleX(0.25);
+            }
+            50% {
+              opacity: 1;
+              transform: scaleX(1);
+            }
+          }
+
+          @keyframes lastCityBlink {
+            0%, 100% {
+              opacity: 0.35;
+              transform: scale(0.96);
+            }
+            50% {
+              opacity: 1;
+              transform: scale(1.04);
+            }
+          }
+
+          @keyframes legendSignalPulse {
+            0% {
+              opacity: 0.85;
+              transform: scale(0.65);
+            }
+            100% {
+              opacity: 0;
+              transform: scale(2.35);
+            }
+          }
+
+          @keyframes legendSignalSoft {
+            0%, 100% {
+              opacity: 0.72;
+              transform: scale(0.92);
+            }
+            50% {
+              opacity: 1;
+              transform: scale(1.12);
+            }
+          }
+        `}</style>
       </div>
     </section>
   );
