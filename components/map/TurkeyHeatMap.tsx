@@ -153,25 +153,93 @@ function timeAgoTR(value?: string) {
   return `${Math.floor(hour / 24)} gün önce`;
 }
 
-function productEmoji(title: any) {
-  const t = cityKey(String(title ?? ""));
+function productEmoji(name: any) {
+  const s = String(name ?? "")
+    .toLocaleLowerCase("tr-TR")
+    .trim();
 
-  if (t.includes("limon")) return "🍋";
-  if (t.includes("avokado")) return "🥑";
-  if (t.includes("blue") || t.includes("yaban")) return "🫐";
-  if (t.includes("kayisi") || t.includes("seftali")) return "🍑";
-  if (t.includes("domates")) return "🍅";
-  if (t.includes("portakal") || t.includes("mandalina")) return "🍊";
-  if (t.includes("elma")) return "🍎";
-  if (t.includes("uzum")) return "🍇";
-  if (t.includes("salatalik")) return "🥒";
-  if (t.includes("karpuz")) return "🍉";
-  if (t.includes("kavun")) return "🍈";
-  if (t.includes("biber")) return "🌶️";
-  if (t.includes("patlican")) return "🍆";
-  if (t.includes("kuskonmaz")) return "🌱";
+  if (!s) return "🧺";
 
-  return "📍";
+  // Meyveler
+  if (s.includes("elma")) return "🍎";
+  if (s.includes("armut")) return "🍐";
+  if (s.includes("portakal")) return "🍊";
+  if (s.includes("mandalina")) return "🍊";
+  if (s.includes("greyfurt")) return "🍊";
+  if (s.includes("limon")) return "🍋";
+  if (s.includes("muz")) return "🍌";
+  if (s.includes("karpuz")) return "🍉";
+  if (s.includes("kavun")) return "🍈";
+  if (s.includes("üzüm")) return "🍇";
+  if (s.includes("çilek")) return "🍓";
+  if (s.includes("ahududu")) return "🫐";
+  if (s.includes("böğürtlen")) return "🫐";
+  if (s.includes("blueberry")) return "🫐";
+  if (s.includes("yaban mersini")) return "🫐";
+  if (s.includes("kiraz")) return "🍒";
+  if (s.includes("vişne")) return "🍒";
+  if (s.includes("şeftali")) return "🍑";
+  if (s.includes("kayısı")) return "🍑";
+  if (s.includes("nektarin")) return "🍑";
+  if (s.includes("erik")) return "🟣";
+  if (s.includes("nar")) return "🔴";
+  if (s.includes("ayva")) return "🍐";
+  if (s.includes("incir")) return "🟣";
+  if (s.includes("kivi")) return "🥝";
+  if (s.includes("ananas")) return "🍍";
+  if (s.includes("mango")) return "🥭";
+  if (s.includes("avokado")) return "🥑";
+  if (s.includes("hindistan cevizi")) return "🥥";
+  if (s.includes("hurma")) return "🌴";
+  if (s.includes("dut")) return "🫐";
+  if (s.includes("altın çilek")) return "🍓";
+
+  // Sebzeler
+  if (s.includes("domates")) return "🍅";
+  if (s.includes("biber")) return "🌶️";
+  if (s.includes("patlıcan")) return "🍆";
+  if (s.includes("salatalık")) return "🥒";
+  if (s.includes("hıyar")) return "🥒";
+  if (s.includes("kabak")) return "🎃";
+  if (s.includes("patates")) return "🥔";
+  if (s.includes("soğan")) return "🧅";
+  if (s.includes("sarımsak")) return "🧄";
+  if (s.includes("havuç")) return "🥕";
+  if (s.includes("turp")) return "🥕";
+  if (s.includes("pancar")) return "🥕";
+  if (s.includes("brokoli")) return "🥦";
+  if (s.includes("karnabahar")) return "🥦";
+  if (s.includes("lahana")) return "🥬";
+  if (s.includes("marul")) return "🥬";
+  if (s.includes("ıspanak")) return "🥬";
+  if (s.includes("pazı")) return "🥬";
+  if (s.includes("kereviz")) return "🥬";
+  if (s.includes("pırasa")) return "🥬";
+  if (s.includes("enginar")) return "🌿";
+  if (s.includes("bamya")) return "🌿";
+  if (s.includes("fasulye")) return "🫛";
+  if (s.includes("bezelye")) return "🫛";
+  if (s.includes("bakla")) return "🫛";
+  if (s.includes("mısır")) return "🌽";
+  if (s.includes("mantar")) return "🍄";
+  if (s.includes("kuşkonmaz")) return "🌱";
+
+  // Yeşillikler
+  if (s.includes("roka")) return "🌿";
+  if (s.includes("nane")) return "🌿";
+  if (s.includes("maydanoz")) return "🌿";
+  if (s.includes("dereotu")) return "🌿";
+  if (s.includes("fesleğen")) return "🌿";
+  if (s.includes("tere")) return "🌿";
+
+  // Kuru yemiş
+  if (s.includes("ceviz")) return "🥜";
+  if (s.includes("badem")) return "🥜";
+  if (s.includes("fındık")) return "🥜";
+  if (s.includes("antep fıstığı")) return "🥜";
+
+  // Genel
+  return "🧺";
 }
 
 function signalColor(s?: CitySignal) {
@@ -967,7 +1035,7 @@ return (
             </div>
 
             <a
-              href="/pazar"
+              href="/signals"
               className="mt-5 flex h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm font-black text-white transition hover:bg-white/10"
             >
               Tüm şehirleri görüntüle →
@@ -1023,7 +1091,7 @@ return (
                         </div>
                       </div>
 
-                      <div className="text-4xl">
+                      <div className="flex h-14 w-14 items-center justify-center rounded-2xl border border-white/10 bg-white/5 text-3xl shadow-[0_0_30px_rgba(255,255,255,.08)]">
                         {productEmoji(s.productName || s.listingTitle)}
                       </div>
                     </a>
