@@ -12,6 +12,7 @@ import TrackInit from "@/components/TrackInit";
 import ConsentScripts from "@/components/ConsentScripts";
 
 import PushNavigationListener from "@/components/PushNavigationListener";
+import { Analytics } from "@vercel/analytics/next";
 
 const SITE_URL = "https://halapp.app";
 
@@ -358,6 +359,7 @@ export default function RootLayout({
             <CookieConsent />
           </ToastProvider>
         </Providers>
+        <Analytics />
       </body>
     </html>
   );
