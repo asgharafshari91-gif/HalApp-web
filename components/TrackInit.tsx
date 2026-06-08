@@ -1,15 +1,17 @@
-// components/TrackInit.tsx
 "use client";
 
-import { useEffect } from "react";
+import { Suspense, useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
-import { initTrackingAutoSync, trackPageView, isAnalyticsAllowed } from "@/lib/track";
+import {
+  initTrackingAutoSync,
+  trackPageView,
+  isAnalyticsAllowed,
+} from "@/lib/track";
 
-export default function TrackInit() {
+function TrackInitInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
-  // ✅ Consent <-> tracking otomatik senkron (analytics kapalıysa NO-OP kalkan)
   useEffect(() => {
     try {
       const unsub = initTrackingAutoSync();
@@ -25,7 +27,6 @@ export default function TrackInit() {
     }
   }, []);
 
-  // ✅ SPA route change => page_view (analytics açıksa)
   useEffect(() => {
     try {
       if (!isAnalyticsAllowed()) return;
@@ -36,8 +37,15 @@ export default function TrackInit() {
     } catch {
       // no-op
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, searchParams]);
 
   return null;
+}
+
+export default function TrackInit() {
+  return (
+    <Suspense fallback={null}>
+      <TrackInitInner />
+    </Suspense>
+  );
 }
