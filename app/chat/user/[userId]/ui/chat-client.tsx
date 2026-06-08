@@ -17,24 +17,20 @@ type ProfileMini = {
 };
 
 type Msg = {
+  client_temp_id?: string;
   id: number;
   conversation_id: string;
   sender_id: string | null;
   receiver_id: string | null;
-
   content: string | null;
   body: string | null;
-
   media_url: string | null;
-  media_type: string | null; // image/video/file/audio
+  media_type: string | null;
   type: string | null;
-
   created_at: string | null;
-
   is_read: boolean | null;
   read_at: string | null;
   delivered_at: string | null;
-
   deleted_at: string | null;
   deleted_for: string[] | null;
 };
@@ -121,7 +117,7 @@ export default function ChatClient({ userId }: { userId: string }) {
     if (!pinnedMessageId) return null;
     return messages.find((m) => m.id === pinnedMessageId) ?? null;
   }, [pinnedMessageId, messages]);
-
+const [viewer, setViewer] = useState<Msg | null>(null);
   // ---- realtime
   const chRef = useRef<RealtimeChannel | null>(null);
 
@@ -154,50 +150,44 @@ export default function ChatClient({ userId }: { userId: string }) {
 
   // ---------- Conversation ----------
   async function ensureConversation(uid: string, peerId: string) {
-    const key = dmKey(uid, peerId);
+  const key = dmKey(uid, peerId);
 
-    const { data: found, error: e1 } = await supabase
-      .from("conversations")
-      .select("id, buyer_id, seller_id, dm_key")
-      .eq("dm_key", key)
-      .maybeSingle();
+  // 1) Önce dm_key ile ara
+  const { data: byKey, error: keyError } = await supabase
+    .from("conversations")
+    .select("id")
+    .eq("dm_key", key)
+    .maybeSingle();
 
-    if (e1) throw e1;
+  if (keyError) throw keyError;
 
-    let id = (found?.id as string | undefined) ?? undefined;
-
-    if (!id) {
-      // role_in_chat constraint: buyer/seller
-      const { data: ins, error: e2 } = await supabase
-        .from("conversations")
-        .insert({
-          buyer_id: uid,
-          seller_id: peerId,
-          dm_key: key,
-          is_group: false,
-          created_by: uid,
-        })
-        .select("id")
-        .single();
-
-      if (e2) throw e2;
-      id = ins.id as string;
-    }
-
-    // participants seed (role CHECK: buyer/seller)
-    await supabase
-      .from("conversation_participants")
-      .upsert(
-        [
-          { conversation_id: id, user_id: uid, role_in_chat: "buyer" },
-          { conversation_id: id, user_id: peerId, role_in_chat: "seller" },
-        ],
-        { onConflict: "conversation_id,user_id" }
-      );
-
-    setConvId(id);
-    return id;
+  if (byKey?.id) {
+    setConvId(byKey.id);
+    return byKey.id as string;
   }
+
+  // 2) Eski kayıtlar için buyer/seller iki yönlü ara
+  const { data: byUsers, error: userError } = await supabase
+    .from("conversations")
+    .select("id")
+    .or(
+      `and(buyer_id.eq.${uid},seller_id.eq.${peerId}),and(buyer_id.eq.${peerId},seller_id.eq.${uid})`
+    )
+    .limit(1)
+    .maybeSingle();
+
+  if (userError) throw userError;
+
+  if (byUsers?.id) {
+    setConvId(byUsers.id);
+    return byUsers.id as string;
+  }
+
+  // 3) Yeni sohbet oluşturmayı client tarafında yapma, RLS patlatıyor
+  throw new Error(
+    "Bu kullanıcıyla sohbet kaydı bulunamadı. Yeni sohbet başlatma yetkisi için Supabase RLS/RPC ayarı gerekiyor."
+  );
+}
 
   // ---------- Pins ----------
   async function loadPinned(conversationId: string, uid: string) {
@@ -285,7 +275,40 @@ export default function ChatClient({ userId }: { userId: string }) {
       }
     }
   }
+async function deleteMessage(messageId: number) {
+  const uid = myId;
+  if (!uid) return;
 
+  const target = messages.find((m) => m.id === messageId);
+  if (!target) return;
+
+  const oldMessages = messages;
+
+  setMessages((prev) => prev.filter((m) => m.id !== messageId));
+
+  try {
+    const deletedFor = Array.isArray(target.deleted_for)
+      ? Array.from(new Set([...target.deleted_for, uid]))
+      : [uid];
+
+    const { error } = await supabase
+      .from("messages")
+      .update({
+        deleted_for: deletedFor,
+      })
+      .eq("id", messageId);
+
+    if (error) throw error;
+  } catch (e: any) {
+    setMessages(oldMessages);
+
+    toast({
+      variant: "error",
+      title: "Mesaj silinemedi",
+      message: e?.message ?? "Hata",
+    });
+  }
+}
   // ---------- Delivered / Read ----------
   async function markDelivered(conversationId: string, uid: string) {
     await supabase.rpc("mark_conversation_delivered", {
@@ -400,95 +423,193 @@ export default function ChatClient({ userId }: { userId: string }) {
   }
 
   // ---------- Media upload & send ----------
-  async function uploadAndSend(file: File, kind: "image" | "video" | "file" | "audio") {
-    const uid = myId;
-    const cid = convId;
-    const peerId = userId;
-    if (!uid || !cid || !peerId) return;
+  async function uploadAndSend(
+  file: File,
+  kind: "image" | "video" | "file" | "audio"
+) {
+  const uid = myId;
+  const cid = convId;
+  const peerId = userId;
 
-    setSending(true);
-    try {
-      const ext = (file.name.split(".").pop() || "bin").toLowerCase();
-      const folder =
-        kind === "image" ? "foto" : kind === "video" ? "video" : kind === "audio" ? "ses" : "dosya";
+  if (!uid || !cid || !peerId) return;
 
-      const path = `${folder}/${cid}/${uid}/${Date.now()}.${ext}`;
+  const tempId = `temp-media-${Date.now()}`;
+  const localUrl = URL.createObjectURL(file);
 
-      const { error: upErr } = await supabase.storage
-        .from("chat_media")
-        .upload(path, file, { contentType: file.type });
+  const fallbackText =
+    kind === "image"
+      ? "📷 Fotoğraf"
+      : kind === "video"
+      ? "🎬 Video"
+      : kind === "audio"
+      ? "🎤 Ses"
+      : "📎 Dosya";
 
-      if (upErr) throw upErr;
+  const optimisticMsg: Msg = {
+    client_temp_id: tempId,
+    id: -Date.now(),
+    conversation_id: cid,
+    sender_id: uid,
+    receiver_id: peerId,
+    content: fallbackText,
+    body: fallbackText,
+    media_url: localUrl,
+    media_type: kind,
+    type: kind,
+    created_at: new Date().toISOString(),
+    is_read: false,
+    read_at: null,
+    delivered_at: null,
+    deleted_at: null,
+    deleted_for: null,
+  };
 
-      const { data: pub } = supabase.storage.from("chat_media").getPublicUrl(path);
-      const url = pub.publicUrl;
+  setMessages((prev) => [...prev, optimisticMsg]);
+  setSending(true);
 
-      const fallbackText =
-        kind === "image" ? "📷 Fotoğraf" : kind === "video" ? "🎬 Video" : kind === "audio" ? "🎤 Ses" : "📎 Dosya";
+  try {
+    const ext = (file.name.split(".").pop() || "bin").toLowerCase();
 
-      const { error } = await supabase.from("messages").insert({
+    const folder =
+      kind === "image"
+        ? "foto"
+        : kind === "video"
+        ? "video"
+        : kind === "audio"
+        ? "ses"
+        : "dosya";
+
+    const path = `${folder}/${cid}/${uid}/${Date.now()}.${ext}`;
+
+    const { error: upErr } = await supabase.storage
+      .from("chat_media")
+      .upload(path, file, {
+        contentType: file.type,
+      });
+
+    if (upErr) throw upErr;
+
+    const { data: pub } = supabase.storage.from("chat_media").getPublicUrl(path);
+    const url = pub.publicUrl;
+
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({
         conversation_id: cid,
         sender_id: uid,
         receiver_id: peerId,
         from_user: uid,
         to_user: peerId,
-
         content: fallbackText,
         body: fallbackText,
-
         type: kind,
         media_type: kind,
         media_url: url,
-
         is_read: false,
-      });
+      })
+      .select(
+        "id, conversation_id, sender_id, receiver_id, content, body, media_url, media_type, type, created_at, is_read, read_at, delivered_at, deleted_at, deleted_for"
+      )
+      .single();
 
-      if (error) throw error;
-    } catch (e: any) {
-      toast({ variant: "error", title: "Yüklenemedi", message: e?.message ?? "Hata" });
-    } finally {
-      setSending(false);
-    }
+    if (error) throw error;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.client_temp_id === tempId ? ({ ...(data as Msg) } as Msg) : m
+      )
+    );
+  } catch (e: any) {
+    setMessages((prev) => prev.filter((m) => m.client_temp_id !== tempId));
+
+    toast({
+      variant: "error",
+      title: "Yüklenemedi",
+      message: e?.message ?? "Hata",
+    });
+  } finally {
+    URL.revokeObjectURL(localUrl);
+    setSending(false);
   }
+}
 
   // ---------- Send text ----------
   async function sendText() {
-    const uid = myId;
-    const cid = convId;
-    const peerId = userId;
+  const uid = myId;
+  const cid = convId;
+  const peerId = userId;
 
-    const content = text.trim();
-    if (!uid || !cid || !peerId) return;
-    if (!content) return;
+  const content = text.trim();
 
-    setSending(true);
-    try {
-      // typing off
-      await setTyping(false);
+  if (!uid || !cid || !peerId) return;
+  if (!content) return;
 
-      const { error } = await supabase.from("messages").insert({
+  const tempId = `temp-${Date.now()}`;
+
+  const optimisticMsg: Msg = {
+    client_temp_id: tempId,
+    id: -Date.now(),
+    conversation_id: cid,
+    sender_id: uid,
+    receiver_id: peerId,
+    content,
+    body: content,
+    media_url: null,
+    media_type: "text",
+    type: "text",
+    created_at: new Date().toISOString(),
+    is_read: false,
+    read_at: null,
+    delivered_at: null,
+    deleted_at: null,
+    deleted_for: null,
+  };
+
+  setMessages((prev) => [...prev, optimisticMsg]);
+  setText("");
+  setSending(true);
+
+  try {
+    await setTyping(false);
+
+    const { data, error } = await supabase
+      .from("messages")
+      .insert({
         conversation_id: cid,
         sender_id: uid,
         receiver_id: peerId,
         from_user: uid,
         to_user: peerId,
-
         content,
         body: content,
         type: "text",
         media_type: "text",
-
         is_read: false,
-      });
+      })
+      .select(
+        "id, conversation_id, sender_id, receiver_id, content, body, media_url, media_type, type, created_at, is_read, read_at, delivered_at, deleted_at, deleted_for"
+      )
+      .single();
 
-      if (error) throw error;
-      setText("");
-    } catch (e: any) {
-      toast({ variant: "error", title: "Gönderilemedi", message: e?.message ?? "Hata" });
-    } finally {
-      setSending(false);
-    }
+    if (error) throw error;
+
+    setMessages((prev) =>
+      prev.map((m) =>
+        m.client_temp_id === tempId ? ({ ...(data as Msg) } as Msg) : m
+      )
+    );
+  } catch (e: any) {
+    setMessages((prev) => prev.filter((m) => m.client_temp_id !== tempId));
+
+    toast({
+      variant: "error",
+      title: "Gönderilemedi",
+      message: e?.message ?? "Hata",
+    });
+  } finally {
+    setSending(false);
   }
+}
 
   // ---------- Voice recording ----------
   async function startRecording() {
@@ -762,25 +883,64 @@ export default function ChatClient({ userId }: { userId: string }) {
                   return (
                     <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                       <div className="max-w-[78%] space-y-1">
-                        <div
-                          className={`rounded-2xl px-4 py-2 text-sm border ${
-                            mine
-                              ? "bg-emerald-500 text-black border-emerald-500/30"
-                              : "bg-white/70 dark:bg-black/30 text-black/90 dark:text-white border-black/10 dark:border-white/10"
-                          }`}
-                        >
+                      <div
+  className={`rounded-2xl px-4 py-2 text-sm border transition-all ${
+    mine
+      ? "bg-white dark:bg-zinc-900 text-black dark:text-white border-emerald-500/20 shadow-sm"
+      : "bg-white/70 dark:bg-black/30 text-black/90 dark:text-white border-black/10 dark:border-white/10"
+  }`}
+  style={
+    mine
+      ? {
+          boxShadow: "inset 4px 0 0 #22c55e",
+        }
+      : undefined
+  }
+>
                           {/* Content */}
                           {isMedia ? (
                             <div className="space-y-2">
-                              {m.media_type === "image" ? (
-                                <img src={m.media_url!} className="rounded-xl max-h-[360px]" alt="media" />
-                              ) : m.media_type === "audio" ? (
-                                <audio controls src={m.media_url!} className="w-full" />
-                              ) : (
-                                <a className="underline font-bold" href={m.media_url!} target="_blank" rel="noreferrer">
-                                  Dosyayı aç
-                                </a>
-                              )}
+                           {m.media_type === "image" ? (
+  <button
+    type="button"
+    onClick={() => setViewer(m)}
+    className="block w-full overflow-hidden rounded-xl"
+  >
+    <img
+      src={m.media_url!}
+      className="max-h-[360px] w-full rounded-xl object-cover transition hover:scale-[1.02]"
+      alt="Fotoğraf"
+    />
+  </button>
+) : m.media_type === "video" ? (
+  <button
+    type="button"
+    onClick={() => setViewer(m)}
+    className="relative block w-full overflow-hidden rounded-xl bg-black"
+  >
+    <video
+      muted
+      playsInline
+      preload="metadata"
+      src={m.media_url!}
+      className="max-h-[360px] w-full rounded-xl bg-black object-cover"
+    />
+    <span className="absolute left-1/2 top-1/2 flex h-14 w-14 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-black/60 text-2xl text-white">
+      ▶️
+    </span>
+  </button>
+) : m.media_type === "audio" ? (
+  <audio controls src={m.media_url!} className="w-full" />
+) : (
+  <a
+    className="font-bold underline"
+    href={m.media_url!}
+    target="_blank"
+    rel="noreferrer"
+  >
+    📎 Dosyayı aç
+  </a>
+)}
                               <div className="text-xs opacity-80">{txt || "—"}</div>
                             </div>
                           ) : (
@@ -816,6 +976,13 @@ export default function ChatClient({ userId }: { userId: string }) {
                               </button>
                             </div>
 
+<button
+  type="button"
+  onClick={() => deleteMessage(m.id)}
+  className="rounded-xl border border-red-500/20 bg-red-500/10 px-2 py-1 text-[11px] font-black text-red-700 hover:bg-red-500/20"
+>
+  🗑️
+</button>
                             {/* ticks */}
                             {showTicks ? (
                               <div className="text-[11px] font-black opacity-80">
@@ -929,7 +1096,33 @@ export default function ChatClient({ userId }: { userId: string }) {
                   Gönder
                 </button>
               </div>
+{viewer ? (
+  <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/95 p-4">
+    <button
+      type="button"
+      onClick={() => setViewer(null)}
+      className="absolute right-4 top-4 z-10 rounded-full bg-white/10 px-4 py-2 text-sm font-black text-white backdrop-blur hover:bg-white/20"
+    >
+      ✕ Kapat
+    </button>
 
+    {viewer.media_type === "image" ? (
+      <img
+        src={viewer.media_url!}
+        alt="Fotoğraf"
+        className="max-h-[88vh] max-w-[96vw] rounded-2xl object-contain shadow-2xl"
+      />
+    ) : viewer.media_type === "video" ? (
+      <video
+        controls
+        autoPlay
+        playsInline
+        src={viewer.media_url!}
+        className="max-h-[88vh] max-w-[96vw] rounded-2xl bg-black shadow-2xl"
+      />
+    ) : null}
+  </div>
+) : null}
               <div className="mt-2 text-[11px] text-black/50 dark:text-white/50">
                 {peerTyping ? "✍️ Karşı taraf yazıyor…" : " "}
               </div>

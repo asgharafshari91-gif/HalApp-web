@@ -3,8 +3,7 @@ import ChatClient from "./ui/chat-client";
 
 export const dynamic = "force-dynamic";
 
-function safeId(v: any) {
-  // Next param bazen encoded gelebiliyor
+function safeId(v: unknown) {
   try {
     return decodeURIComponent(String(v ?? "")).trim();
   } catch {
@@ -18,15 +17,23 @@ function isUuid(v: string) {
   );
 }
 
-export default function ChatUserPage({
+export default async function ChatUserPage({
   params,
 }: {
-  params: { userId: string };
+  params:
+    | {
+        userId?: string;
+      }
+    | Promise<{
+        userId?: string;
+      }>;
 }) {
-  const userId = safeId(params?.userId);
+  const resolvedParams = await Promise.resolve(params);
+  const userId = safeId(resolvedParams?.userId);
 
-  // ✅ asla boş/yanlış uuid ile ChatClient render etme
-  if (!userId || !isUuid(userId)) redirect("/conversations");
+  if (!userId || !isUuid(userId)) {
+    redirect("/conversations");
+  }
 
   return <ChatClient userId={userId} />;
 }
