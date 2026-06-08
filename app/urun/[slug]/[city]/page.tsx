@@ -39,10 +39,10 @@ type ProductInfo = {
 };
 
 type PageProps = {
-  params: {
-    slug: string;
-    city: string;
-  };
+  params: Promise<{
+    slug?: string;
+    city?: string;
+  }>;
 };
 
 const PRODUCT_MAP: Record<string, ProductInfo> = {
@@ -50,38 +50,83 @@ const PRODUCT_MAP: Record<string, ProductInfo> = {
   armut: { name: "Armut", emoji: "🍐", type: "Meyve" },
   portakal: { name: "Portakal", emoji: "🍊", type: "Meyve" },
   mandalina: { name: "Mandalina", emoji: "🍊", type: "Meyve" },
+  greyfurt: { name: "Greyfurt", emoji: "🍊", type: "Meyve" },
   limon: { name: "Limon", emoji: "🍋", type: "Meyve" },
   muz: { name: "Muz", emoji: "🍌", type: "Meyve" },
   karpuz: { name: "Karpuz", emoji: "🍉", type: "Meyve" },
   kavun: { name: "Kavun", emoji: "🍈", type: "Meyve" },
   uzum: { name: "Üzüm", emoji: "🍇", type: "Meyve" },
   cilek: { name: "Çilek", emoji: "🍓", type: "Meyve" },
+  ahududu: { name: "Ahududu", emoji: "🫐", type: "Meyve" },
+  bogurtlen: { name: "Böğürtlen", emoji: "🫐", type: "Meyve" },
+  blueberry: { name: "Blueberry", emoji: "🫐", type: "Meyve" },
+  "yaban-mersini": { name: "Yaban Mersini", emoji: "🫐", type: "Meyve" },
   kiraz: { name: "Kiraz", emoji: "🍒", type: "Meyve" },
+  visne: { name: "Vişne", emoji: "🍒", type: "Meyve" },
   seftali: { name: "Şeftali", emoji: "🍑", type: "Meyve" },
   kayisi: { name: "Kayısı", emoji: "🍑", type: "Meyve" },
+  nektarin: { name: "Nektarin", emoji: "🍑", type: "Meyve" },
   erik: { name: "Erik", emoji: "🟣", type: "Meyve" },
   nar: { name: "Nar", emoji: "🔴", type: "Meyve" },
+  ayva: { name: "Ayva", emoji: "🍐", type: "Meyve" },
   incir: { name: "İncir", emoji: "🟣", type: "Meyve" },
   kivi: { name: "Kivi", emoji: "🥝", type: "Meyve" },
   ananas: { name: "Ananas", emoji: "🍍", type: "Meyve" },
   mango: { name: "Mango", emoji: "🥭", type: "Meyve" },
   avokado: { name: "Avokado", emoji: "🥑", type: "Meyve" },
+  "hindistan-cevizi": {
+    name: "Hindistan Cevizi",
+    emoji: "🥥",
+    type: "Meyve",
+  },
+  hurma: { name: "Hurma", emoji: "🌴", type: "Meyve" },
+  dut: { name: "Dut", emoji: "🫐", type: "Meyve" },
+  "altin-cilek": { name: "Altın Çilek", emoji: "🍓", type: "Meyve" },
 
   domates: { name: "Domates", emoji: "🍅", type: "Sebze" },
   biber: { name: "Biber", emoji: "🌶️", type: "Sebze" },
   patlican: { name: "Patlıcan", emoji: "🍆", type: "Sebze" },
   salatalik: { name: "Salatalık", emoji: "🥒", type: "Sebze" },
+  hiyar: { name: "Hıyar", emoji: "🥒", type: "Sebze" },
   kabak: { name: "Kabak", emoji: "🎃", type: "Sebze" },
   patates: { name: "Patates", emoji: "🥔", type: "Sebze" },
   sogan: { name: "Soğan", emoji: "🧅", type: "Sebze" },
   sarimsak: { name: "Sarımsak", emoji: "🧄", type: "Sebze" },
   havuc: { name: "Havuç", emoji: "🥕", type: "Sebze" },
+  turp: { name: "Turp", emoji: "🥕", type: "Sebze" },
+  pancar: { name: "Pancar", emoji: "🥕", type: "Sebze" },
   brokoli: { name: "Brokoli", emoji: "🥦", type: "Sebze" },
+  karnabahar: { name: "Karnabahar", emoji: "🥦", type: "Sebze" },
   lahana: { name: "Lahana", emoji: "🥬", type: "Sebze" },
   marul: { name: "Marul", emoji: "🥬", type: "Sebze" },
   ispanak: { name: "Ispanak", emoji: "🥬", type: "Sebze" },
+  pazi: { name: "Pazı", emoji: "🥬", type: "Sebze" },
+  kereviz: { name: "Kereviz", emoji: "🥬", type: "Sebze" },
+  pirasa: { name: "Pırasa", emoji: "🥬", type: "Sebze" },
+  enginar: { name: "Enginar", emoji: "🌿", type: "Sebze" },
+  bamya: { name: "Bamya", emoji: "🌿", type: "Sebze" },
+  fasulye: { name: "Fasulye", emoji: "🫛", type: "Sebze" },
+  bezelye: { name: "Bezelye", emoji: "🫛", type: "Sebze" },
+  bakla: { name: "Bakla", emoji: "🫛", type: "Sebze" },
+  misir: { name: "Mısır", emoji: "🌽", type: "Sebze" },
   mantar: { name: "Mantar", emoji: "🍄", type: "Sebze" },
   kuskonmaz: { name: "Kuşkonmaz", emoji: "🌱", type: "Sebze" },
+
+  roka: { name: "Roka", emoji: "🌿", type: "Yeşillik" },
+  nane: { name: "Nane", emoji: "🌿", type: "Yeşillik" },
+  maydanoz: { name: "Maydanoz", emoji: "🌿", type: "Yeşillik" },
+  dereotu: { name: "Dereotu", emoji: "🌿", type: "Yeşillik" },
+  feslegen: { name: "Fesleğen", emoji: "🌿", type: "Yeşillik" },
+  tere: { name: "Tere", emoji: "🌿", type: "Yeşillik" },
+
+  ceviz: { name: "Ceviz", emoji: "🥜", type: "Kuru Yemiş" },
+  badem: { name: "Badem", emoji: "🥜", type: "Kuru Yemiş" },
+  findik: { name: "Fındık", emoji: "🥜", type: "Kuru Yemiş" },
+  "antep-fistigi": {
+    name: "Antep Fıstığı",
+    emoji: "🥜",
+    type: "Kuru Yemiş",
+  },
 };
 
 const CITY_NAMES: Record<string, string> = {
@@ -168,11 +213,22 @@ const CITY_NAMES: Record<string, string> = {
   duzce: "Düzce",
 };
 
-function productFromSlug(slug: string): ProductInfo {
+function productFromSlug(slug?: string | null): ProductInfo {
+  const safeSlug = String(slug || "").trim();
+
+  if (!safeSlug) {
+    return {
+      name: "Ürün",
+      emoji: "🧺",
+      type: "Ürün",
+    };
+  }
+
   return (
-    PRODUCT_MAP[slug] ?? {
-      name: slug
+    PRODUCT_MAP[safeSlug] ?? {
+      name: safeSlug
         .split("-")
+        .filter(Boolean)
         .map((x) => x.charAt(0).toLocaleUpperCase("tr-TR") + x.slice(1))
         .join(" "),
       emoji: "🧺",
@@ -181,11 +237,16 @@ function productFromSlug(slug: string): ProductInfo {
   );
 }
 
-function cityFromSlug(slug: string) {
+function cityFromSlug(slug?: string | null) {
+  const safeSlug = String(slug || "").trim();
+
+  if (!safeSlug) return "Türkiye";
+
   return (
-    CITY_NAMES[slug] ||
-    slug
+    CITY_NAMES[safeSlug] ||
+    safeSlug
       .split("-")
+      .filter(Boolean)
       .map((x) => x.charAt(0).toLocaleUpperCase("tr-TR") + x.slice(1))
       .join(" ")
   );
@@ -261,8 +322,11 @@ async function getProductCityListings(productName: string, cityName: string) {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const product = productFromSlug(params.slug);
-  const cityName = cityFromSlug(params.city);
+  const resolvedParams = await params;
+  const slug = resolvedParams?.slug || "";
+  const citySlug = resolvedParams?.city || "";
+  const product = productFromSlug(slug);
+  const cityName = cityFromSlug(citySlug);
 
   const title = `${cityName} ${product.name} İlanları | Toptan ${product.name}`;
   const description = `${cityName} ${product.name} ilanları, toptan ${product.name} alım-satım, üretici ve tüccar ilanları HalApp dijital toptancı halinde.`;
@@ -271,12 +335,12 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: `${SITE_URL}/urun/${params.slug}/${params.city}`,
+      canonical: `${SITE_URL}/urun/${slug}/${citySlug}`,
     },
     openGraph: {
       title,
       description,
-      url: `${SITE_URL}/urun/${params.slug}/${params.city}`,
+      url: `${SITE_URL}/urun/${slug}/${citySlug}`,
       siteName: "HalApp",
       locale: "tr_TR",
       type: "website",
@@ -285,8 +349,11 @@ export async function generateMetadata({
 }
 
 export default async function ProductCitySeoPage({ params }: PageProps) {
-  const product = productFromSlug(params.slug);
-  const cityName = cityFromSlug(params.city);
+  const resolvedParams = await params;
+  const slug = resolvedParams?.slug || "";
+  const citySlug = resolvedParams?.city || "";
+  const product = productFromSlug(slug);
+  const cityName = cityFromSlug(citySlug);
   const listings = await getProductCityListings(product.name, cityName);
 
   const jsonLd = {
@@ -294,7 +361,7 @@ export default async function ProductCitySeoPage({ params }: PageProps) {
     "@type": "CollectionPage",
     name: `${cityName} ${product.name} İlanları`,
     description: `${cityName} bölgesinde toptan ${product.name} ilanları.`,
-    url: `${SITE_URL}/urun/${params.slug}/${params.city}`,
+    url: `${SITE_URL}/urun/${slug}/${citySlug}`,
   };
 
   return (
@@ -340,7 +407,7 @@ export default async function ProductCitySeoPage({ params }: PageProps) {
             </Link>
 
             <Link
-              href={`/urun/${params.slug}`}
+              href={`/urun/${slug}`}
               className="rounded-2xl border border-zinc-200 bg-white px-6 py-3 text-sm font-black text-zinc-950 transition hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
             >
               Tüm {product.name} İlanları
