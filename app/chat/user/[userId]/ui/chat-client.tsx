@@ -37,7 +37,6 @@ type Msg = {
 };
 
 type ReactionRow = {
-  id: number;
   message_id: number;
   user_id: string;
   emoji: "❤️" | "🔥";
@@ -254,7 +253,7 @@ export default function ChatClient({ userId }: { userId: string }) {
 
     const { data, error } = await supabase
       .from("message_reactions")
-      .select("id, message_id, user_id, emoji, created_at")
+      .select("message_id, user_id, emoji, created_at")
       .in("message_id", ids);
 
     if (error) throw error;
@@ -281,13 +280,12 @@ export default function ChatClient({ userId }: { userId: string }) {
         ? cur.filter((x) => x.user_id !== uid)
         : [
             ...cur,
-            {
-              id: -Date.now(),
-              message_id: messageId,
-              user_id: uid,
-              emoji,
-              created_at: new Date().toISOString(),
-            },
+           {
+  message_id: messageId,
+  user_id: uid,
+  emoji,
+  created_at: new Date().toISOString(),
+}
           ];
 
       return { ...prev, [messageId]: next };
