@@ -13,60 +13,129 @@ import ConsentScripts from "@/components/ConsentScripts";
 
 import PushNavigationListener from "@/components/PushNavigationListener";
 
+const SITE_URL = "https://halapp.app";
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://halapp.tr"),
+  metadataBase: new URL(SITE_URL),
 
   title: {
-    default: "HalApp • Premium Hal & İlan Platformu",
-    template: "%s • HalApp",
+    default: "HalApp | Dijital Toptancı Hali",
+    template: "%s | HalApp",
   },
 
   description:
-    "HalApp ile canlı ilanları takip et, hızlı mesajlaş, premium üyelikle öne çık. Türkiye'nin modern hal & ilan platformu.",
+    "HalApp, Türkiye'nin dijital toptancı hali platformudur. Meyve, sebze ve tarım ürünleri için ilan, alım-satım, premium vitrin ve pazar istihbaratı sunar.",
 
   applicationName: "HalApp",
 
+  generator: "Next.js",
+
+  category: "business",
+
   keywords: [
     "HalApp",
+    "dijital toptancı hali",
+    "toptancı hali",
     "hal ilan",
+    "halapp.app",
     "meyve sebze",
-    "toptancı hal",
-    "ilan",
-    "premium",
-    "supabase",
+    "tarım ürünleri",
+    "meyve ilanları",
+    "sebze ilanları",
+    "tarım pazarı",
+    "premium ilan",
+    "vitrin ilan",
+    "market intelligence",
+    "pazar istihbaratı",
+    "limon",
+    "kayısı",
+    "avokado",
+    "kuşkonmaz",
+    "domates",
+    "biber",
+    "kiraz",
+    "üzüm",
   ],
 
+  authors: [
+    {
+      name: "HalApp",
+      url: SITE_URL,
+    },
+  ],
+
+  creator: "HalApp",
+  publisher: "HalApp",
+
+  alternates: {
+    canonical: SITE_URL,
+  },
+
+  robots: {
+    index: true,
+    follow: true,
+    nocache: false,
+    googleBot: {
+      index: true,
+      follow: true,
+      noimageindex: false,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+
   openGraph: {
-    title: "HalApp • Premium Hal & İlan Platformu",
+    title: "HalApp | Dijital Toptancı Hali",
     description:
-      "Canlı ilanlar, premium vitrin, hızlı iletişim. HalApp ile hal piyasasını cebinde taşı.",
-    url: "https://halapp.tr",
+      "Meyve, sebze ve tarım ürünleri için dijital toptancı hal platformu. Canlı ilanlar, premium vitrin, hızlı iletişim ve pazar istihbaratı.",
+    url: SITE_URL,
     siteName: "HalApp",
     locale: "tr_TR",
     type: "website",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "HalApp Dijital Toptancı Hali",
+      },
+    ],
   },
 
   twitter: {
     card: "summary_large_image",
-    title: "HalApp • Premium Hal & İlan Platformu",
+    title: "HalApp | Dijital Toptancı Hali",
     description:
-      "Canlı ilanlar, premium vitrin, hızlı iletişim. HalApp ile hal piyasasını cebinde taşı.",
+      "Türkiye'nin dijital toptancı hali. Meyve, sebze ve tarım ürünleri alım-satım platformu.",
+    images: ["/og-image.png"],
   },
 
-  // ✅ FAVICON CACHE FIX
+  appleWebApp: {
+    capable: true,
+    title: "HalApp",
+    statusBarStyle: "black-translucent",
+  },
+
+  formatDetection: {
+    telephone: false,
+    address: false,
+    email: false,
+  },
+
   icons: {
     icon: [
       {
-        url: "/favicon.ico?v=99",
+        url: "/favicon.ico?v=100",
         sizes: "any",
       },
       {
-        url: "/favicon-32x32.png?v=99",
+        url: "/favicon-32x32.png?v=100",
         sizes: "32x32",
         type: "image/png",
       },
       {
-        url: "/favicon-16x16.png?v=99",
+        url: "/favicon-16x16.png?v=100",
         sizes: "16x16",
         type: "image/png",
       },
@@ -74,21 +143,32 @@ export const metadata: Metadata = {
 
     apple: [
       {
-        url: "/apple-touch-icon.png?v=99",
+        url: "/apple-touch-icon.png?v=100",
         sizes: "180x180",
         type: "image/png",
       },
     ],
 
-    shortcut: ["/favicon.ico?v=99"],
+    shortcut: ["/favicon.ico?v=100"],
   },
+
+  manifest: "/site.webmanifest",
 };
 
-// ✅ iOS full safe-area
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+  themeColor: [
+    {
+      media: "(prefers-color-scheme: light)",
+      color: "#16a34a",
+    },
+    {
+      media: "(prefers-color-scheme: dark)",
+      color: "#0b0f0c",
+    },
+  ],
 };
 
 function FooterYear() {
@@ -124,6 +204,29 @@ export default function RootLayout({
 })();
 `;
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "HalApp",
+    url: SITE_URL,
+    description:
+      "Türkiye'nin dijital toptancı hali. Meyve, sebze ve tarım ürünleri için ilan, alım-satım ve pazar istihbaratı platformu.",
+    potentialAction: {
+      "@type": "SearchAction",
+      target: `${SITE_URL}/listings?search={search_term_string}`,
+      "query-input": "required name=search_term_string",
+    },
+  };
+
+  const organizationLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "HalApp",
+    url: SITE_URL,
+    logo: `${SITE_URL}/halapp-logo.png`,
+    sameAs: [SITE_URL],
+  };
+
   return (
     <html lang="tr" suppressHydrationWarning>
       <head>
@@ -144,19 +247,34 @@ export default function RootLayout({
           media="(prefers-color-scheme: dark)"
         />
 
-        <meta
-          name="apple-mobile-web-app-capable"
-          content="yes"
-        />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
 
         <meta
           name="apple-mobile-web-app-status-bar-style"
           content="black-translucent"
         />
 
+        <meta name="mobile-web-app-capable" content="yes" />
+
+        <meta name="format-detection" content="telephone=no" />
+
         <script
           dangerouslySetInnerHTML={{
             __html: themeBoot,
+          }}
+        />
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(jsonLd),
+          }}
+        />
+
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(organizationLd),
           }}
         />
       </head>
@@ -174,9 +292,7 @@ export default function RootLayout({
       >
         <Providers>
           <ToastProvider>
-            {/* BACKGROUND */}
             <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
-              {/* DARK */}
               <div className="hidden dark:block">
                 <div className="absolute left-[-200px] top-[-260px] h-[520px] w-[520px] rounded-full bg-emerald-500/18 blur-3xl" />
 
@@ -187,7 +303,6 @@ export default function RootLayout({
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(16,185,129,.10),transparent_45%),radial-gradient(circle_at_80%_40%,rgba(34,197,94,.08),transparent_50%),radial-gradient(circle_at_50%_100%,rgba(52,211,153,.06),transparent_60%)]" />
               </div>
 
-              {/* LIGHT */}
               <div className="block dark:hidden">
                 <div className="absolute left-[-220px] top-[-300px] h-[560px] w-[560px] rounded-full bg-emerald-500/12 blur-3xl" />
 
@@ -204,15 +319,12 @@ export default function RootLayout({
             <ConsentScripts />
             <PushNavigationListener />
 
-            {/* NAVBAR */}
             <Navbar />
 
-            {/* CONTENT */}
             <main className="relative mx-auto w-full min-w-0 max-w-6xl overflow-x-clip px-4 pb-16 pt-6">
               {children}
             </main>
 
-            {/* FOOTER */}
             <footer className="w-full max-w-full overflow-x-clip border-t border-black/10 bg-white/50 dark:border-white/10 dark:bg-black/30">
               <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-10 text-sm text-black/60 dark:text-white/60">
                 <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
