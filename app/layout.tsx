@@ -10,8 +10,8 @@ import CookieConsent from "@/components/CookieConsent";
 import ConsentSync from "@/components/ConsentSync";
 import TrackInit from "@/components/TrackInit";
 import ConsentScripts from "@/components/ConsentScripts";
-
 import PushNavigationListener from "@/components/PushNavigationListener";
+import MobileWebNotice from "@/components/MobileWebNotice";
 
 const SITE_URL = "https://halapp.app";
 
@@ -27,9 +27,7 @@ export const metadata: Metadata = {
     "HalApp, Türkiye'nin dijital toptancı hali platformudur. Meyve, sebze ve tarım ürünleri için ilan, alım-satım, premium vitrin ve pazar istihbaratı sunar.",
 
   applicationName: "HalApp",
-
   generator: "Next.js",
-
   category: "business",
 
   keywords: [
@@ -255,7 +253,6 @@ export default function RootLayout({
         />
 
         <meta name="mobile-web-app-capable" content="yes" />
-
         <meta name="format-detection" content="telephone=no" />
 
         <script
@@ -320,6 +317,7 @@ export default function RootLayout({
             <PushNavigationListener />
 
             <Navbar />
+            <MobileWebNotice />
 
             <main className="relative mx-auto w-full min-w-0 max-w-6xl overflow-x-clip px-4 pb-16 pt-6">
               {children}
