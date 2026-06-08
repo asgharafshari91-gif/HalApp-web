@@ -33,9 +33,9 @@ type Listing = {
 };
 
 type PageProps = {
-  params: {
+  params: Promise<{
     city: string;
-  };
+  }>;
 };
 
 const CITY_NAMES: Record<string, string> = {
@@ -122,11 +122,16 @@ const CITY_NAMES: Record<string, string> = {
   duzce: "Düzce",
 };
 
-function titleCaseSlug(slug: string) {
+function titleCaseSlug(slug?: string | null) {
+  const safeSlug = String(slug || "").trim();
+
+  if (!safeSlug) return "Türkiye";
+
   return (
-    CITY_NAMES[slug] ||
-    slug
+    CITY_NAMES[safeSlug] ||
+    safeSlug
       .split("-")
+      .filter(Boolean)
       .map((x) => x.charAt(0).toLocaleUpperCase("tr-TR") + x.slice(1))
       .join(" ")
   );
@@ -153,7 +158,7 @@ function priceText(item: Listing) {
 }
 
 function productSlug(name?: string | null) {
-  return String(name || "")
+  return String(name || "urun")
     .toLocaleLowerCase("tr-TR")
     .replaceAll("ı", "i")
     .replaceAll("ğ", "g")
@@ -214,7 +219,9 @@ async function getCityListings(cityName: string) {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const cityName = titleCaseSlug(params.city);
+  const resolvedParams = await params;
+  const citySlug = resolvedParams?.city || "";
+  const cityName = titleCaseSlug(citySlug);
 
   const title = `${cityName} Hal İlanları | ${cityName} Meyve Sebze Pazarı`;
   const description = `${cityName} hal ilanları, toptan meyve sebze ürünleri, üretici ve tüccar ilanları HalApp dijital toptancı halinde.`;
@@ -223,12 +230,12 @@ export async function generateMetadata({
     title,
     description,
     alternates: {
-      canonical: `${SITE_URL}/sehir/${params.city}`,
+      canonical: `${SITE_URL}/sehir/${citySlug}`,
     },
     openGraph: {
       title,
       description,
-      url: `${SITE_URL}/sehir/${params.city}`,
+      url: `${SITE_URL}/sehir/${citySlug}`,
       siteName: "HalApp",
       locale: "tr_TR",
       type: "website",
@@ -237,7 +244,9 @@ export async function generateMetadata({
 }
 
 export default async function CitySeoPage({ params }: PageProps) {
-  const cityName = titleCaseSlug(params.city);
+  const resolvedParams = await params;
+  const citySlug = resolvedParams?.city || "";
+  const cityName = titleCaseSlug(citySlug);
   const listings = await getCityListings(cityName);
 
   const products = Array.from(
@@ -253,7 +262,7 @@ export default async function CitySeoPage({ params }: PageProps) {
     "@type": "CollectionPage",
     name: `${cityName} Hal İlanları`,
     description: `${cityName} meyve sebze ve tarım ürünleri ilanları.`,
-    url: `${SITE_URL}/sehir/${params.city}`,
+    url: `${SITE_URL}/sehir/${citySlug}`,
   };
 
   return (
@@ -277,8 +286,7 @@ export default async function CitySeoPage({ params }: PageProps) {
 
           <p className="mt-4 max-w-3xl text-lg font-semibold leading-relaxed text-zinc-600 dark:text-white/60">
             {cityName} bölgesindeki toptan meyve sebze ilanlarını, üretici ve
-            tüccar ürünlerini HalApp üzerinden takip edin. Güncel ilanlara
-            ulaşın, satıcılarla doğrudan iletişime geçin.
+            tüccar ürünlerini HalApp üzerinden takip edin.
           </p>
 
           <div className="mt-8 grid gap-4 md:grid-cols-4">
@@ -297,7 +305,7 @@ export default async function CitySeoPage({ params }: PageProps) {
             </Link>
 
             <Link
-              href="/listings"
+              href="/listing"
               className="rounded-2xl border border-zinc-200 bg-white px-6 py-3 text-sm font-black text-zinc-950 transition hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
             >
               Tüm İlanları Gör
@@ -308,15 +316,9 @@ export default async function CitySeoPage({ params }: PageProps) {
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
-          <div>
-            <div className="text-xs font-black uppercase tracking-[0.25em] text-emerald-600">
-              Güncel İlanlar
-            </div>
-
-            <h2 className="mt-2 text-3xl font-black">
-              {cityName} Toptan Meyve Sebze İlanları
-            </h2>
-          </div>
+          <h2 className="text-3xl font-black">
+            {cityName} Toptan Meyve Sebze İlanları
+          </h2>
 
           {listings.length ? (
             <div className="grid gap-5 md:grid-cols-2">
@@ -340,7 +342,7 @@ export default async function CitySeoPage({ params }: PageProps) {
                 products.map((product) => (
                   <Link
                     key={product}
-                    href={`/urun/${productSlug(product)}/${params.city}`}
+                    href={`/urun/${productSlug(product)}/${citySlug}`}
                     className="rounded-full bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-700 dark:text-emerald-300"
                   >
                     {product}
@@ -352,28 +354,6 @@ export default async function CitySeoPage({ params }: PageProps) {
                 </span>
               )}
             </div>
-          </div>
-
-          <div className="rounded-[32px] border border-amber-500/20 bg-amber-500/10 p-6">
-            <div className="text-xs font-black uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">
-              Satıcı mısın?
-            </div>
-
-            <h3 className="mt-3 text-2xl font-black">
-              {cityName} pazarında öne çık
-            </h3>
-
-            <p className="mt-3 text-sm font-semibold text-zinc-600 dark:text-white/60">
-              İlanını vitrine çıkararak {cityName} bölgesindeki alıcılara daha
-              hızlı ulaşabilirsin.
-            </p>
-
-            <Link
-              href="/create-listing"
-              className="mt-5 inline-flex rounded-2xl bg-zinc-950 px-5 py-3 text-sm font-black text-white dark:bg-white dark:text-zinc-950"
-            >
-              İlan Ver →
-            </Link>
           </div>
         </aside>
       </section>
@@ -416,21 +396,7 @@ function ListingCard({ item }: { item: Listing }) {
       </div>
 
       <div className="p-5">
-        <div className="flex flex-wrap gap-2">
-          {item.is_featured || item.vitrin_until ? (
-            <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-black text-amber-700 dark:text-amber-300">
-              👑 Vitrin
-            </span>
-          ) : null}
-
-          {item.is_boosted || item.boost_until ? (
-            <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-700 dark:text-emerald-300">
-              🚀 Boost
-            </span>
-          ) : null}
-        </div>
-
-        <h3 className="mt-4 line-clamp-2 text-xl font-black">
+        <h3 className="line-clamp-2 text-xl font-black">
           {item.title || `${product} İlanı`}
         </h3>
 
@@ -441,17 +407,6 @@ function ListingCard({ item }: { item: Listing }) {
 
         <div className="mt-4 text-3xl font-black text-emerald-600">
           {priceText(item)}
-        </div>
-
-        <div className="mt-3 flex flex-wrap gap-2 text-xs font-black text-zinc-500">
-          {item.quantity ? (
-            <span>
-              📦 {fmtNum(item.quantity)} {item.unit || ""}
-            </span>
-          ) : null}
-
-          {item.cold_chain ? <span>❄️ Soğuk Zincir</span> : null}
-          {item.transport_included ? <span>🚚 Nakliye</span> : null}
         </div>
       </div>
     </Link>
@@ -466,11 +421,6 @@ function EmptyCity({ cityName }: { cityName: string }) {
       <h3 className="mt-4 text-2xl font-black">
         Henüz {cityName} ilanı yok
       </h3>
-
-      <p className="mt-2 text-sm font-semibold text-zinc-500">
-        Bu şehirde ilk ilanı sen oluşturabilir ve Google aramalarında öne
-        çıkabilirsin.
-      </p>
 
       <Link
         href={`/create-listing?city=${encodeURIComponent(cityName)}`}
