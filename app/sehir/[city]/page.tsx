@@ -378,9 +378,8 @@ function ListingCard({ item }: { item: Listing }) {
 
   return (
     <Link
-      href={`/listing/${item.id}`}
-      className="group overflow-hidden rounded-[32px] border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-zinc-950"
-    >
+  href={`/pazar/${item.id}`}
+>
       <div className="h-52 overflow-hidden bg-zinc-100 dark:bg-zinc-900">
         {img ? (
           <img
