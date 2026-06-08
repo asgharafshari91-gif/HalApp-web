@@ -41,9 +41,9 @@ type ProductInfo = {
 };
 
 type PageProps = {
-  params: {
-    slug: string;
-  };
+  params: Promise<{
+    slug?: string;
+  }>;
 };
 
 const SITE_URL = "https://halapp.app";
@@ -77,11 +77,7 @@ const PRODUCT_MAP: Record<string, ProductInfo> = {
   ananas: { name: "Ananas", emoji: "🍍", type: "Meyve" },
   mango: { name: "Mango", emoji: "🥭", type: "Meyve" },
   avokado: { name: "Avokado", emoji: "🥑", type: "Meyve" },
-  "hindistan-cevizi": {
-    name: "Hindistan Cevizi",
-    emoji: "🥥",
-    type: "Meyve",
-  },
+  "hindistan-cevizi": { name: "Hindistan Cevizi", emoji: "🥥", type: "Meyve" },
   hurma: { name: "Hurma", emoji: "🌴", type: "Meyve" },
   dut: { name: "Dut", emoji: "🫐", type: "Meyve" },
   "altin-cilek": { name: "Altın Çilek", emoji: "🍓", type: "Meyve" },
@@ -125,18 +121,25 @@ const PRODUCT_MAP: Record<string, ProductInfo> = {
   ceviz: { name: "Ceviz", emoji: "🥜", type: "Kuru Yemiş" },
   badem: { name: "Badem", emoji: "🥜", type: "Kuru Yemiş" },
   findik: { name: "Fındık", emoji: "🥜", type: "Kuru Yemiş" },
-  "antep-fistigi": {
-    name: "Antep Fıstığı",
-    emoji: "🥜",
-    type: "Kuru Yemiş",
-  },
+  "antep-fistigi": { name: "Antep Fıstığı", emoji: "🥜", type: "Kuru Yemiş" },
 };
 
-function productFromSlug(slug: string): ProductInfo {
+function productFromSlug(slug?: string | null): ProductInfo {
+  const safeSlug = String(slug || "").trim();
+
+  if (!safeSlug) {
+    return {
+      name: "Ürün",
+      emoji: "🧺",
+      type: "Ürün",
+    };
+  }
+
   return (
-    PRODUCT_MAP[slug] ?? {
-      name: slug
+    PRODUCT_MAP[safeSlug] ?? {
+      name: safeSlug
         .split("-")
+        .filter(Boolean)
         .map((x) => x.charAt(0).toLocaleUpperCase("tr-TR") + x.slice(1))
         .join(" "),
       emoji: "🧺",
@@ -147,11 +150,7 @@ function productFromSlug(slug: string): ProductInfo {
 
 function fmtNum(value: unknown) {
   const n = Number(value);
-
-  if (!Number.isFinite(n)) {
-    return "—";
-  }
-
+  if (!Number.isFinite(n)) return "—";
   return n.toLocaleString("tr-TR");
 }
 
@@ -160,21 +159,14 @@ function priceText(item: Listing) {
     return `₺${fmtNum(item.price_per_unit)}${item.unit ? ` / ${item.unit}` : ""}`;
   }
 
-  if (item.price != null) {
-    return `₺${fmtNum(item.price)}`;
-  }
+  if (item.price != null) return `₺${fmtNum(item.price)}`;
 
   if (item.min_price != null && item.max_price != null) {
     return `₺${fmtNum(item.min_price)} - ₺${fmtNum(item.max_price)}`;
   }
 
-  if (item.min_price != null) {
-    return `₺${fmtNum(item.min_price)} üzeri`;
-  }
-
-  if (item.max_price != null) {
-    return `₺${fmtNum(item.max_price)} altı`;
-  }
+  if (item.min_price != null) return `₺${fmtNum(item.min_price)} üzeri`;
+  if (item.max_price != null) return `₺${fmtNum(item.max_price)} altı`;
 
   return "Fiyat sorunuz";
 }
@@ -227,7 +219,7 @@ async function getListings(productName: string) {
     .order("published_at", { ascending: false })
     .limit(60);
 
-if (error) {
+  if (error) {
     console.error("urun listings error:", error.message);
     return [];
   }
@@ -238,7 +230,9 @@ if (error) {
 export async function generateMetadata({
   params,
 }: PageProps): Promise<Metadata> {
-  const product = productFromSlug(params.slug);
+  const resolvedParams = await params;
+  const slug = resolvedParams?.slug || "";
+  const product = productFromSlug(slug);
 
   const title = `${product.name} İlanları | Toptan ${product.name} Al Sat`;
   const description = `${product.name} için güncel toptan ilanları inceleyin. ${product.name} üretici, tüccar, hal ve ihracat ilanları HalApp dijital toptancı halinde.`;
@@ -246,20 +240,17 @@ export async function generateMetadata({
   return {
     title,
     description,
-
     alternates: {
-      canonical: `${SITE_URL}/urun/${params.slug}`,
+      canonical: `${SITE_URL}/urun/${slug}`,
     },
-
     openGraph: {
       title,
       description,
-      url: `${SITE_URL}/urun/${params.slug}`,
+      url: `${SITE_URL}/urun/${slug}`,
       siteName: "HalApp",
       locale: "tr_TR",
       type: "website",
     },
-
     twitter: {
       card: "summary_large_image",
       title,
@@ -269,7 +260,9 @@ export async function generateMetadata({
 }
 
 export default async function ProductSeoPage({ params }: PageProps) {
-  const product = productFromSlug(params.slug);
+  const resolvedParams = await params;
+  const slug = resolvedParams?.slug || "";
+  const product = productFromSlug(slug);
   const listings = await getListings(product.name);
 
   const cities = Array.from(
@@ -285,7 +278,7 @@ export default async function ProductSeoPage({ params }: PageProps) {
     "@type": "CollectionPage",
     name: `${product.name} İlanları`,
     description: `Toptan ${product.name} ilanları, üretici ve tüccar ürünleri.`,
-    url: `${SITE_URL}/urun/${params.slug}`,
+    url: `${SITE_URL}/urun/${slug}`,
     mainEntity: listings.slice(0, 12).map((item) => ({
       "@type": "Product",
       name: item.title || `${product.name} İlanı`,
@@ -305,9 +298,7 @@ export default async function ProductSeoPage({ params }: PageProps) {
     <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/30 to-white text-zinc-950 dark:from-black dark:via-emerald-950/10 dark:to-black dark:text-white">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{
-          __html: JSON.stringify(jsonLd),
-        }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
 
       <section className="relative overflow-hidden rounded-[40px] border border-emerald-500/20 bg-white/80 p-8 shadow-sm dark:bg-zinc-950/80">
@@ -344,7 +335,7 @@ export default async function ProductSeoPage({ params }: PageProps) {
             </Link>
 
             <Link
-              href="/listings"
+              href="/listing"
               className="rounded-2xl border border-zinc-200 bg-white px-6 py-3 text-sm font-black text-zinc-950 transition hover:bg-zinc-50 dark:border-white/10 dark:bg-white/[0.04] dark:text-white"
             >
               Tüm İlanları Gör
@@ -355,16 +346,14 @@ export default async function ProductSeoPage({ params }: PageProps) {
 
       <section className="mt-8 grid gap-6 lg:grid-cols-[1fr_340px]">
         <div className="space-y-5">
-          <div className="flex items-end justify-between gap-4">
-            <div>
-              <div className="text-xs font-black uppercase tracking-[0.25em] text-emerald-600">
-                Güncel İlanlar
-              </div>
-
-              <h2 className="mt-2 text-3xl font-black">
-                Toptan {product.name} İlanları
-              </h2>
+          <div>
+            <div className="text-xs font-black uppercase tracking-[0.25em] text-emerald-600">
+              Güncel İlanlar
             </div>
+
+            <h2 className="mt-2 text-3xl font-black">
+              Toptan {product.name} İlanları
+            </h2>
           </div>
 
           {listings.length ? (
@@ -387,9 +376,7 @@ export default async function ProductSeoPage({ params }: PageProps) {
               </p>
 
               <Link
-                href={`/create-listing?product=${encodeURIComponent(
-                  product.name
-                )}`}
+                href={`/create-listing?product=${encodeURIComponent(product.name)}`}
                 className="mt-6 inline-flex rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-white"
               >
                 {product.name} İlanı Oluştur →
@@ -404,15 +391,11 @@ export default async function ProductSeoPage({ params }: PageProps) {
               SEO Pazar Bilgisi
             </div>
 
-            <h3 className="mt-3 text-2xl font-black">
-              {product.name} Pazarı
-            </h3>
+            <h3 className="mt-3 text-2xl font-black">{product.name} Pazarı</h3>
 
             <p className="mt-3 text-sm font-semibold leading-relaxed text-zinc-600 dark:text-white/60">
               {product.name} için HalApp üzerinde üretici, komisyoncu, hal
-              esnafı, tüccar ve ihracatçı ilanları takip edilebilir. Toptan
-              fiyat, stok ve şehir bazlı ilanlar üzerinden hızlı bağlantı
-              kurulabilir.
+              esnafı, tüccar ve ihracatçı ilanları takip edilebilir.
             </p>
           </div>
 
@@ -438,28 +421,6 @@ export default async function ProductSeoPage({ params }: PageProps) {
               )}
             </div>
           </div>
-
-          <div className="rounded-[32px] border border-amber-500/20 bg-amber-500/10 p-6">
-            <div className="text-xs font-black uppercase tracking-[0.22em] text-amber-700 dark:text-amber-300">
-              Satıcı mısın?
-            </div>
-
-            <h3 className="mt-3 text-2xl font-black">
-              {product.name} ürününü öne çıkar
-            </h3>
-
-            <p className="mt-3 text-sm font-semibold text-zinc-600 dark:text-white/60">
-              İlanını vitrine çıkararak daha fazla alıcıya ulaşabilir, HalApp
-              pazarında görünürlüğünü artırabilirsin.
-            </p>
-
-            <Link
-              href={`/create-listing?product=${encodeURIComponent(product.name)}`}
-              className="mt-5 inline-flex rounded-2xl bg-zinc-950 px-5 py-3 text-sm font-black text-white dark:bg-white dark:text-zinc-950"
-            >
-              İlan Ver →
-            </Link>
-          </div>
         </aside>
       </section>
     </main>
@@ -472,7 +433,6 @@ function StatCard({ label, value }: { label: string; value: string }) {
       <div className="text-xs font-black uppercase tracking-wide text-zinc-500">
         {label}
       </div>
-
       <div className="mt-2 text-2xl font-black">{value}</div>
     </div>
   );
@@ -548,7 +508,6 @@ function ListingCard({
           ) : null}
 
           {item.cold_chain ? <span>❄️ Soğuk Zincir</span> : null}
-
           {item.transport_included ? <span>🚚 Nakliye</span> : null}
         </div>
       </div>
