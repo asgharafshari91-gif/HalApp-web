@@ -293,14 +293,40 @@ export default async function ProductSeoPage({ params }: PageProps) {
       },
     })),
   };
-
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    {
+      "@type": "ListItem",
+      position: 1,
+      name: "Ana Sayfa",
+      item: SITE_URL,
+    },
+    {
+      "@type": "ListItem",
+      position: 2,
+      name: "Ürünler",
+      item: `${SITE_URL}/listing`,
+    },
+    {
+      "@type": "ListItem",
+      position: 3,
+      name: product.name,
+      item: `${SITE_URL}/urun/${slug}`,
+    },
+  ],
+};
   return (
     <main className="min-h-screen bg-gradient-to-b from-white via-emerald-50/30 to-white text-zinc-950 dark:from-black dark:via-emerald-950/10 dark:to-black dark:text-white">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-
+<script
+  type="application/ld+json"
+  dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }}
+/>
       <section className="relative overflow-hidden rounded-[40px] border border-emerald-500/20 bg-white/80 p-8 shadow-sm dark:bg-zinc-950/80">
         <div className="absolute right-[-120px] top-[-120px] h-80 w-80 rounded-full bg-emerald-500/20 blur-3xl" />
 
@@ -406,14 +432,28 @@ export default async function ProductSeoPage({ params }: PageProps) {
 
             <div className="mt-4 flex flex-wrap gap-2">
               {cities.length ? (
-                cities.map((city) => (
-                  <span
-                    key={city}
-                    className="rounded-full bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-700 dark:text-emerald-300"
-                  >
-                    📍 {city}
-                  </span>
-                ))
+               cities.map((city) => {
+  const citySlug = city
+    .toLocaleLowerCase("tr-TR")
+    .replaceAll("ı", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .replaceAll(" ", "-")
+    .trim();
+
+  return (
+    <Link
+      key={city}
+      href={`/urun/${slug}/${citySlug}`}
+      className="rounded-full bg-emerald-500/10 px-3 py-2 text-xs font-black text-emerald-700 transition hover:bg-emerald-500/20 dark:text-emerald-300"
+    >
+      📍 {city} {product.name}
+    </Link>
+  );
+})
               ) : (
                 <span className="text-sm font-semibold text-zinc-500">
                   İlan geldikçe şehirler burada görünür.
@@ -449,8 +489,9 @@ function ListingCard({
   const loc = locationText(item);
 
   return (
-    <Link
+<Link
   href={`/pazar/${item.id}`}
+  className="group overflow-hidden rounded-[32px] border border-zinc-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-xl dark:border-white/10 dark:bg-zinc-950"
 >
       <div className="h-52 overflow-hidden bg-zinc-100 dark:bg-zinc-900">
         {img ? (
