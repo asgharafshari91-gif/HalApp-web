@@ -10,16 +10,16 @@
   color-scheme: light;
 
   /* Base */
-  --bg: 248 250 252;        /* slate-50 */
-  --panel: 255 255 255;     /* white */
-  --panel2: 250 250 250;    /* zinc-50 */
-  --border: 15 23 42 / 0.10; /* slate-900 @10% */
-  --text: 9 9 11;           /* zinc-950 */
-  --muted: 63 63 70;        /* zinc-500 */
+  --bg: 248 250 252;
+  --panel: 255 255 255;
+  --panel2: 250 250 250;
+  --border: 15 23 42 / 0.10;
+  --text: 9 9 11;
+  --muted: 63 63 70;
 
   /* Brand */
-  --primary: 16 185 129;    /* emerald-500 */
-  --primary-2: 52 211 153;  /* emerald-400 */
+  --primary: 16 185 129;
+  --primary-2: 52 211 153;
 
   /* Effects */
   --shadow: 0 10px 30px rgba(2, 6, 23, 0.08);
@@ -30,14 +30,14 @@
 .dark {
   color-scheme: dark;
 
-  --bg: 2 6 23;             /* slate-950 */
-  --panel: 10 14 12;        /* near black */
-  --panel2: 18 24 20;       /* deep panel */
+  --bg: 2 6 23;
+  --panel: 10 14 12;
+  --panel2: 18 24 20;
   --border: 255 255 255 / 0.10;
   --text: 255 255 255;
   --muted: 160 174 170;
 
-  --primary: 52 211 153;    /* emerald-400 */
+  --primary: 52 211 153;
   --primary-2: 16 185 129;
 
   --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
@@ -46,10 +46,8 @@
 }
 
 /* =========================
-   BASE (✅ iOS kadraj fix)
+   BASE
    ========================= */
-
-/* ✅ En kritik fix: iOS sağa taşmayı bitirir */
 html,
 body {
   width: 100%;
@@ -58,7 +56,6 @@ body {
   height: 100%;
 }
 
-/* ✅ iOS: 100vh bug -> dvh kullanabilen tarayıcılarda daha stabil */
 @supports (height: 100dvh) {
   body {
     min-height: 100dvh;
@@ -75,13 +72,9 @@ body {
     rgb(var(--bg));
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-
-  /* ✅ iOS notch safe-area: layout.tsx zaten padding veriyor,
-     burada ekstra garanti olarak taşma/scroll glitch azaltır */
   overscroll-behavior-x: none;
 }
 
-/* ✅ Media elemanları taşmasın */
 img,
 video,
 canvas,
@@ -90,39 +83,39 @@ svg {
   height: auto;
 }
 
-/* ✅ “100vw” kaynaklı taşma olmasın: */
 *,
 *::before,
 *::after {
   box-sizing: border-box;
 }
 
-/* Selection */
 ::selection {
   background: rgba(16, 185, 129, 0.25);
   color: rgb(var(--text));
 }
 
-/* Scrollbar (okunur, premium) */
+/* Scrollbar */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(16, 185, 129, 0.35) rgba(0, 0, 0, 0);
 }
+
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
+
 *::-webkit-scrollbar-thumb {
   background: rgba(16, 185, 129, 0.32);
   border-radius: 999px;
   border: 2px solid rgba(0, 0, 0, 0);
   background-clip: padding-box;
 }
+
 *::-webkit-scrollbar-thumb:hover {
   background: rgba(16, 185, 129, 0.45);
 }
 
-/* Focus ring (HalApp style) */
 :focus-visible {
   outline: none;
   box-shadow: 0 0 0 4px rgba(var(--ring));
@@ -130,10 +123,9 @@ svg {
 }
 
 /* =========================
-   COMPONENTS (utility classes)
+   COMPONENTS
    ========================= */
 @layer components {
-  /* Container blocks */
   .card {
     @apply relative overflow-hidden rounded-3xl border backdrop-blur-xl;
     border-color: rgba(var(--border));
@@ -147,7 +139,6 @@ svg {
     background: rgba(var(--panel) / 0.55);
   }
 
-  /* Buttons */
   .btn {
     @apply inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-2.5 text-sm font-extrabold transition;
     @apply focus-visible:outline-none;
@@ -158,6 +149,7 @@ svg {
     background: rgb(var(--primary));
     color: rgba(0, 0, 0, 0.92);
   }
+
   .btn-primary:hover {
     background: rgb(var(--primary-2));
   }
@@ -168,6 +160,7 @@ svg {
     background: rgba(var(--panel) / 0.35);
     color: rgba(var(--text) / 0.82);
   }
+
   .btn-ghost:hover {
     background: rgba(var(--panel) / 0.55);
     color: rgba(var(--text) / 0.92);
@@ -179,11 +172,11 @@ svg {
     background: rgba(var(--primary) / 0.10);
     color: rgba(var(--primary));
   }
+
   .btn-outline:hover {
     background: rgba(var(--primary) / 0.14);
   }
 
-  /* Badge / Pills */
   .badge {
     @apply inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-extrabold;
     border-color: rgba(var(--border));
@@ -205,18 +198,17 @@ svg {
     color: rgba(59, 130, 246, 0.95);
   }
 
-  /* Inputs */
   .input {
     @apply w-full rounded-2xl border px-4 py-3 text-sm outline-none transition;
     border-color: rgba(var(--border));
     background: rgba(var(--panel) / 0.60);
     color: rgba(var(--text));
   }
+
   .input:focus {
     box-shadow: 0 0 0 4px rgba(var(--ring));
   }
 
-  /* Subtle separators */
   .divider {
     @apply h-px w-full;
     background: rgba(var(--border));
@@ -224,7 +216,7 @@ svg {
 }
 
 /* =========================
-   UTILITIES (helpers)
+   UTILITIES
    ========================= */
 @layer utilities {
   .text-muted {
@@ -249,11 +241,11 @@ svg {
     box-shadow: var(--shadow2);
   }
 
-  /* ✅ iOS: safe-area padding utility (lazım olursa sayfada kullanırsın) */
   .safe-px {
     padding-left: env(safe-area-inset-left);
     padding-right: env(safe-area-inset-right);
   }
+
   .safe-pb {
     padding-bottom: env(safe-area-inset-bottom);
   }
@@ -263,14 +255,130 @@ svg {
    HalApp Premium Animations
    ========================= */
 @keyframes halappHalo {
-  0% { transform: translate3d(0,0,0) scale(1); opacity: .45; }
-  50% { transform: translate3d(0,0,0) scale(1.05); opacity: .75; }
-  100% { transform: translate3d(0,0,0) scale(1); opacity: .45; }
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.45;
+  }
+
+  50% {
+    transform: translate3d(0, 0, 0) scale(1.05);
+    opacity: 0.75;
+  }
+
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.45;
+  }
 }
 
 @keyframes halappRipple {
-  0%   { transform: translate(-50%, -50%) scale(.25); opacity: .45; }
-  100% { transform: translate(-50%, -50%) scale(3.2); opacity: 0; }
+  0% {
+    transform: translate(-50%, -50%) scale(0.25);
+    opacity: 0.45;
+  }
+
+  100% {
+    transform: translate(-50%, -50%) scale(3.2);
+    opacity: 0;
+  }
+}
+
+@keyframes radar-spin {
+  from {
+    transform: translate(-50%, -50%) rotate(0deg);
+  }
+
+  to {
+    transform: translate(-50%, -50%) rotate(360deg);
+  }
+}
+
+@keyframes ticker-move {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes halappFloat {
+  0% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-12px);
+  }
+
+  100% {
+    transform: translateY(0);
+  }
+}
+
+@keyframes premiumShine {
+  0% {
+    transform: translateX(-120%) skewX(-18deg);
+  }
+
+  100% {
+    transform: translateX(220%) skewX(-18deg);
+  }
+}
+
+@keyframes signalPulse {
+  0% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0.45);
+  }
+
+  70% {
+    box-shadow: 0 0 0 14px rgba(52, 211, 153, 0);
+  }
+
+  100% {
+    box-shadow: 0 0 0 0 rgba(52, 211, 153, 0);
+  }
+}
+
+.radar-scan {
+  animation: radar-spin 6s linear infinite;
+  transform-origin: center;
+  will-change: transform;
+}
+
+.market-ticker {
+  animation: ticker-move 18s linear infinite;
+  will-change: transform;
+}
+
+.animate-float {
+  animation: halappFloat 5s ease-in-out infinite;
+  will-change: transform;
+}
+
+.signal-pulse {
+  animation: signalPulse 1.8s ease-out infinite;
+}
+
+.premium-shine {
+  position: relative;
+  overflow: hidden;
+}
+
+.premium-shine::after {
+  content: "";
+  position: absolute;
+  inset: -40% auto -40% 0;
+  width: 45%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.18),
+    transparent
+  );
+  animation: premiumShine 4.8s ease-in-out infinite;
+  pointer-events: none;
 }
 
 /* Ripple host */
@@ -279,6 +387,7 @@ svg {
   overflow: hidden;
   -webkit-tap-highlight-color: transparent;
 }
+
 .ha-ripple > .ha-ripple__wave {
   position: absolute;
   left: var(--rx);
@@ -286,37 +395,65 @@ svg {
   width: 12px;
   height: 12px;
   border-radius: 9999px;
-  background: rgba(16, 185, 129, .22);
+  background: rgba(16, 185, 129, 0.22);
   pointer-events: none;
   animation: halappRipple 650ms ease-out forwards;
 }
 
-/* Premium halo (card background glow) */
+/* Premium halo */
 .ha-premium-halo {
   position: absolute;
   inset: -24px;
   pointer-events: none;
   background:
-    radial-gradient(280px circle at 25% 18%, rgba(34,197,94,.22), transparent 55%),
-    radial-gradient(240px circle at 80% 30%, rgba(16,185,129,.16), transparent 60%);
+    radial-gradient(280px circle at 25% 18%, rgba(34, 197, 94, 0.22), transparent 55%),
+    radial-gradient(240px circle at 80% 30%, rgba(16, 185, 129, 0.16), transparent 60%);
   filter: blur(14px);
-  opacity: .0;
-  transition: opacity .25s ease;
+  opacity: 0;
+  transition: opacity 0.25s ease;
 }
-.group:hover .ha-premium-halo { opacity: 1; }
+
+.group:hover .ha-premium-halo {
+  opacity: 1;
+}
+
 .ha-premium-halo--anim {
-  opacity: .85;
+  opacity: 0.85;
   animation: halappHalo 2.8s ease-in-out infinite;
 }
-/* iOS Safari dahil: yatay taşmayı kesin kapat */
-html, body {
+
+/* =========================
+   Motion Accessibility
+   ========================= */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+  }
+
+  .radar-scan,
+  .market-ticker,
+  .animate-float,
+  .signal-pulse,
+  .premium-shine::after,
+  .ha-premium-halo--anim {
+    animation: none !important;
+  }
+}
+
+/* =========================
+   iOS Safari overflow fix
+   ========================= */
+html,
+body {
   width: 100%;
   max-width: 100%;
   overflow-x: hidden;
 }
 
-/* iOS Safari: blur/transform yüzünden yatay taşıma buglarını keser */
-#__next, body > div {
+#__next,
+body > div {
   max-width: 100%;
   overflow-x: clip;
 }

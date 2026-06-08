@@ -10,9 +10,9 @@ import { useMe } from "@/lib/me";
 import { supabase } from "@/lib/supabaseClient";
 
 const nav = [
-  { href: "#ozellikler", label: "Özellikler" },
-  { href: "#canli-ilanlar", label: "Canlı İlanlar" },
-  { href: "#fiyat", label: "Fiyat" },
+  { href: "/features", label: "Özellikler" },
+  { href: "/map", label: "Canlı Türkiye Haritası" },
+  
 ];
 
 function clsx(...a: (string | false | null | undefined)[]) {
@@ -32,21 +32,20 @@ function initials(name?: string | null) {
   return parts.map((p) => p[0]?.toUpperCase()).join("") || "HA";
 }
 
-/** ✅ Home dışındayken anchor doğru link olsun: "/#ozellikler" */
 function anchorHref(onHome: boolean, hash: string) {
   return onHome ? hash : `/${hash}`;
 }
 
+function getNavHref(onHome: boolean, href: string) {
+  if (href.startsWith("#")) return anchorHref(onHome, href);
+  return href;
+}
+
 function Icon({ name }: { name: string }) {
-  // minimal inline icon set
   if (name === "settings")
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="opacity-80">
-        <path
-          d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"
-          stroke="currentColor"
-          strokeWidth="2"
-        />
+        <path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z" stroke="currentColor" strokeWidth="2" />
         <path
           d="M19.4 15a7.9 7.9 0 0 0 .1-6l-2.1.3a6.2 6.2 0 0 0-1.2-1.2l.3-2.1a7.9 7.9 0 0 0-6-.1l-.3 2.1a6.2 6.2 0 0 0-1.2 1.2L5.6 9a7.9 7.9 0 0 0-.1 6l2.1-.3c.36.45.77.86 1.22 1.22l-.3 2.1a7.9 7.9 0 0 0 6 .1l.3-2.1c.45-.36.86-.77 1.22-1.22l2.1.3Z"
           stroke="currentColor"
@@ -73,11 +72,7 @@ function Icon({ name }: { name: string }) {
     return (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="opacity-80">
         <path d="M20 21a8 8 0 1 0-16 0" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-        <path
-          d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z"
-          stroke="currentColor"
-          strokeWidth="2"
-        />
+        <path d="M12 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z" stroke="currentColor" strokeWidth="2" />
       </svg>
     );
 
@@ -159,6 +154,7 @@ function ThemeButton({
   className?: string;
 }) {
   const isDark = theme === "dark";
+
   return (
     <button
       type="button"
@@ -182,13 +178,7 @@ function ThemeButton({
         </svg>
       ) : (
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-          <path
-            d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          />
+          <path d="M12 18a6 6 0 1 0 0-12 6 6 0 0 0 0 12Z" stroke="currentColor" strokeWidth="2" />
           <path
             d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"
             stroke="currentColor"
@@ -212,10 +202,9 @@ function PremiumPill() {
 
 function UnreadBadge({ n }: { n: number }) {
   if (!n || n <= 0) return null;
-  const shown = n > 99 ? "99+" : String(n);
   return (
     <span className="ml-2 inline-flex items-center rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-black text-white">
-      {shown}
+      {n > 99 ? "99+" : n}
     </span>
   );
 }
@@ -233,7 +222,6 @@ function UserChip({
     <div className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-black/5 px-3 py-2 dark:border-white/10 dark:bg-white/5">
       <div className="relative h-8 w-8 overflow-hidden rounded-2xl ring-1 ring-black/10 bg-white/70 dark:ring-white/10 dark:bg-black/25">
         {avatarUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
           <img src={bust(avatarUrl)} alt="Avatar" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center text-[11px] font-black text-black/70 dark:text-white/75">
@@ -246,7 +234,9 @@ function UserChip({
         <div className="max-w-[160px] truncate text-xs font-extrabold text-black/90 dark:text-white/90">
           {name}
         </div>
-        <div className="text-[11px] text-black/55 dark:text-white/55">{isPremium ? "Premium üye" : "Standart üye"}</div>
+        <div className="text-[11px] text-black/55 dark:text-white/55">
+          {isPremium ? "Premium üye" : "Standart üye"}
+        </div>
       </div>
 
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="opacity-70">
@@ -273,7 +263,7 @@ function MenuItem({
     <button
       type="button"
       onClick={onClick}
-      className={clsx("w-full rounded-2xl px-3 py-2 text-left transition", "hover:bg-black/5 dark:hover:bg-white/5")}
+      className="w-full rounded-2xl px-3 py-2 text-left transition hover:bg-black/5 dark:hover:bg-white/5"
     >
       <div className="flex items-center gap-3">
         <span className="grid h-9 w-9 place-items-center rounded-2xl border border-black/10 bg-white/70 text-black/80 dark:border-white/10 dark:bg-black/30 dark:text-white/80">
@@ -301,7 +291,6 @@ export default function Navbar() {
 
   const [scrolled, setScrolled] = useState(false);
   const [openMobile, setOpenMobile] = useState(false);
-
   const [openUser, setOpenUser] = useState(false);
   const userRef = useRef<HTMLDivElement | null>(null);
 
@@ -309,12 +298,14 @@ export default function Navbar() {
   const me = useMe();
 
   const onHome = pathname === "/";
+  const isAuthPage =
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register");
 
   const displayName = useMemo(() => {
     const p: any = me.profile ?? null;
-    const c = (p?.company_name ?? "").trim();
-    const f = (p?.full_name ?? "").trim();
-    return c || f || "HalApp Kullanıcısı";
+    return (p?.company_name ?? "").trim() || (p?.full_name ?? "").trim() || "HalApp Kullanıcısı";
   }, [me.profile]);
 
   const avatarUrl = useMemo(() => {
@@ -323,12 +314,10 @@ export default function Navbar() {
   }, [me.profile]);
 
   const isPremium = Boolean((me.profile as any)?.is_premium);
-const isAuthPage =
-  pathname.startsWith("/auth") ||
-  pathname.startsWith("/login") ||
-  pathname.startsWith("/register");
-  // ✅ ADMIN (me.profile varsa oradan, yoksa DB’den)
+
   const [isAdmin, setIsAdmin] = useState(false);
+  const [myId, setMyId] = useState<string | null>(null);
+  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     const v = Boolean((me.profile as any)?.is_admin);
@@ -337,28 +326,29 @@ const isAuthPage =
 
   useEffect(() => {
     let mounted = true;
+
     (async () => {
-      if (isAdmin) return; // zaten true
+      if (isAdmin) return;
+
       if (!me.authed) {
         if (mounted) setIsAdmin(false);
         return;
       }
+
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess.session?.user?.id;
       if (!uid) return;
 
       const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", uid).maybeSingle();
+
       if (!mounted) return;
       if (!error) setIsAdmin(Boolean((data as any)?.is_admin));
     })();
+
     return () => {
       mounted = false;
     };
   }, [me.authed, isAdmin]);
-
-  // ✅ unread state
-  const [myId, setMyId] = useState<string | null>(null);
-  const [unread, setUnread] = useState(0);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 6);
@@ -374,7 +364,6 @@ const isAuthPage =
     };
   }, [openMobile]);
 
-  // dışarı tıklayınca dropdown kapat
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!openUser) return;
@@ -382,19 +371,19 @@ const isAuthPage =
       if (!el) return;
       if (e.target instanceof Node && !el.contains(e.target)) setOpenUser(false);
     }
+
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [openUser]);
 
-  // ✅ route değişince menüler kapansın
   useEffect(() => {
     setOpenMobile(false);
     setOpenUser(false);
   }, [pathname]);
 
-  // ✅ session -> myId
   useEffect(() => {
     let mounted = true;
+
     (async () => {
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id ?? null;
@@ -420,11 +409,9 @@ const isAuthPage =
       .eq("to_user", uid)
       .eq("is_read", false);
 
-    if (error) return;
-    setUnread(count ?? 0);
+    if (!error) setUnread(count ?? 0);
   }
 
-  // ✅ unread initial + realtime
   useEffect(() => {
     if (!myId) return;
 
@@ -445,8 +432,7 @@ const isAuthPage =
   }, [myId]);
 
   async function goLogin() {
-    const next = pathname || "/";
-    router.push(`/auth?next=${encodeURIComponent(next)}`);
+    router.push(`/auth?next=${encodeURIComponent(pathname || "/")}`);
   }
 
   async function logout() {
@@ -469,66 +455,59 @@ const isAuthPage =
     <>
       <header
         className={clsx(
-          "sticky top-0 z-50 w-full",
-          "transition-all duration-300",
+          "sticky top-0 z-50 w-full transition-all duration-300",
           scrolled ? "backdrop-blur-xl" : "backdrop-blur-md"
         )}
       >
         <div
           className={clsx(
-            "mx-auto max-w-6xl px-4",
-            "border-b",
+            "mx-auto max-w-6xl px-4 border-b",
             scrolled
               ? "border-black/10 bg-white/70 dark:border-white/10 dark:bg-black/35"
               : "border-black/5 bg-white/40 dark:border-white/5 dark:bg-black/20"
           )}
         >
           <div className="flex h-16 items-center justify-between">
-            {/* Left: Brand */}
             <Link href="/" className="group flex items-center gap-3">
               <span className="relative h-10 w-10 overflow-hidden rounded-2xl ring-1 ring-black/10 dark:ring-white/10">
                 <Image src="/halapp-logo.png" alt="HalApp" fill className="object-cover" priority />
-                <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  <span className="absolute -inset-8 bg-[radial-gradient(circle_at_30%_20%,rgba(34,197,94,.35),transparent_55%)]" />
-                </span>
               </span>
 
               <div className="leading-tight">
                 <div className="flex items-center gap-2">
-                  <span className="text-[15px] font-semibold tracking-tight text-black/90 dark:text-white/95">HalApp</span>
+                  <span className="text-[15px] font-semibold tracking-tight text-black/90 dark:text-white/95">
+                    HalApp
+                  </span>
                   <PremiumPill />
                 </div>
-                <div className="text-[12px] text-black/55 dark:text-white/55">Hızlı • Güvenli • Canlı akış</div>
+                <div className="text-[12px] text-black/55 dark:text-white/55">
+                  Hızlı • Güvenli • Canlı akış
+                </div>
               </div>
             </Link>
 
-            {/* Center: Nav */}
-           {!isAuthPage && (
-  <nav className="hidden items-center gap-1 md:flex">
-    {nav.map((x) => (
-      <a
-        key={x.href}
-        href={anchorHref(onHome, x.href)}
-        className={desktopLinkCls}
-      >
-        {x.label}
-      </a>
-    ))}
+            {!isAuthPage && (
+              <nav className="hidden items-center gap-1 md:flex">
+                {nav.map((x) => (
+                  <a key={x.href} href={getNavHref(onHome, x.href)} className={desktopLinkCls}>
+                    {x.label}
+                  </a>
+                ))}
 
-    <Link href="/pazar" className={desktopLinkCls}>
-      Pazar
-    </Link>
+                <Link href="/pazar" className={desktopLinkCls}>
+                  Pazar
+                </Link>
 
-    <Link href="/favorites" className={desktopLinkCls}>
-      Favoriler
-    </Link>
+                <Link href="/favorites" className={desktopLinkCls}>
+                  Favoriler
+                </Link>
 
-    <Link href="/conversations" className={desktopLinkCls}>
-      Mesajlar <UnreadBadge n={unread} />
-    </Link>
-  </nav>
-)}
-            {/* Right: Actions */}
+                <Link href="/conversations" className={desktopLinkCls}>
+                  Mesajlar <UnreadBadge n={unread} />
+                </Link>
+              </nav>
+            )}
+
             <div className="hidden items-center gap-2 md:flex">
               <ThemeButton onClick={toggleTheme} theme={theme} />
 
@@ -553,7 +532,6 @@ const isAuthPage =
                         <div className="flex items-center gap-3">
                           <div className="relative h-10 w-10 overflow-hidden rounded-2xl ring-1 ring-black/10 bg-white/70 dark:ring-white/10 dark:bg-black/25">
                             {avatarUrl ? (
-                              // eslint-disable-next-line @next/next/no-img-element
                               <img src={bust(avatarUrl)} alt="Avatar" className="h-full w-full object-cover" />
                             ) : (
                               <div className="flex h-full w-full items-center justify-center text-xs font-black text-black/70 dark:text-white/75">
@@ -563,16 +541,20 @@ const isAuthPage =
                           </div>
 
                           <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-black text-black/90 dark:text-white/90">{displayName}</div>
+                            <div className="truncate text-sm font-black text-black/90 dark:text-white/90">
+                              {displayName}
+                            </div>
                             <div className="mt-0.5 flex flex-wrap gap-2">
                               <span className="inline-flex items-center rounded-full border border-black/10 bg-black/5 px-2.5 py-1 text-[11px] font-extrabold text-black/70 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
                                 {isPremium ? "Premium" : "Standart"}
                               </span>
+
                               {(me.profile as any)?.verified ? (
                                 <span className="inline-flex items-center rounded-full border border-emerald-500/25 bg-emerald-500/10 px-2.5 py-1 text-[11px] font-extrabold text-emerald-800 dark:text-emerald-200">
                                   Onaylı
                                 </span>
                               ) : null}
+
                               {isAdmin ? (
                                 <span className="inline-flex items-center rounded-full border border-rose-500/25 bg-rose-500/10 px-2.5 py-1 text-[11px] font-extrabold text-rose-800 dark:text-rose-200">
                                   Admin
@@ -588,12 +570,13 @@ const isAuthPage =
                           <MenuItem
                             icon={<Icon name="user" />}
                             title="Profil"
-                            subtitle="Hesap ve profil bilgileri"
+                            subtitle="Hesap, paket ve profil bilgileri"
                             onClick={() => {
                               setOpenUser(false);
                               router.push("/profile");
                             }}
                           />
+
                           <MenuItem
                             icon={<Icon name="chat" />}
                             title="Mesajlar"
@@ -604,6 +587,7 @@ const isAuthPage =
                               router.push("/conversations");
                             }}
                           />
+
                           <MenuItem
                             icon={<Icon name="tag" />}
                             title="İlanlarım"
@@ -613,6 +597,7 @@ const isAuthPage =
                               router.push("/my-listings");
                             }}
                           />
+
                           <MenuItem
                             icon={<Icon name="heart" />}
                             title="Favoriler"
@@ -622,6 +607,7 @@ const isAuthPage =
                               router.push("/favorites");
                             }}
                           />
+
                           <MenuItem
                             icon={<Icon name="shop" />}
                             title="Pazar"
@@ -631,6 +617,7 @@ const isAuthPage =
                               router.push("/pazar");
                             }}
                           />
+
                           <MenuItem
                             icon={<Icon name="settings" />}
                             title="Ayarlar"
@@ -640,6 +627,7 @@ const isAuthPage =
                               router.push("/settings");
                             }}
                           />
+
                           <MenuItem
                             icon={<Icon name="bell" />}
                             title="Bildirim Ayarları"
@@ -650,7 +638,6 @@ const isAuthPage =
                             }}
                           />
 
-                          {/* ✅ ADMIN PANEL (Sadece admin) */}
                           {isAdmin ? (
                             <>
                               <div className="my-1 h-px bg-black/10 dark:bg-white/10" />
@@ -680,26 +667,18 @@ const isAuthPage =
                   )}
                 </div>
               ) : (
-                <>
-                  <button
-                    className="rounded-2xl border border-black/10 bg-white/60 px-4 py-2 text-sm font-extrabold text-black/80 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
-                    onClick={goLogin}
-                  >
-                    Giriş Yap
-                  </button>
-                  <a
-                    className="rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-black hover:bg-emerald-400 transition"
-                    href={anchorHref(onHome, "#fiyat")}
-                  >
-                    Premium Başla
-                  </a>
-                </>
+                <button
+                  className="rounded-2xl border border-black/10 bg-white/60 px-4 py-2 text-sm font-extrabold text-black/80 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
+                  onClick={goLogin}
+                >
+                  Giriş Yap
+                </button>
               )}
             </div>
 
-            {/* Mobile button */}
             <div className="flex items-center gap-2 md:hidden">
               <ThemeButton onClick={toggleTheme} theme={theme} className="px-3" />
+
               <button
                 type="button"
                 className="rounded-2xl border border-black/10 bg-white/60 px-3 py-2 text-black/80 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
@@ -715,16 +694,17 @@ const isAuthPage =
         </div>
       </header>
 
-      {/* Mobile sheet */}
       {openMobile && (
         <div className="fixed inset-0 z-[60] md:hidden">
           <div
-            className="absolute inset-0 bg-black/40 dark:bg-black/70 backdrop-blur-sm"
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm dark:bg-black/70"
             onClick={() => setOpenMobile(false)}
           />
+
           <div className="absolute right-0 top-0 h-full w-[90%] max-w-sm border-l border-black/10 bg-white/90 p-5 dark:border-white/10 dark:bg-black/85">
             <div className="flex items-center justify-between">
               <div className="text-sm font-extrabold text-black/90 dark:text-white/90">Menü</div>
+
               <button
                 className="rounded-2xl border border-black/10 bg-white/60 px-3 py-2 text-sm font-extrabold text-black/80 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
                 onClick={() => setOpenMobile(false)}
@@ -733,7 +713,6 @@ const isAuthPage =
               </button>
             </div>
 
-            {/* User area */}
             <div className="mt-4 rounded-[26px] border border-black/10 bg-black/5 p-4 dark:border-white/10 dark:bg-white/5">
               {me.loading ? (
                 <div className="text-sm font-extrabold text-black/60 dark:text-white/60">Yükleniyor…</div>
@@ -741,7 +720,6 @@ const isAuthPage =
                 <div className="flex items-center gap-3">
                   <div className="h-11 w-11 overflow-hidden rounded-3xl ring-1 ring-black/10 bg-white/70 dark:ring-white/10 dark:bg-black/25">
                     {avatarUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
                       <img src={bust(avatarUrl)} alt="Avatar" className="h-full w-full object-cover" />
                     ) : (
                       <div className="flex h-full w-full items-center justify-center text-xs font-black text-black/70 dark:text-white/75">
@@ -749,6 +727,7 @@ const isAuthPage =
                       </div>
                     )}
                   </div>
+
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-black text-black/90 dark:text-white/90">{displayName}</div>
                     <div className="mt-0.5 text-xs text-black/55 dark:text-white/55">
@@ -772,12 +751,11 @@ const isAuthPage =
               )}
             </div>
 
-            {/* Nav */}
             <div className="mt-4 space-y-1">
               {nav.map((x) => (
                 <a
                   key={x.href}
-                  href={anchorHref(onHome, x.href)}
+                  href={getNavHref(onHome, x.href)}
                   className="block rounded-2xl px-3 py-3 text-sm font-extrabold text-black/80 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/5"
                   onClick={() => setOpenMobile(false)}
                 >
@@ -837,7 +815,6 @@ const isAuthPage =
                 🔔 Bildirim Ayarları
               </button>
 
-              {/* ✅ ADMIN PANEL (Sadece admin) */}
               {me.authed && isAdmin ? (
                 <button
                   className="block w-full rounded-2xl px-3 py-3 text-left text-sm font-extrabold text-rose-600 hover:bg-black/5 dark:hover:bg-white/5"
@@ -856,16 +833,12 @@ const isAuthPage =
                 <>
                   <button
                     className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 text-sm font-extrabold text-black/80 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
-                    onClick={() => (setOpenMobile(false), router.push("/profile"))}
+                    onClick={() => {
+                      setOpenMobile(false);
+                      router.push("/profile");
+                    }}
                   >
                     Profil
-                  </button>
-
-                  <button
-                    className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 text-sm font-extrabold text-black/80 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
-                    onClick={() => (setOpenMobile(false), router.push("/premium"))}
-                  >
-                    Premium
                   </button>
 
                   <button
@@ -879,25 +852,21 @@ const isAuthPage =
                   </button>
                 </>
               ) : (
-                <>
-                  <button
-                    className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 text-sm font-extrabold text-black/80 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
-                    onClick={() => (setOpenMobile(false), goLogin())}
-                  >
-                    Giriş Yap
-                  </button>
-                  <a
-                    className="rounded-2xl bg-emerald-500 px-4 py-3 text-center text-sm font-black text-black hover:bg-emerald-400 transition"
-                    href={anchorHref(onHome, "#fiyat")}
-                    onClick={() => setOpenMobile(false)}
-                  >
-                    Premium Başla
-                  </a>
-                </>
+                <button
+                  className="rounded-2xl border border-black/10 bg-white/60 px-4 py-3 text-sm font-extrabold text-black/80 hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-white/80 dark:hover:bg-white/10"
+                  onClick={() => {
+                    setOpenMobile(false);
+                    goLogin();
+                  }}
+                >
+                  Giriş Yap
+                </button>
               )}
             </div>
 
-            <div className="mt-6 text-xs text-black/55 dark:text-white/50">HalApp • Premium deneyim • Supabase altyapı</div>
+            <div className="mt-6 text-xs text-black/55 dark:text-white/50">
+              HalApp • Dijital Toptancı Hali
+            </div>
           </div>
         </div>
       )}
