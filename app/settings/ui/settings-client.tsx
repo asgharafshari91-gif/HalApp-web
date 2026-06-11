@@ -46,6 +46,7 @@ function Card({
             <div className="text-lg font-black tracking-tight text-zinc-900 dark:text-zinc-100">
               {title}
             </div>
+
             {subtitle ? (
               <div className="mt-1 text-sm leading-6 text-black/60 dark:text-white/60">
                 {subtitle}
@@ -83,6 +84,7 @@ function RowLink({
         <div className="truncate text-sm font-extrabold text-black/85 dark:text-white/85">
           {title}
         </div>
+
         {desc ? (
           <div className="mt-0.5 truncate text-xs text-black/55 dark:text-white/55">
             {desc}
@@ -182,6 +184,7 @@ export default function SettingsClient() {
 
   const today = useMemo(() => {
     const d = new Date();
+
     return d.toLocaleDateString("tr-TR", {
       year: "numeric",
       month: "long",
@@ -194,6 +197,7 @@ export default function SettingsClient() {
 
   const [logoutLoading, setLogoutLoading] = useState(false);
   const [globalLogoutLoading, setGlobalLogoutLoading] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   const [err, setErr] = useState<string | null>(null);
 
@@ -203,11 +207,11 @@ export default function SettingsClient() {
 
   const [updatedAt, setUpdatedAt] = useState<string | null>(null);
 
-  const saveTimer = useRef<any>(null);
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      window.scrollTo({ top: 0, behavior: "instant" as any });
+      window.scrollTo({ top: 0, behavior: "instant" as ScrollBehavior });
     }
 
     return () => {
@@ -243,12 +247,6 @@ export default function SettingsClient() {
   }
 
   async function logoutAllDevices() {
-    const ok = window.confirm(
-      "Tüm cihazlardan çıkış yapılsın mı? Telefon, bilgisayar ve açık kalan diğer oturumlar kapatılır."
-    );
-
-    if (!ok) return;
-
     try {
       setGlobalLogoutLoading(true);
 
@@ -257,6 +255,8 @@ export default function SettingsClient() {
       });
 
       if (error) throw error;
+
+      setShowLogoutModal(false);
 
       toast({
         variant: "success",
@@ -304,7 +304,7 @@ export default function SettingsClient() {
 
     if (ins.error) throw ins.error;
 
-    return ins.data!;
+    return ins.data;
   }
 
   async function load() {
@@ -334,7 +334,7 @@ export default function SettingsClient() {
   }
 
   useEffect(() => {
-    load();
+    void load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -391,6 +391,7 @@ export default function SettingsClient() {
 
   function setPush(v: boolean) {
     setPushEnabled(v);
+
     scheduleSave({
       push_enabled: v,
       email_enabled: emailEnabled,
@@ -400,6 +401,7 @@ export default function SettingsClient() {
 
   function setEmail(v: boolean) {
     setEmailEnabled(v);
+
     scheduleSave({
       push_enabled: pushEnabled,
       email_enabled: v,
@@ -409,6 +411,7 @@ export default function SettingsClient() {
 
   function setSms(v: boolean) {
     setSmsEnabled(v);
+
     scheduleSave({
       push_enabled: pushEnabled,
       email_enabled: emailEnabled,
@@ -421,224 +424,332 @@ export default function SettingsClient() {
 
     try {
       const d = new Date(updatedAt);
-      return d.toLocaleString("tr-TR", {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
+
+      return {
+        date: d.toLocaleDateString("tr-TR", {
+          day: "2-digit",
+          month: "long",
+          year: "numeric",
+        }),
+        time: d.toLocaleTimeString("tr-TR", {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+      };
     } catch {
-      return updatedAt;
+      return {
+        date: updatedAt,
+        time: "",
+      };
     }
   }, [updatedAt]);
 
   const actionDisabled = logoutLoading || globalLogoutLoading;
 
   return (
-    <div className="mx-auto w-full max-w-3xl space-y-4">
-      <div className="relative overflow-hidden rounded-[32px] border border-black/10 bg-white/80 p-6 shadow-[0_22px_90px_rgba(0,0,0,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_22px_90px_rgba(0,0,0,0.60)]">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
-          <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+    <>
+      <div className="mx-auto w-full max-w-3xl space-y-4">
+        <div className="relative overflow-hidden rounded-[32px] border border-black/10 bg-white/80 p-6 shadow-[0_22px_90px_rgba(0,0,0,0.10)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045] dark:shadow-[0_22px_90px_rgba(0,0,0,0.60)]">
+          <div className="pointer-events-none absolute inset-0">
+            <div className="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-emerald-400/15 blur-3xl" />
+            <div className="absolute -bottom-24 -left-24 h-64 w-64 rounded-full bg-cyan-400/10 blur-3xl" />
+          </div>
+
+          <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <div className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
+                HalApp Güvenlik Merkezi
+              </div>
+
+              <div className="mt-3 text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
+                Ayarlar
+              </div>
+
+              <div className="mt-2 text-sm leading-6 text-black/60 dark:text-white/60">
+                Bildirim, hesap ve güvenlik tercihlerini buradan yönet.{" "}
+                <span className="opacity-80">({today})</span>
+              </div>
+
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <Link
+                  href="/"
+                  className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+                >
+                  ← Ana sayfa
+                </Link>
+
+                {updatedLabel ? (
+                  <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs font-black text-emerald-800 dark:text-emerald-200">
+                    <div>✓ Son senkronizasyon</div>
+                    <div className="mt-0.5 font-extrabold opacity-80">
+                      {updatedLabel.date}
+                      {updatedLabel.time ? ` • ${updatedLabel.time}` : ""}
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            <div className="rounded-3xl border border-black/10 bg-black/[0.04] p-4 dark:border-white/10 dark:bg-white/[0.05]">
+              <div className="text-xs font-extrabold text-black/55 dark:text-white/55">
+                Premium Not
+              </div>
+
+              <div className="mt-2 max-w-xs text-sm leading-6 text-black/70 dark:text-white/70">
+                Değişiklikler otomatik kaydedilir. Güvenlik işlemlerinde oturum
+                tekrar istenebilir.
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="relative flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
-          <div className="min-w-0">
-            <div className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.18em] text-emerald-700 dark:text-emerald-300">
-              HalApp Güvenlik Merkezi
+        {err ? (
+          <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
+            {err}
+          </div>
+        ) : null}
+
+        <Card
+          tone="premium"
+          title="Güvenlik & Oturumlar"
+          subtitle="Hesabın başka bilgisayarda veya telefonda açıksa buradan tüm oturumları kapatabilirsin."
+        >
+          <div className="grid gap-3">
+            <div className="inline-flex w-fit rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+              🛡️ HalApp Security
             </div>
 
-            <div className="mt-3 text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
-              Ayarlar
+            <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4">
+              <div className="text-sm font-black text-emerald-800 dark:text-emerald-200">
+                🔐 Tüm cihazlardan çıkış
+              </div>
+
+              <div className="mt-1 text-xs leading-5 text-black/60 dark:text-white/60">
+                Bu işlem telefon, bilgisayar ve açık kalan diğer HalApp Web
+                oturumlarını kapatır. Yeniden giriş için SMS / Google / Apple
+                gerekir.
+              </div>
             </div>
 
-            <div className="mt-2 text-sm leading-6 text-black/60 dark:text-white/60">
-              Bildirim, hesap ve güvenlik tercihlerini buradan yönet.{" "}
-              <span className="opacity-80">({today})</span>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2">
-              <Link
-                href="/"
-                className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
+            <div className="grid gap-3 sm:grid-cols-2">
+              <button
+                type="button"
+                disabled={actionDisabled}
+                onClick={() => setShowLogoutModal(true)}
+                className={clsx(
+                  "relative h-[52px] overflow-hidden rounded-2xl px-4 py-3 text-sm font-black text-white",
+                  "bg-gradient-to-r from-red-600 to-rose-500",
+                  "shadow-[0_18px_55px_rgba(244,63,94,0.30)]",
+                  "transition hover:-translate-y-0.5 hover:shadow-[0_22px_65px_rgba(244,63,94,0.38)]",
+                  "disabled:cursor-not-allowed disabled:opacity-60"
+                )}
               >
-                ← Ana sayfa
-              </Link>
+                Tüm Cihazlardan Çıkış Yap
+              </button>
 
-              {updatedLabel ? (
-                <div className="rounded-2xl border border-black/10 bg-white/70 px-4 py-2 text-xs font-black text-zinc-700 dark:border-white/10 dark:bg-black/30 dark:text-zinc-200">
-                  Son kayıt: {updatedLabel}
-                </div>
-              ) : null}
+              <button
+                type="button"
+                disabled={actionDisabled}
+                onClick={logout}
+                className={clsx(
+                  "h-[52px] rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-zinc-900",
+                  "transition hover:-translate-y-0.5 hover:bg-black/5",
+                  "dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/[0.10]",
+                  "disabled:cursor-not-allowed disabled:opacity-60"
+                )}
+              >
+                {logoutLoading
+                  ? "Çıkış yapılıyor..."
+                  : "Sadece Bu Cihazdan Çıkış Yap"}
+              </button>
             </div>
           </div>
+        </Card>
 
-          <div className="rounded-3xl border border-black/10 bg-black/[0.04] p-4 dark:border-white/10 dark:bg-white/[0.05]">
-            <div className="text-xs font-extrabold text-black/55 dark:text-white/55">
-              Premium Not
+        <Card
+          title="Bildirim Tercihleri"
+          subtitle="Push, e-posta ve SMS bildirimlerini buradan yönet."
+        >
+          {loading ? (
+            <div className="rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-sm text-black/60 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+              Ayarlar yükleniyor...
             </div>
-            <div className="mt-2 max-w-xs text-sm leading-6 text-black/70 dark:text-white/70">
-              Değişiklikler otomatik kaydedilir. Güvenlik işlemlerinde oturum
-              tekrar istenebilir.
+          ) : (
+            <div className="grid gap-3">
+              <Switch
+                icon="🔔"
+                label="Push bildirimleri"
+                desc="Mesajlar, ilan güncellemeleri ve önemli duyurular."
+                badge={saving ? "Kaydediliyor…" : "Otomatik kaydedilir"}
+                checked={!!pushEnabled}
+                onChange={setPush}
+                disabled={saving}
+              />
+
+              <Switch
+                icon="📩"
+                label="E-posta bildirimleri"
+                desc="Önemli duyurular ve güvenlik bildirimleri."
+                checked={!!emailEnabled}
+                onChange={setEmail}
+                disabled={saving}
+              />
+
+              <Switch
+                icon="📱"
+                label="SMS bildirimleri"
+                desc="Hızlı doğrulama / kritik uyarılar."
+                checked={!!smsEnabled}
+                onChange={setSms}
+                disabled={saving}
+              />
+
+              <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-xs leading-5 text-black/60 dark:border-white/10 dark:bg-zinc-950/40 dark:text-white/60">
+                İpucu: Push açık olsa bile cihaz ayarlarında HalApp
+                bildirimleri kapalıysa bildirim gelmez.
+              </div>
             </div>
+          )}
+        </Card>
+
+        <Card
+          title="Hesap & Kontrol"
+          subtitle="Engellediklerin, gizlediklerin, destek ve hesap silme."
+        >
+          <div className="grid gap-2">
+            <RowLink
+              href="/settings/blocked"
+              title="Engellediklerim"
+              desc="Engellediğin kullanıcıları yönet"
+            />
+            <RowLink
+              href="/settings/hidden"
+              title="Gizlenenler"
+              desc="Gizlediğin ilan/kullanıcı"
+            />
+            <RowLink
+              href="/settings/help"
+              title="Yardım"
+              desc="SSS / destek kanalı"
+            />
+            <RowLink
+              href="/settings/report"
+              title="Sorun Bildir"
+              desc="Şikayet / spam / uygunsuz içerik"
+            />
+            <RowLink
+              href="/settings/delete-account"
+              title="Hesabı Sil"
+              desc="Kalıcı silme / veri kaldırma"
+            />
           </div>
+        </Card>
+
+        <Card title="Yasal" subtitle="Şartlar ve gizlilik politikaları">
+          <div className="grid gap-2">
+            <RowLink
+              href="/terms"
+              title="Kullanım Şartları"
+              desc="Platform kuralları"
+            />
+            <RowLink
+              href="/privacy"
+              title="KVKK & Çerez Politikası"
+              desc="Veri işleme ve çerezler"
+            />
+          </div>
+        </Card>
+
+        <div className="rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-xs leading-5 text-black/60 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+          Not: Her kullanıcı için <b>user_settings</b> tablosunda tek satır
+          olmalı. <b>user_id</b> unique değilse upsert çakışır.
         </div>
       </div>
 
-      {err ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-red-900 dark:border-red-900/40 dark:bg-red-950/40 dark:text-red-200">
-          {err}
+      {showLogoutModal ? (
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+          <button
+            type="button"
+            aria-label="Modalı kapat"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => {
+              if (!globalLogoutLoading) setShowLogoutModal(false);
+            }}
+          />
+
+          <div className="relative w-full max-w-md overflow-hidden rounded-[34px] border border-white/10 bg-white shadow-[0_35px_130px_rgba(0,0,0,0.45)] dark:bg-[#0B0F19]">
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-red-500/15 blur-3xl" />
+              <div className="absolute -bottom-24 -left-24 h-56 w-56 rounded-full bg-emerald-500/10 blur-3xl" />
+            </div>
+
+            <div className="relative p-6">
+              <div className="mb-4 inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-[11px] font-black uppercase tracking-[0.16em] text-emerald-700 dark:text-emerald-300">
+                🛡️ HalApp Security
+              </div>
+
+              <div className="flex items-start gap-4">
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl border border-red-500/20 bg-red-500/10 text-2xl">
+                  🔐
+                </div>
+
+                <div className="min-w-0">
+                  <h3 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
+                    Tüm Oturumları Kapat
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-black/65 dark:text-white/65">
+                    Bu işlem hesabınızın açık olduğu tüm telefon, tablet ve
+                    bilgisayarlardaki HalApp oturumlarını sonlandıracaktır.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-5 rounded-2xl border border-red-500/15 bg-red-500/5 p-4">
+                <div className="text-sm font-black text-red-600 dark:text-red-300">
+                  ⚠ Güvenlik İşlemi
+                </div>
+
+                <div className="mt-1 text-xs leading-5 text-black/60 dark:text-white/60">
+                  Yeniden giriş yapmak için SMS, Google veya Apple hesabınızla
+                  tekrar oturum açmanız gerekir.
+                </div>
+              </div>
+
+              <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  disabled={globalLogoutLoading}
+                  onClick={() => setShowLogoutModal(false)}
+                  className={clsx(
+                    "h-[52px] rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-sm font-black text-zinc-900",
+                    "transition hover:bg-black/10",
+                    "dark:border-white/10 dark:bg-white/5 dark:text-white dark:hover:bg-white/10",
+                    "disabled:cursor-not-allowed disabled:opacity-60"
+                  )}
+                >
+                  Vazgeç
+                </button>
+
+                <button
+                  type="button"
+                  disabled={globalLogoutLoading}
+                  onClick={logoutAllDevices}
+                  className={clsx(
+                    "h-[52px] rounded-2xl bg-gradient-to-r from-red-600 to-rose-500 px-4 py-3 text-sm font-black text-white",
+                    "shadow-[0_20px_60px_rgba(244,63,94,.30)] transition hover:scale-[1.02]",
+                    "disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:scale-100"
+                  )}
+                >
+                  {globalLogoutLoading
+                    ? "Kapatılıyor..."
+                    : "Tüm Oturumları Kapat"}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       ) : null}
-
-      <Card
-        tone="premium"
-        title="Güvenlik & Oturumlar"
-        subtitle="Hesabın başka bilgisayarda veya telefonda açıksa buradan tüm oturumları kapatabilirsin."
-      >
-        <div className="grid gap-3">
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-4 py-4">
-            <div className="text-sm font-black text-emerald-800 dark:text-emerald-200">
-              🔐 Tüm cihazlardan çıkış
-            </div>
-            <div className="mt-1 text-xs leading-5 text-black/60 dark:text-white/60">
-              Bu işlem telefon, bilgisayar ve açık kalan diğer HalApp Web
-              oturumlarını kapatır. Yeniden giriş için SMS / Google / Apple
-              gerekir.
-            </div>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-2">
-            <button
-              type="button"
-              disabled={actionDisabled}
-              onClick={logoutAllDevices}
-              className={clsx(
-                "relative h-13 overflow-hidden rounded-2xl px-4 py-3 text-sm font-black text-white",
-                "bg-gradient-to-r from-red-600 to-rose-500",
-                "shadow-[0_18px_55px_rgba(244,63,94,0.30)]",
-                "transition hover:-translate-y-0.5 hover:shadow-[0_22px_65px_rgba(244,63,94,0.38)]",
-                "disabled:cursor-not-allowed disabled:opacity-60"
-              )}
-            >
-              {globalLogoutLoading
-                ? "Kapatılıyor..."
-                : "Tüm Cihazlardan Çıkış Yap"}
-            </button>
-
-            <button
-              type="button"
-              disabled={actionDisabled}
-              onClick={logout}
-              className={clsx(
-                "h-13 rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-zinc-900",
-                "transition hover:-translate-y-0.5 hover:bg-black/5",
-                "dark:border-white/10 dark:bg-white/[0.06] dark:text-white dark:hover:bg-white/[0.10]",
-                "disabled:cursor-not-allowed disabled:opacity-60"
-              )}
-            >
-              {logoutLoading ? "Çıkış yapılıyor..." : "Sadece Bu Cihazdan Çıkış Yap"}
-            </button>
-          </div>
-        </div>
-      </Card>
-
-      <Card
-        title="Bildirim Tercihleri"
-        subtitle="Push, e-posta ve SMS bildirimlerini buradan yönet."
-      >
-        {loading ? (
-          <div className="rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-sm text-black/60 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
-            Ayarlar yükleniyor...
-          </div>
-        ) : (
-          <div className="grid gap-3">
-            <Switch
-              icon="🔔"
-              label="Push bildirimleri"
-              desc="Mesajlar, ilan güncellemeleri ve önemli duyurular."
-              badge={saving ? "Kaydediliyor…" : "Otomatik kaydedilir"}
-              checked={!!pushEnabled}
-              onChange={setPush}
-              disabled={saving}
-            />
-
-            <Switch
-              icon="📩"
-              label="E-posta bildirimleri"
-              desc="Önemli duyurular ve güvenlik bildirimleri."
-              checked={!!emailEnabled}
-              onChange={setEmail}
-              disabled={saving}
-            />
-
-            <Switch
-              icon="📱"
-              label="SMS bildirimleri"
-              desc="Hızlı doğrulama / kritik uyarılar."
-              checked={!!smsEnabled}
-              onChange={setSms}
-              disabled={saving}
-            />
-
-            <div className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-xs leading-5 text-black/60 dark:border-white/10 dark:bg-zinc-950/40 dark:text-white/60">
-              İpucu: Push açık olsa bile cihaz ayarlarında HalApp bildirimleri
-              kapalıysa bildirim gelmez.
-            </div>
-          </div>
-        )}
-      </Card>
-
-      <Card
-        title="Hesap & Kontrol"
-        subtitle="Engellediklerin, gizlediklerin, destek ve hesap silme."
-      >
-        <div className="grid gap-2">
-          <RowLink
-            href="/settings/blocked"
-            title="Engellediklerim"
-            desc="Engellediğin kullanıcıları yönet"
-          />
-          <RowLink
-            href="/settings/hidden"
-            title="Gizlenenler"
-            desc="Gizlediğin ilan/kullanıcı"
-          />
-          <RowLink
-            href="/settings/help"
-            title="Yardım"
-            desc="SSS / destek kanalı"
-          />
-          <RowLink
-            href="/settings/report"
-            title="Sorun Bildir"
-            desc="Şikayet / spam / uygunsuz içerik"
-          />
-          <RowLink
-            href="/settings/delete-account"
-            title="Hesabı Sil"
-            desc="Kalıcı silme / veri kaldırma"
-          />
-        </div>
-      </Card>
-
-      <Card title="Yasal" subtitle="Şartlar ve gizlilik politikaları">
-        <div className="grid gap-2">
-          <RowLink
-            href="/terms"
-            title="Kullanım Şartları"
-            desc="Platform kuralları"
-          />
-          <RowLink
-            href="/privacy"
-            title="KVKK & Çerez Politikası"
-            desc="Veri işleme ve çerezler"
-          />
-        </div>
-      </Card>
-
-      <div className="rounded-2xl border border-black/10 bg-black/5 px-4 py-3 text-xs leading-5 text-black/60 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
-        Not: Her kullanıcı için <b>user_settings</b> tablosunda tek satır olmalı.
-        <b> user_id</b> unique değilse upsert çakışır.
-      </div>
-    </div>
+    </>
   );
 }
