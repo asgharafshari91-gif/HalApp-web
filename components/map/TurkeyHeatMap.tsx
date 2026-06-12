@@ -61,9 +61,13 @@ const emptyDashboard: DashboardData = {
   latestSignals: [],
 };
 
+const TOOLTIP_W = 240;
+const TOOLTIP_H = 190;
+const TOOLTIP_GAP = 18;
+const TOOLTIP_PAD = 12;
+
 function normalizeCityName(value?: string) {
   if (!value) return "";
-
   const v = value.trim();
 
   const fixes: Record<string, string> = {
@@ -71,34 +75,25 @@ function normalizeCityName(value?: string) {
     istanbul: "İstanbul",
     ISTANBUL: "İstanbul",
     İSTANBUL: "İstanbul",
-
     Izmir: "İzmir",
     izmir: "İzmir",
     IZMIR: "İzmir",
     İZMİR: "İzmir",
-
     Ankara: "Ankara",
     ankara: "Ankara",
-
     Antalya: "Antalya",
     antalya: "Antalya",
-
     Isparta: "Isparta",
     isparta: "Isparta",
-
     Mersin: "Mersin",
     mersin: "Mersin",
-
     Adana: "Adana",
     adana: "Adana",
-
     Konya: "Konya",
     konya: "Konya",
-
     Urfa: "Şanlıurfa",
     Sanliurfa: "Şanlıurfa",
     "Şanlı Urfa": "Şanlıurfa",
-
     Kahramanmaras: "Kahramanmaraş",
     "K.Maraş": "Kahramanmaraş",
   };
@@ -136,7 +131,6 @@ function fmt(n: any) {
 
 function timeAgoTR(value?: string) {
   if (!value) return "az önce";
-
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return "az önce";
 
@@ -154,13 +148,10 @@ function timeAgoTR(value?: string) {
 }
 
 function productEmoji(name: any) {
-  const s = String(name ?? "")
-    .toLocaleLowerCase("tr-TR")
-    .trim();
+  const s = String(name ?? "").toLocaleLowerCase("tr-TR").trim();
 
   if (!s) return "🧺";
 
-  // Meyveler
   if (s.includes("elma")) return "🍎";
   if (s.includes("armut")) return "🍐";
   if (s.includes("portakal")) return "🍊";
@@ -194,7 +185,6 @@ function productEmoji(name: any) {
   if (s.includes("dut")) return "🫐";
   if (s.includes("altın çilek")) return "🍓";
 
-  // Sebzeler
   if (s.includes("domates")) return "🍅";
   if (s.includes("biber")) return "🌶️";
   if (s.includes("patlıcan")) return "🍆";
@@ -224,7 +214,6 @@ function productEmoji(name: any) {
   if (s.includes("mantar")) return "🍄";
   if (s.includes("kuşkonmaz")) return "🌱";
 
-  // Yeşillikler
   if (s.includes("roka")) return "🌿";
   if (s.includes("nane")) return "🌿";
   if (s.includes("maydanoz")) return "🌿";
@@ -232,13 +221,11 @@ function productEmoji(name: any) {
   if (s.includes("fesleğen")) return "🌿";
   if (s.includes("tere")) return "🌿";
 
-  // Kuru yemiş
   if (s.includes("ceviz")) return "🥜";
   if (s.includes("badem")) return "🥜";
   if (s.includes("fındık")) return "🥜";
   if (s.includes("antep fıstığı")) return "🥜";
 
-  // Genel
   return "🧺";
 }
 
@@ -380,8 +367,10 @@ function AdvantageCard({
     </div>
   );
 }
+
 export default function TurkeyHeatMap() {
   const svgRef = useRef<SVGSVGElement | null>(null);
+  const mapBoxRef = useRef<HTMLDivElement | null>(null);
   const zoomRef = useRef<d3.ZoomBehavior<SVGSVGElement, unknown> | null>(null);
 
   const [geo, setGeo] = useState<any>(null);
@@ -517,7 +506,9 @@ export default function TurkeyHeatMap() {
   const lastSignal = latest[0];
   const lastSignalCity = lastSignal?.city || "Sinyal bekleniyor";
   const lastSignalTitle =
-    lastSignal?.productName || lastSignal?.listingTitle || "Canlı veri bekleniyor";
+    lastSignal?.productName ||
+    lastSignal?.listingTitle ||
+    "Canlı veri bekleniyor";
   const lastSignalSource = lastSignal?.locationSource === "gps" ? "GPS" : "IP";
 
   useEffect(() => {
@@ -562,7 +553,10 @@ export default function TurkeyHeatMap() {
       .attr("width", "360%")
       .attr("height", "360%");
 
-    signalGlow.append("feGaussianBlur").attr("stdDeviation", "12").attr("result", "blur");
+    signalGlow
+      .append("feGaussianBlur")
+      .attr("stdDeviation", "12")
+      .attr("result", "blur");
 
     const merge2 = signalGlow.append("feMerge");
     merge2.append("feMergeNode").attr("in", "blur");
@@ -598,7 +592,27 @@ export default function TurkeyHeatMap() {
       .on("mousemove", function (event: MouseEvent, d: any) {
         const city = readProvinceName(d);
         const item = signalMap.get(cityKey(city));
-        const rect = svgRef.current?.getBoundingClientRect();
+        const rect = mapBoxRef.current?.getBoundingClientRect();
+
+        const rawX = event.clientX - (rect?.left ?? 0);
+        const rawY = event.clientY - (rect?.top ?? 0);
+
+        const boxW = rect?.width ?? 0;
+        const boxH = rect?.height ?? 0;
+
+        let nextX = rawX + TOOLTIP_GAP;
+        let nextY = rawY - 20;
+
+        if (nextX + TOOLTIP_W + TOOLTIP_PAD > boxW) {
+          nextX = rawX - TOOLTIP_W - TOOLTIP_GAP;
+        }
+
+        if (nextY + TOOLTIP_H + TOOLTIP_PAD > boxH) {
+          nextY = boxH - TOOLTIP_H - TOOLTIP_PAD;
+        }
+
+        if (nextX < TOOLTIP_PAD) nextX = TOOLTIP_PAD;
+        if (nextY < TOOLTIP_PAD) nextY = TOOLTIP_PAD;
 
         setTooltip({
           city,
@@ -606,8 +620,8 @@ export default function TurkeyHeatMap() {
           recentSignals: Number(item?.recentSignals ?? 0),
           gpsSignals: Number(item?.gpsSignals ?? 0),
           ipSignals: Number(item?.ipSignals ?? 0),
-          x: event.clientX - (rect?.left ?? 0),
-          y: event.clientY - (rect?.top ?? 0),
+          x: nextX,
+          y: nextY,
         });
 
         d3.select(this)
@@ -760,8 +774,9 @@ export default function TurkeyHeatMap() {
       .call(zoomRef.current.transform as any, d3.zoomIdentity);
 
     setZoomText("%100");
- }
-return (
+  }
+
+  return (
     <section id="live-map" className="mt-16">
       <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-[34px] border border-white/10 bg-[#020908] p-4 text-white shadow-[0_34px_140px_rgba(0,0,0,.38)] sm:rounded-[42px] sm:p-7">
         <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
@@ -801,54 +816,6 @@ return (
                 {lastRefresh || "yükleniyor"}
               </span>
             </div>
-
-            <div className="relative overflow-hidden rounded-[24px] border border-emerald-300/20 bg-[#071713] p-5 shadow-[0_22px_90px_rgba(0,0,0,.26)]">
-              <div className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full bg-emerald-300/14 blur-3xl" />
-              <div className="pointer-events-none absolute -bottom-10 left-1/2 h-28 w-28 -translate-x-1/2 rounded-full bg-cyan-300/10 blur-3xl" />
-
-              <div className="relative flex items-center gap-4">
-                <div className="relative flex h-24 w-24 shrink-0 items-center justify-center [perspective:900px]">
-                  <div className="absolute inset-0 animate-ping rounded-full border border-emerald-300/18" />
-                  <div className="absolute h-16 w-16 rounded-full bg-emerald-300/12 blur-2xl" />
-
-                  <div className="animate-[halappSatellite3D_3.8s_ease-in-out_infinite] text-6xl drop-shadow-[0_0_26px_rgba(110,231,183,.55)] [transform-style:preserve-3d]">
-                    🛰️
-                  </div>
-
-                  <span className="absolute left-1/2 top-1/2 h-[2px] w-20 origin-left animate-[satelliteSignalBeam_1.6s_ease-in-out_infinite] bg-gradient-to-r from-emerald-300 via-cyan-200 to-transparent shadow-[0_0_18px_rgba(103,232,249,.7)]" />
-                  <span className="absolute left-1/2 top-1/2 h-[2px] w-16 origin-left rotate-[28deg] animate-[satelliteSignalBeam_1.9s_ease-in-out_infinite] bg-gradient-to-r from-lime-200 via-emerald-200 to-transparent shadow-[0_0_18px_rgba(190,242,100,.7)]" />
-                  <span className="absolute left-1/2 top-1/2 h-[2px] w-14 origin-left -rotate-[26deg] animate-[satelliteSignalBeam_2.2s_ease-in-out_infinite] bg-gradient-to-r from-cyan-200 via-emerald-200 to-transparent shadow-[0_0_18px_rgba(103,232,249,.7)]" />
-                </div>
-
-                <div className="min-w-0">
-                  <div className="inline-flex rounded-full bg-emerald-300/10 px-3 py-1 text-[10px] font-black text-emerald-200">
-                    SON SİNYAL
-                  </div>
-
-                  <div className="mt-3 text-2xl font-black text-white">
-                    {lastSignalCity}
-                  </div>
-
-                  <div className="mt-1 line-clamp-2 text-xs font-semibold leading-relaxed text-white/68">
-                    {lastSignalTitle}
-                  </div>
-
-                  <div className="mt-3 flex flex-wrap gap-2 text-[10px] font-black">
-                    <span className="rounded-full bg-cyan-300/10 px-2.5 py-1 text-cyan-200">
-                      {lastSignalSource}
-                    </span>
-
-                    <span className="rounded-full bg-white/8 px-2.5 py-1 text-white/70">
-                      {timeAgoTR(lastSignal?.createdAt)}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="pointer-events-none absolute right-5 top-5 animate-[lastCityBlink_1.4s_ease-in-out_infinite] rounded-full border border-emerald-300/30 bg-emerald-300/12 px-3 py-1 text-[11px] font-black text-emerald-100">
-                {lastSignalCity}
-              </div>
-            </div>
           </div>
         </div>
 
@@ -861,7 +828,10 @@ return (
         </div>
 
         <div className="mt-6 overflow-hidden rounded-[32px] border border-white/10 bg-[#061512] p-3 shadow-[0_28px_110px_rgba(0,0,0,.26)] sm:p-4">
-          <div className="relative min-h-[440px] overflow-hidden rounded-[26px] border border-white/10 bg-[#03100d] lg:min-h-[560px]">
+          <div
+            ref={mapBoxRef}
+            className="relative min-h-[440px] overflow-hidden rounded-[26px] border border-white/10 bg-[#03100d] lg:min-h-[560px]"
+          >
             <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,.038)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,.038)_1px,transparent_1px)] bg-[size:36px_36px]" />
             <div className="absolute inset-0 bg-[radial-gradient(circle_at_18%_20%,rgba(52,211,153,.18),transparent_26%),radial-gradient(circle_at_78%_62%,rgba(45,212,191,.12),transparent_32%)]" />
 
@@ -878,27 +848,15 @@ return (
             </div>
 
             <div className="absolute right-4 top-4 z-30 hidden items-center gap-3 lg:flex">
-              <button
-                type="button"
-                onClick={zoomOut}
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/45 text-lg font-black text-white transition hover:bg-white/10"
-              >
+              <button type="button" onClick={zoomOut} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/45 text-lg font-black text-white transition hover:bg-white/10">
                 −
               </button>
 
-              <button
-                type="button"
-                onClick={resetZoom}
-                className="h-11 rounded-xl border border-white/10 bg-black/45 px-4 text-sm font-black text-white transition hover:bg-white/10"
-              >
+              <button type="button" onClick={resetZoom} className="h-11 rounded-xl border border-white/10 bg-black/45 px-4 text-sm font-black text-white transition hover:bg-white/10">
                 {zoomText}
               </button>
 
-              <button
-                type="button"
-                onClick={zoomIn}
-                className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/45 text-lg font-black text-white transition hover:bg-white/10"
-              >
+              <button type="button" onClick={zoomIn} className="flex h-11 w-11 items-center justify-center rounded-xl border border-white/10 bg-black/45 text-lg font-black text-white transition hover:bg-white/10">
                 +
               </button>
             </div>
@@ -911,23 +869,18 @@ return (
               </div>
             )}
 
-            <svg
-              ref={svgRef}
-              className="relative z-10 h-full min-h-[440px] w-full lg:min-h-[560px]"
-            />
+            <svg ref={svgRef} className="relative z-10 h-full min-h-[440px] w-full lg:min-h-[560px]" />
 
             {tooltip && (
               <div
                 className="pointer-events-none absolute z-50 w-[240px] rounded-2xl border border-white/15 bg-black/85 p-4 text-white shadow-[0_22px_70px_rgba(0,0,0,.38)] backdrop-blur-2xl"
                 style={{
-                  left: Math.min(tooltip.x + 18, 880),
-                  top: Math.max(tooltip.y - 20, 12),
+                  left: tooltip.x,
+                  top: tooltip.y,
                 }}
               >
                 <div className="flex items-center justify-between gap-3">
-                  <div className="truncate text-base font-black">
-                    {tooltip.city}
-                  </div>
+                  <div className="truncate text-base font-black">{tooltip.city}</div>
 
                   <span className="rounded-full bg-emerald-400/12 px-2 py-1 text-[10px] font-black text-emerald-200">
                     LIVE
@@ -1034,10 +987,7 @@ return (
               })}
             </div>
 
-            <a
-              href="/signals"
-              className="mt-5 flex h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm font-black text-white transition hover:bg-white/10"
-            >
+            <a href="/signals" className="mt-5 flex h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm font-black text-white transition hover:bg-white/10">
               Tüm şehirleri görüntüle →
             </a>
           </div>
@@ -1079,13 +1029,7 @@ return (
                         <div className="mt-2 flex gap-2 text-xs font-medium text-white/58">
                           <span>{s.deviceType || "web"}</span>
                           <span>•</span>
-                          <span
-                            className={
-                              s.locationSource === "gps"
-                                ? "text-cyan-200"
-                                : "text-orange-200"
-                            }
-                          >
+                          <span className={s.locationSource === "gps" ? "text-cyan-200" : "text-orange-200"}>
                             {s.locationSource === "gps" ? "GPS" : "IP"}
                           </span>
                         </div>
@@ -1104,10 +1048,7 @@ return (
               )}
             </div>
 
-            <a
-              href="/pazar"
-              className="mt-4 flex h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm font-black text-white transition hover:bg-white/10"
-            >
+            <a href="/pazar" className="mt-4 flex h-12 items-center justify-center rounded-2xl border border-white/10 bg-black/20 text-sm font-black text-white transition hover:bg-white/10">
               Tüm akışı görüntüle →
             </a>
           </div>
@@ -1127,51 +1068,6 @@ return (
           </div>
         </div>
 
-        <div className="mt-6 rounded-[24px] border border-white/10 bg-[#061512] p-5">
-          <div className="text-sm font-black tracking-wide text-white">
-            SİNYAL YOĞUNLUĞU REHBERİ
-          </div>
-
-          <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-            {[
-              ["#86efac", "Düşük", "0 - 20 sinyal"],
-              ["#fde047", "Orta", "20 - 50 sinyal"],
-              ["#fb923c", "Yüksek", "50 - 100 sinyal"],
-              ["#ef4444", "Çok Yüksek", "100+ sinyal"],
-              ["#2dd4bf", "GPS Sinyal", "Kesin konum"],
-            ].map(([color, title, text]) => (
-              <div key={title} className="flex items-center gap-3">
-                <span className="relative flex h-5 w-5 items-center justify-center">
-                  <span
-                    className="absolute h-5 w-5 animate-[legendSignalPulse_1.8s_ease-out_infinite] rounded-full border"
-                    style={{
-                      borderColor: color,
-                      boxShadow: `0 0 18px ${color}`,
-                    }}
-                  />
-
-                  <span
-                    className="absolute h-3.5 w-3.5 animate-[legendSignalSoft_1.8s_ease-in-out_infinite] rounded-full"
-                    style={{
-                      backgroundColor: color,
-                      boxShadow: `0 0 16px ${color}`,
-                    }}
-                  />
-
-                  <span className="relative h-2 w-2 rounded-full bg-white/90" />
-                </span>
-
-                <div>
-                  <div className="text-sm font-black text-white">{title}</div>
-                  <div className="text-xs font-medium text-white/55">
-                    {text}
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
         <style jsx>{`
           @keyframes tickerFlow {
             0% {
@@ -1179,59 +1075,6 @@ return (
             }
             100% {
               transform: translateY(-50%);
-            }
-          }
-
-          @keyframes halappSatellite3D {
-            0%, 100% {
-              transform: rotateX(14deg) rotateY(-18deg) translateY(0) scale(1);
-            }
-            50% {
-              transform: rotateX(-8deg) rotateY(22deg) translateY(-10px) scale(1.08);
-            }
-          }
-
-          @keyframes satelliteSignalBeam {
-            0%, 100% {
-              opacity: 0.15;
-              transform: scaleX(0.25);
-            }
-            50% {
-              opacity: 1;
-              transform: scaleX(1);
-            }
-          }
-
-          @keyframes lastCityBlink {
-            0%, 100% {
-              opacity: 0.35;
-              transform: scale(0.96);
-            }
-            50% {
-              opacity: 1;
-              transform: scale(1.04);
-            }
-          }
-
-          @keyframes legendSignalPulse {
-            0% {
-              opacity: 0.85;
-              transform: scale(0.65);
-            }
-            100% {
-              opacity: 0;
-              transform: scale(2.35);
-            }
-          }
-
-          @keyframes legendSignalSoft {
-            0%, 100% {
-              opacity: 0.72;
-              transform: scale(0.92);
-            }
-            50% {
-              opacity: 1;
-              transform: scale(1.12);
             }
           }
         `}</style>
