@@ -11,29 +11,30 @@ type VConv = {
   conversation_id: string;
   viewer_id: string;
   peer_id: string | null;
-
   pinned: boolean | null;
   archived: boolean | null;
   muted: boolean | null;
-
   title: string | null;
   avatar_url: string | null;
   listing_id: string | null;
   updated_at: string | null;
-
   peer_full_name: string | null;
   peer_company_name: string | null;
   peer_avatar_url: string | null;
   peer_is_online: boolean | null;
   peer_last_seen_at: string | null;
-
   last_message_id: number | null;
   last_body: string | null;
   last_type: string | null;
   last_media_url: string | null;
   last_created_at: string | null;
-
   unread_count: number | null;
+};
+
+type ProfileAccess = {
+  kyc_status: string | null;
+  verified: boolean | null;
+  is_admin: boolean | null;
 };
 
 function isUuid(v?: string | null) {
@@ -47,9 +48,18 @@ function safeStr(v: unknown) {
   return String(v ?? "").trim();
 }
 
+function isKycApproved(profile?: ProfileAccess | null) {
+  return profile?.kyc_status === "approved" || profile?.verified === true;
+}
+
+function canUseMessages(profile?: ProfileAccess | null) {
+  return profile?.is_admin === true || isKycApproved(profile);
+}
+
 function initials(name?: string | null) {
   const v = safeStr(name);
   if (!v) return "HA";
+
   return (
     v
       .split(/\s+/)
@@ -61,6 +71,7 @@ function initials(name?: string | null) {
 
 function timeAgoShort(iso?: string | null) {
   if (!iso) return "";
+
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
 
@@ -124,6 +135,37 @@ export default function ConversationsClient() {
 
     if (!uid) {
       router.replace(`/auth?next=${encodeURIComponent("/conversations")}`);
+      return null;
+    }
+
+    const { data: profile, error } = await supabase
+      .from("profiles")
+      .select("kyc_status, verified, is_admin")
+      .eq("id", uid)
+      .maybeSingle();
+
+    if (error) {
+      toast({
+        variant: "error",
+        title: "Profil kontrol edilemedi",
+        message: error.message,
+      });
+
+      router.replace("/");
+      return null;
+    }
+
+    if (!canUseMessages(profile as ProfileAccess | null)) {
+      toast({
+        variant: "error",
+        title: "KYC gerekli",
+        message: "Mesajlaşma için hesabınızı doğrulamanız gerekiyor.",
+      });
+
+      router.replace(
+        `/profile?kyc=required&next=${encodeURIComponent("/conversations")}`
+      );
+
       return null;
     }
 
@@ -221,6 +263,7 @@ export default function ConversationsClient() {
         title: "Kaydedilemedi",
         message: error.message,
       });
+
       await load();
     }
   }
@@ -355,8 +398,8 @@ export default function ConversationsClient() {
             </h1>
 
             <p className="mt-2 max-w-2xl text-sm font-semibold leading-relaxed text-zinc-600 dark:text-white/60">
-              Alıcı ve satıcı görüşmelerini tek yerden yönet. Sabitle, sessize
-              al, arşivle ve hızlıca sohbete devam et.
+              Alıcı ve satıcı görüşmelerini tek yerden yönet. Mesajlaşma için
+              KYC onayı gereklidir.
             </p>
           </div>
 
@@ -556,6 +599,7 @@ function MiniStat({
       <div className="text-xs font-black uppercase tracking-wide text-zinc-500 dark:text-white/40">
         {icon} {label}
       </div>
+
       <div className="mt-2 text-3xl font-black text-zinc-950 dark:text-white">
         {value}
       </div>
@@ -616,9 +660,11 @@ function EmptyState({ tab }: { tab: "active" | "archived" }) {
   return (
     <div className="rounded-[28px] border border-dashed border-zinc-300 bg-zinc-50 p-10 text-center dark:border-white/10 dark:bg-white/[0.03]">
       <div className="text-6xl">{tab === "archived" ? "🗂️" : "💬"}</div>
+
       <h3 className="mt-4 text-2xl font-black text-zinc-950 dark:text-white">
         {tab === "archived" ? "Arşivde sohbet yok" : "Henüz sohbet yok"}
       </h3>
+
       <p className="mt-2 text-sm font-semibold text-zinc-500 dark:text-white/50">
         {tab === "archived"
           ? "Arşivlediğin görüşmeler burada görünür."

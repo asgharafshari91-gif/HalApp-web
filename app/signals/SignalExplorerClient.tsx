@@ -17,10 +17,8 @@ import IntelligenceCenter from "@/components/signal/IntelligenceCenter";
 import type { SignalRow } from "@/types/signal";
 import { supabase } from "@/lib/supabaseClient";
 
-type TopProduct = {
-  productName: string;
-  signals: number;
-};
+type TopProduct = { productName: string; signals: number };
+
 type PaymentOrder = {
   id: string;
   order_code: string | null;
@@ -32,6 +30,7 @@ type PaymentOrder = {
   created_at: string | null;
   reported_at: string | null;
 };
+
 type TradeRoute = {
   productName: string;
   listingCity: string;
@@ -68,6 +67,18 @@ type ExplorerData = {
   signals: SignalRow[];
 };
 
+type ProfileAccess = {
+  created_at: string | null;
+  kyc_status: string | null;
+  verified: boolean | null;
+  is_admin: boolean | null;
+  is_premium: boolean | null;
+  premium_until: string | null;
+  premium_expires_at: string | null;
+  membership_status: string | null;
+  membership_expires_at: string | null;
+};
+
 type FilterType = "all" | "gps" | "ip";
 
 type CityStat = {
@@ -80,11 +91,7 @@ type CityStat = {
   lastAt: string;
 };
 
-type PulseCard = {
-  city: string;
-  product: string;
-  signals: number;
-};
+type PulseCard = { city: string; product: string; signals: number };
 
 const TRIAL_DAYS = 7;
 const MONTHLY_PRICE = 7899;
@@ -124,6 +131,26 @@ function addDays(date: Date, days: number) {
 function daysLeft(expireAt: Date) {
   const diff = expireAt.getTime() - Date.now();
   return Math.max(0, Math.ceil(diff / 86400000));
+}
+
+function isFuture(value?: string | null) {
+  if (!value) return false;
+  const t = new Date(value).getTime();
+  return !Number.isNaN(t) && t > Date.now();
+}
+
+function isKycApproved(profile: ProfileAccess | null) {
+  return profile?.kyc_status === "approved" || profile?.verified === true;
+}
+
+function hasProfilePremium(profile: ProfileAccess | null) {
+  return (
+    profile?.is_premium === true ||
+    profile?.membership_status === "active" ||
+    isFuture(profile?.premium_until) ||
+    isFuture(profile?.premium_expires_at) ||
+    isFuture(profile?.membership_expires_at)
+  );
 }
 
 function toSignalRow(x: any): SignalRow {
@@ -181,12 +208,10 @@ function getCityStats(signals: SignalRow[]): CityStat[] {
       } satisfies CityStat);
 
     prev.signals += 1;
-
     if (normalize(s.locationSource) === "gps") prev.gps += 1;
     else prev.ip += 1;
 
     const device = normalize(s.deviceType);
-
     if (device.includes("mobile")) prev.mobile += 1;
     if (device.includes("desktop")) prev.desktop += 1;
 
@@ -211,15 +236,12 @@ function getPulseCards(signals: SignalRow[]): PulseCard[] {
     const city = s.city || "Türkiye";
     const product = s.productName || s.listingTitle || "İlan";
     const key = `${normalize(city)}-${normalize(product)}`;
-
     const prev = map.get(key) ?? { city, product, signals: 0 };
     prev.signals += 1;
     map.set(key, prev);
   }
 
-  return Array.from(map.values())
-    .sort((a, b) => b.signals - a.signals)
-    .slice(0, 4);
+  return Array.from(map.values()).sort((a, b) => b.signals - a.signals).slice(0, 4);
 }
 
 function LoginGate() {
@@ -230,21 +252,44 @@ function LoginGate() {
           <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] bg-emerald-500 text-4xl text-white">
             🌿
           </div>
-
           <h1 className="mt-6 text-4xl font-black tracking-tight">
             HalApp Market Intelligence
           </h1>
-
           <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-relaxed text-zinc-500 dark:text-white/50">
-            Bu sayfaya erişmek için giriş yapmalısın. İlk {TRIAL_DAYS} gün tüm
-            kullanıcılar ücretsiz kullanabilir.
+            Bu sayfaya erişmek için giriş yapmalısın.
           </p>
-
           <a
-            href="/auth"
+            href="/auth?next=/signals"
             className="mt-6 inline-flex h-12 items-center justify-center rounded-2xl bg-emerald-500 px-8 text-sm font-black text-white hover:bg-emerald-600"
           >
             Giriş Yap →
+          </a>
+        </div>
+      </div>
+    </main>
+  );
+}
+
+function KycGate() {
+  return (
+    <main className="min-h-screen bg-[#f6f8fb] p-4 text-zinc-950 dark:bg-[#050816] dark:text-white sm:p-6">
+      <div className="mx-auto flex min-h-[80vh] max-w-4xl items-center justify-center">
+        <div className="w-full rounded-[40px] border border-zinc-200 bg-white p-8 text-center shadow-sm dark:border-white/10 dark:bg-[#0b1021]">
+          <div className="mx-auto flex h-20 w-20 items-center justify-center rounded-[28px] bg-yellow-500 text-4xl text-white">
+            🛡️
+          </div>
+          <h1 className="mt-6 text-4xl font-black tracking-tight">
+            KYC Onayı Gerekli
+          </h1>
+          <p className="mx-auto mt-3 max-w-2xl text-sm font-semibold leading-relaxed text-zinc-500 dark:text-white/50">
+            Market Intelligence verilerini görebilmek için hesabınızı doğrulamanız
+            gerekir. KYC onaylandıktan sonra 7 günlük ücretsiz deneme süreniz aktif olur.
+          </p>
+          <a
+            href="/profile?kyc=required&next=/signals"
+            className="mt-6 inline-flex h-12 items-center justify-center rounded-2xl bg-emerald-500 px-8 text-sm font-black text-white hover:bg-emerald-600"
+          >
+            KYC Başvurusu Yap →
           </a>
         </div>
       </div>
@@ -275,8 +320,8 @@ function PaywallGate({
           <div className="border-b border-zinc-200 p-8 dark:border-white/10">
             <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
               <div>
-                <div className="text-xs font-black uppercase tracking-[0.22em] text-emerald-600 dark:text-emerald-300">
-                  7 Günlük Deneme Bitti
+                <div className="text-xs font-black uppercase tracking-[0.22em] text-orange-600 dark:text-orange-300">
+                  Ücretsiz Deneme Sona Erdi
                 </div>
 
                 <h1 className="mt-3 text-4xl font-black tracking-tight">
@@ -284,9 +329,9 @@ function PaywallGate({
                 </h1>
 
                 <p className="mt-3 max-w-3xl text-sm font-semibold leading-relaxed text-zinc-500 dark:text-white/50">
-                  Canlı ticaret rotaları, akıllı uyarılar, PDF raporlar ve ürün
-                  trend motoru için aylık üyelik gerekir. Ödeme banka havalesi/EFT
-                  ile alınır, admin onayından sonra erişim açılır.
+                  7 günlük ücretsiz deneme süreniz bitti. Canlı ticaret rotaları,
+                  talep analizleri, ürün trendleri, PDF raporlar ve AI destekli
+                  yorumlara erişmeye devam etmek için aylık üyelik gerekir.
                 </p>
               </div>
 
@@ -399,8 +444,8 @@ function PaywallGate({
                   ))
                 ) : (
                   <div className="rounded-2xl border border-orange-500/20 bg-orange-500/10 p-4 text-sm font-bold text-orange-700 dark:text-orange-300">
-                    Aktif banka hesabı bulunamadı. Supabase
-                    `bank_accounts` tablosuna aktif IBAN ekle.
+                    Aktif banka hesabı bulunamadı. Supabase `bank_accounts`
+                    tablosuna aktif IBAN ekle.
                   </div>
                 )}
               </div>
@@ -456,20 +501,28 @@ export default function SignalExplorerClient() {
   const [loading, setLoading] = useState(true);
   const [authLoading, setAuthLoading] = useState(true);
   const [accessLoading, setAccessLoading] = useState(true);
+
   const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<ProfileAccess | null>(null);
+  const [kycApproved, setKycApproved] = useState(false);
   const [hasPaidAccess, setHasPaidAccess] = useState(false);
+
   const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
   const [lastRefresh, setLastRefresh] = useState("");
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<FilterType>("all");
   const [selected, setSelected] = useState<SignalRow | null>(null);
+
   const [paymentLoading, setPaymentLoading] = useState(false);
   const [paymentMessage, setPaymentMessage] = useState("");
-const [pendingPayment, setPendingPayment] = useState<PaymentOrder | null>(null);
+  const [pendingPayment, setPendingPayment] = useState<PaymentOrder | null>(null);
+
   async function loadBankAccounts() {
     const { data, error } = await supabase
       .from("bank_accounts")
-     .select("id, bank_name, account_holder, iban, branch_name, account_no, note, is_active")
+      .select(
+        "id, bank_name, account_holder, iban, branch_name, account_no, note, is_active"
+      )
       .eq("is_active", true)
       .order("created_at", { ascending: false });
 
@@ -482,98 +535,120 @@ const [pendingPayment, setPendingPayment] = useState<PaymentOrder | null>(null);
   }
 
   async function checkAccess(currentUser: User | null) {
-  if (!currentUser) {
+    if (!currentUser) {
+      setAccessLoading(false);
+      setProfile(null);
+      setKycApproved(false);
+      setHasPaidAccess(false);
+      setPendingPayment(null);
+      return;
+    }
+
+    setAccessLoading(true);
+
+    const { data: profileData, error: profileError } = await supabase
+      .from("profiles")
+      .select(
+        "created_at, kyc_status, verified, is_admin, is_premium, premium_until, premium_expires_at, membership_status, membership_expires_at"
+      )
+      .eq("id", currentUser.id)
+      .maybeSingle();
+
+    if (profileError) {
+      console.log("profile access error:", profileError.message);
+    }
+
+    const accessProfile = (profileData ?? null) as ProfileAccess | null;
+    const approvedKyc = isKycApproved(accessProfile);
+    const premiumFromProfile = hasProfilePremium(accessProfile);
+
+    setProfile(accessProfile);
+    setKycApproved(approvedKyc);
+
+    const { data: approvedOrders } = await supabase
+      .from("payment_orders")
+      .select("id,status,product_code,product_type,access_expires_at")
+      .eq("user_id", currentUser.id)
+      .eq("status", "approved")
+      .gt("access_expires_at", new Date().toISOString())
+      .or(
+        "product_code.eq.market_intelligence,product_code.eq.market_intelligence_monthly,product_type.eq.market_intelligence,product_type.eq.subscription"
+      )
+      .limit(1);
+
+    const { data: pendingOrders } = await supabase
+      .from("payment_orders")
+      .select(
+        "id,order_code,product_code,product_type,status,amount,currency,created_at,reported_at"
+      )
+      .eq("user_id", currentUser.id)
+      .eq("status", "pending")
+      .or(
+        "product_code.eq.market_intelligence,product_code.eq.market_intelligence_monthly,product_type.eq.market_intelligence,product_type.eq.subscription"
+      )
+      .order("created_at", { ascending: false })
+      .limit(1);
+
+    setHasPaidAccess(
+      Boolean(premiumFromProfile || (approvedOrders && approvedOrders.length > 0))
+    );
+
+    setPendingPayment((pendingOrders?.[0] as PaymentOrder) ?? null);
     setAccessLoading(false);
-    setHasPaidAccess(false);
-    setPendingPayment(null);
-    return;
   }
-
-  setAccessLoading(true);
-
-  const { data: approvedOrders } = await supabase
-  .from("payment_orders")
-  .select("id,status,product_code,product_type,access_expires_at")
-  .eq("user_id", currentUser.id)
-  .eq("status", "approved")
-  .gt("access_expires_at", new Date().toISOString())
-  .or(
-    "product_code.eq.market_intelligence,product_code.eq.market_intelligence_monthly,product_type.eq.market_intelligence,product_type.eq.subscription"
-  )
-  .limit(1);
-
-  const { data: pendingOrders } = await supabase
-    .from("payment_orders")
-    .select(
-      "id,order_code,product_code,product_type,status,amount,currency,created_at,reported_at"
-    )
-    .eq("user_id", currentUser.id)
-    .eq("status", "pending")
-    .or(
-      "product_code.eq.market_intelligence,product_code.eq.market_intelligence_monthly,product_type.eq.market_intelligence,product_type.eq.subscription"
-    )
-    .order("created_at", { ascending: false })
-    .limit(1);
-
-  setHasPaidAccess(Boolean(approvedOrders && approvedOrders.length > 0));
-  setPendingPayment((pendingOrders?.[0] as PaymentOrder) ?? null);
-  setAccessLoading(false);
-}
 
   async function createPaymentNotification() {
-  if (!user) return;
+    if (!user) return;
 
-  setPaymentLoading(true);
-  setPaymentMessage("");
+    setPaymentLoading(true);
+    setPaymentMessage("");
 
-  const activeBank = bankAccounts[0] ?? null;
-  const paymentCode = `MARKET-${user.id.slice(0, 8)}`;
+    const activeBank = bankAccounts[0] ?? null;
+    const paymentCode = `MARKET-${user.id.slice(0, 8)}`;
 
-  const orderCode =
-    typeof crypto !== "undefined" && "randomUUID" in crypto
-      ? `MARKET-${crypto.randomUUID().slice(0, 8)}`
-      : `MARKET-${Date.now()}`;
+    const orderCode =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? `MARKET-${crypto.randomUUID().slice(0, 8)}`
+        : `MARKET-${Date.now()}`;
 
-  const { error } = await supabase.from("payment_orders").insert({
-    user_id: user.id,
-    order_code: orderCode,
-    product_code: "market_intelligence",
-    product_type: "subscription",
-    product_title: "HalApp Market Intelligence Aylık Üyelik",
-    amount: MONTHLY_PRICE,
-    currency: "TRY",
-    payment_method: "bank_transfer",
-    status: "pending",
-    bank_account_id: activeBank?.id ?? null,
-    payer_note: paymentCode,
-    transfer_reference: paymentCode,
-    reported_at: new Date().toISOString(),
-    deleted_by_user: false,
-    meta: {
-      source: "web",
-      module: "market_intelligence",
-      plan: "monthly",
-      price: MONTHLY_PRICE,
-    },
-  });
+    const { error } = await supabase.from("payment_orders").insert({
+      user_id: user.id,
+      order_code: orderCode,
+      product_code: "market_intelligence",
+      product_type: "subscription",
+      product_title: "HalApp Market Intelligence Aylık Üyelik",
+      amount: MONTHLY_PRICE,
+      currency: "TRY",
+      payment_method: "bank_transfer",
+      status: "pending",
+      bank_account_id: activeBank?.id ?? null,
+      payer_note: paymentCode,
+      transfer_reference: paymentCode,
+      reported_at: new Date().toISOString(),
+      deleted_by_user: false,
+      meta: {
+        source: "web",
+        module: "market_intelligence",
+        plan: "monthly",
+        price: MONTHLY_PRICE,
+      },
+    });
 
-  if (error) {
-    console.log("PAYMENT ORDER ERROR:", error);
-    setPaymentMessage(`Bildirim oluşturulamadı: ${error.message}`);
+    if (error) {
+      console.log("PAYMENT ORDER ERROR:", error);
+      setPaymentMessage(`Bildirim oluşturulamadı: ${error.message}`);
+      setPaymentLoading(false);
+      return;
+    }
+
+    setPaymentMessage(
+      "Ödeme bildirimi oluşturuldu. Admin onayından sonra Market Intelligence erişimin açılacak."
+    );
+
+    await checkAccess(user);
     setPaymentLoading(false);
-    return;
-  }
-
-  setPaymentMessage(
-  "Ödeme bildirimi oluşturuldu. Admin onayından sonra Market Intelligence erişimin açılacak."
-);
-
-await checkAccess(user);
-
-setPaymentLoading(false);
 }
-
-  async function loadSignals() {
+async function loadSignals() {
     const { data: rpcData, error } = await supabase.rpc("get_signal_explorer");
 
     if (error) {
@@ -646,8 +721,23 @@ setPaymentLoading(false);
     };
   }, []);
 
+  const trialStartAt = profile?.created_at
+    ? new Date(profile.created_at)
+    : user?.created_at
+      ? new Date(user.created_at)
+      : null;
+
+  const trialExpireAt = trialStartAt ? addDays(trialStartAt, TRIAL_DAYS) : null;
+  const trialActive = trialExpireAt ? Date.now() <= trialExpireAt.getTime() : false;
+
+  const isAdmin = profile?.is_admin === true;
+
+  const allowed = Boolean(
+    user && (isAdmin || (kycApproved && (trialActive || hasPaidAccess)))
+  );
+
   useEffect(() => {
-    if (!user) return;
+    if (!user || !allowed) return;
 
     loadSignals();
 
@@ -666,14 +756,8 @@ setPaymentLoading(false);
       window.clearInterval(timer);
       supabase.removeChannel(ch);
     };
-  }, [user]);
-
-  const trialExpireAt = user?.created_at
-    ? addDays(new Date(user.created_at), TRIAL_DAYS)
-    : null;
-
-  const trialActive = trialExpireAt ? Date.now() <= trialExpireAt.getTime() : false;
-  const allowed = Boolean(user && (trialActive || hasPaidAccess));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user, allowed]);
 
   const cityStats = useMemo(() => getCityStats(data.signals), [data.signals]);
   const pulseCards = useMemo(() => getPulseCards(data.signals), [data.signals]);
@@ -737,16 +821,18 @@ setPaymentLoading(false);
 
   if (!user) return <LoginGate />;
 
+  if (!isAdmin && !kycApproved) return <KycGate />;
+
   if (!allowed) {
     return (
- <PaywallGate
-  user={user}
-  bankAccounts={bankAccounts}
-  pendingPayment={pendingPayment}
-  onPaymentNotify={createPaymentNotification}
-  paymentLoading={paymentLoading}
-  paymentMessage={paymentMessage}
-/>
+      <PaywallGate
+        user={user}
+        bankAccounts={bankAccounts}
+        pendingPayment={pendingPayment}
+        onPaymentNotify={createPaymentNotification}
+        paymentLoading={paymentLoading}
+        paymentMessage={paymentMessage}
+      />
     );
   }
 
@@ -768,10 +854,34 @@ setPaymentLoading(false);
                 onRefresh={loadSignals}
               />
 
-              {trialActive && !hasPaidAccess ? (
-                <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-3 text-sm font-black text-emerald-700 dark:text-emerald-300">
-                  Ücretsiz deneme aktif: {daysLeft(trialExpireAt!)} gün kaldı.
-                  Sonrasında aylık ₺{fmt(MONTHLY_PRICE)} ile devam eder.
+              {!isAdmin && trialActive && !hasPaidAccess ? (
+                <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/10 px-5 py-4">
+                  <div className="text-sm font-black text-emerald-700 dark:text-emerald-300">
+                    🎁 Market Intelligence 7 Gün Ücretsiz Deneme Aktif
+                  </div>
+
+                  <div className="mt-1 text-xs font-semibold leading-relaxed text-zinc-600 dark:text-white/60">
+                    KYC onaylı hesabınızla Market Intelligence modülünü ücretsiz
+                    kullanıyorsunuz. Kalan süre:{" "}
+                    <span className="font-black text-emerald-700 dark:text-emerald-300">
+                      {trialExpireAt ? daysLeft(trialExpireAt) : 0} gün
+                    </span>
+                    . Süre bitince devam etmek için aylık ₺{fmt(MONTHLY_PRICE)}
+                    paket almanız gerekir.
+                  </div>
+                </div>
+              ) : null}
+
+              {!isAdmin && hasPaidAccess ? (
+                <div className="mt-4 rounded-2xl border border-blue-500/20 bg-blue-500/10 px-5 py-4">
+                  <div className="text-sm font-black text-blue-700 dark:text-blue-300">
+                    ✅ Market Intelligence Üyeliğiniz Aktif
+                  </div>
+
+                  <div className="mt-1 text-xs font-semibold leading-relaxed text-zinc-600 dark:text-white/60">
+                    Canlı ticaret rotaları, şehir bazlı talep sinyalleri ve AI
+                    destekli pazar analizlerine erişiminiz açık.
+                  </div>
                 </div>
               ) : null}
 
