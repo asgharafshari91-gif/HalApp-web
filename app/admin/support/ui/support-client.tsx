@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
 
 function statusBadge(status: string) {
   const s = String(status || "open").toLowerCase();
@@ -10,54 +12,30 @@ function statusBadge(status: string) {
     return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200";
   }
 
-  if (s === "review" || s === "in_review") {
-    return "bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-200";
-  }
-
-  if (s === "answered") {
-    return "bg-violet-500/10 text-violet-700 border-violet-500/20 dark:text-violet-200";
-  }
-
   return "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200";
 }
 
 function priorityBadge(priority?: string | null) {
   const p = String(priority ?? "normal").toLowerCase();
 
-  if (p === "critical") {
-    return "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-200";
-  }
-
-  if (p === "high") {
-    return "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200";
-  }
-
-  if (p === "low") {
-    return "bg-zinc-500/10 text-zinc-600 border-zinc-500/20 dark:text-zinc-300";
-  }
+  if (p === "critical") return "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-200";
+  if (p === "high") return "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200";
+  if (p === "low") return "bg-zinc-500/10 text-zinc-600 border-zinc-500/20 dark:text-zinc-300";
 
   return "bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-200";
 }
 
 function priorityLabel(priority?: string | null) {
   const p = String(priority ?? "normal").toLowerCase();
-
   if (p === "critical") return "KRİTİK";
   if (p === "high") return "YÜKSEK";
   if (p === "low") return "DÜŞÜK";
-
   return "NORMAL";
 }
 
 function replyState(ticket: any) {
-  const userAt = ticket?.last_user_reply_at
-    ? new Date(ticket.last_user_reply_at).getTime()
-    : 0;
-
-  const adminAt = ticket?.last_admin_reply_at
-    ? new Date(ticket.last_admin_reply_at).getTime()
-    : 0;
-
+  const userAt = ticket?.last_user_reply_at ? new Date(ticket.last_user_reply_at).getTime() : 0;
+  const adminAt = ticket?.last_admin_reply_at ? new Date(ticket.last_admin_reply_at).getTime() : 0;
   const closed = String(ticket?.status ?? "open").toLowerCase() === "closed";
 
   if (closed) {
@@ -67,7 +45,7 @@ function replyState(ticket: any) {
     };
   }
 
-  if (userAt > adminAt) {
+  if (userAt > adminAt || Number(ticket?.unread_admin_count ?? 0) > 0) {
     return {
       label: "Kullanıcı cevap bekliyor",
       cls: "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-200",
@@ -89,7 +67,6 @@ function replyState(ticket: any) {
 
 function fmt(dt?: string | null) {
   if (!dt) return "—";
-
   try {
     return new Date(dt).toLocaleString("tr-TR", {
       dateStyle: "medium",
@@ -102,9 +79,7 @@ function fmt(dt?: string | null) {
 
 function timeAgo(dt?: string | null) {
   if (!dt) return "—";
-
   const t = new Date(dt).getTime();
-
   if (!Number.isFinite(t)) return "—";
 
   const diff = Date.now() - t;
@@ -116,9 +91,24 @@ function timeAgo(dt?: string | null) {
   const hour = Math.floor(min / 60);
   if (hour < 24) return `${hour} saat önce`;
 
-  const day = Math.floor(hour / 24);
-  return `${day} gün önce`;
+  return `${Math.floor(hour / 24)} gün önce`;
 }
+
+type DashboardData = {
+  stats?: {
+    open?: number;
+    closed?: number;
+    waiting?: number;
+    today?: number;
+    critical?: number;
+    avgRating?: number | null;
+    ratingCount?: number;
+  };
+  charts?: {
+    last7Days?: { date: string; count: number }[];
+    categories?: { category: string; count: number }[];
+  };
+};
 
 export default function SupportClient({
   initialItems,
@@ -139,18 +129,94 @@ export default function SupportClient({
 }) {
   const router = useRouter();
 
-  const openCount = initialItems.filter(
-    (x) => String(x.status ?? "open").toLowerCase() !== "closed"
-  ).length;
+  const [items, setItems] = useState<any[]>(initialItems);
+  const [dash, setDash] = useState<DashboardData | null>(null);
 
-  const closedCount = initialItems.filter(
-    (x) => String(x.status ?? "").toLowerCase() === "closed"
-  ).length;
+  useEffect(() => {
+    setItems(initialItems);
+  }, [initialItems]);
 
-  const waitingCount = initialItems.filter((x) => {
-    const r = replyState(x);
-    return r.label === "Kullanıcı cevap bekliyor";
-  }).length;
+  async function loadDashboard() {
+    const res = await fetch("/api/admin/support/dashboard", {
+      cache: "no-store",
+    });
+
+    const j = await res.json().catch(() => ({}));
+
+    if (res.ok) {
+      setDash(j);
+    }
+  }
+
+  useEffect(() => {
+    loadDashboard();
+
+    if ("Notification" in window) {
+      Notification.requestPermission().catch(() => {});
+    }
+
+    const channel = supabase
+      .channel("admin-support-live-dashboard")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "support_tickets",
+        },
+        (payload) => {
+          const row: any = payload.new;
+
+          if (row) {
+            setItems((prev) => {
+              const exists = prev.some((x) => x.id === row.id);
+
+              if (!exists) {
+                if (
+                  payload.eventType === "INSERT" &&
+                  "Notification" in window &&
+                  Notification.permission === "granted"
+                ) {
+                  new Notification("Yeni Destek Talebi", {
+                    body: row.subject || "Yeni ticket oluşturuldu",
+                  });
+                }
+
+                return [row, ...prev];
+              }
+
+              return prev.map((x) => (x.id === row.id ? { ...x, ...row } : x));
+            });
+          }
+
+          loadDashboard();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  const openCount = useMemo(
+    () => items.filter((x) => String(x.status ?? "open").toLowerCase() !== "closed").length,
+    [items]
+  );
+
+  const closedCount = useMemo(
+    () => items.filter((x) => String(x.status ?? "").toLowerCase() === "closed").length,
+    [items]
+  );
+
+  const waitingCount = useMemo(
+    () =>
+      items.filter((x) => {
+        const r = replyState(x);
+        return r.label === "Kullanıcı cevap bekliyor";
+      }).length,
+    [items]
+  );
 
   function submitSearch(formData: FormData) {
     const nextQ = String(formData.get("q") ?? "").trim();
@@ -177,6 +243,8 @@ export default function SupportClient({
     router.push(`/admin/support?${sp.toString()}`);
   }
 
+  const stats = dash?.stats;
+
   return (
     <main className="space-y-6">
       <section className="relative overflow-hidden rounded-[32px] border border-black/10 bg-white/80 p-6 shadow-[0_26px_100px_rgba(0,0,0,.07)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045]">
@@ -194,8 +262,13 @@ export default function SupportClient({
             </h1>
 
             <p className="mt-2 text-sm font-semibold text-zinc-600 dark:text-white/60">
-              Son mesaj durumuna göre ticketları takip et, kullanıcıya hızlı cevap ver.
+              Canlı ticket akışı, cevap durumu, puanlar ve destek performansı.
             </p>
+
+            <div className="mt-3 flex items-center gap-2 text-xs font-black text-emerald-600 dark:text-emerald-300">
+              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
+              Canlı Destek Akışı
+            </div>
           </div>
 
           <Link
@@ -207,11 +280,23 @@ export default function SupportClient({
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-4">
-        <StatCard label="Toplam" value={total} tone="default" />
-        <StatCard label="Bu Sayfa Açık" value={openCount} tone="orange" />
-        <StatCard label="Cevap Bekleyen" value={waitingCount} tone="rose" />
-        <StatCard label="Bu Sayfa Kapalı" value={closedCount} tone="emerald" />
+      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+        <StatCard label="Açık Ticket" value={stats?.open ?? openCount} tone="orange" />
+        <StatCard label="Cevap Bekleyen" value={stats?.waiting ?? waitingCount} tone="rose" />
+        <StatCard label="Kritik" value={stats?.critical ?? 0} tone="rose" />
+        <StatCard label="Bugün" value={stats?.today ?? 0} tone="blue" />
+        <StatCard label="Kapalı" value={stats?.closed ?? closedCount} tone="emerald" />
+        <StatCard
+          label="Ortalama Puan"
+          value={stats?.avgRating ?? "—"}
+          tone="amber"
+          suffix={stats?.ratingCount ? `/${stats.ratingCount}` : ""}
+        />
+      </section>
+
+      <section className="grid gap-4 lg:grid-cols-2">
+        <MiniChart title="Son 7 Gün Ticket" rows={dash?.charts?.last7Days ?? []} />
+        <CategoryChart title="Kategori Dağılımı" rows={dash?.charts?.categories ?? []} />
       </section>
 
       <section className="rounded-[30px] border border-black/10 bg-white/80 p-5 shadow-[0_20px_80px_rgba(0,0,0,.05)] dark:border-white/10 dark:bg-white/[0.045]">
@@ -255,7 +340,7 @@ export default function SupportClient({
           </div>
         </div>
 
-        {initialItems.length === 0 ? (
+        {items.length === 0 ? (
           <div className="p-10 text-center">
             <div className="text-5xl">🎫</div>
             <div className="mt-4 text-xl font-black text-zinc-950 dark:text-white">
@@ -267,10 +352,10 @@ export default function SupportClient({
           </div>
         ) : (
           <div className="divide-y divide-black/10 dark:divide-white/10">
-            {initialItems.map((ticket) => {
+            {items.map((ticket) => {
               const ticketStatus = String(ticket.status ?? "open").toLowerCase();
               const title = ticket.subject || ticket.title || "Destek Talebi";
-              const message = ticket.message || ticket.body || "";
+              const message = ticket.last_message_preview || ticket.message || ticket.body || "";
               const contact = ticket.contact || ticket.email || ticket.phone || "—";
               const r = replyState(ticket);
               const lastAt =
@@ -292,27 +377,23 @@ export default function SupportClient({
                           #{ticket.ticket_no || ticket.id}
                         </span>
 
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${statusBadge(
-                            ticketStatus
-                          )}`}
-                        >
+                        <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${statusBadge(ticketStatus)}`}>
                           {ticketStatus}
                         </span>
 
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${priorityBadge(
-                            ticket.priority
-                          )}`}
-                        >
+                        <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${priorityBadge(ticket.priority)}`}>
                           {priorityLabel(ticket.priority)}
                         </span>
 
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${r.cls}`}
-                        >
+                        <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${r.cls}`}>
                           {r.label}
                         </span>
+
+                        {Number(ticket.unread_admin_count ?? 0) > 0 ? (
+                          <span className="rounded-full border border-rose-500/20 bg-rose-500 px-3 py-1 text-[11px] font-black text-white">
+                            {ticket.unread_admin_count} yeni
+                          </span>
+                        ) : null}
 
                         {ticket.category ? (
                           <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-black text-cyan-700 dark:text-cyan-200">
@@ -384,10 +465,12 @@ function StatCard({
   label,
   value,
   tone,
+  suffix = "",
 }: {
   label: string;
-  value: number;
-  tone: "default" | "orange" | "rose" | "emerald";
+  value: number | string;
+  tone: "default" | "orange" | "rose" | "emerald" | "blue" | "amber";
+  suffix?: string;
 }) {
   const cls =
     tone === "orange"
@@ -396,12 +479,94 @@ function StatCard({
         ? "border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-200"
         : tone === "emerald"
           ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
-          : "border-black/10 bg-white/75 text-zinc-950 dark:border-white/10 dark:bg-white/[0.045] dark:text-white";
+          : tone === "blue"
+            ? "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-200"
+            : tone === "amber"
+              ? "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-200"
+              : "border-black/10 bg-white/75 text-zinc-950 dark:border-white/10 dark:bg-white/[0.045] dark:text-white";
 
   return (
     <div className={`rounded-[26px] border p-5 ${cls}`}>
       <div className="text-sm font-black opacity-75">{label}</div>
-      <div className="mt-2 text-3xl font-black">{value}</div>
+      <div className="mt-2 text-3xl font-black">
+        {value}
+        {suffix ? <span className="ml-1 text-sm opacity-60">{suffix}</span> : null}
+      </div>
+    </div>
+  );
+}
+
+function MiniChart({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { date: string; count: number }[];
+}) {
+  const max = Math.max(1, ...rows.map((x) => Number(x.count ?? 0)));
+
+  return (
+    <div className="rounded-[30px] border border-black/10 bg-white/80 p-5 shadow-[0_20px_80px_rgba(0,0,0,.05)] dark:border-white/10 dark:bg-white/[0.045]">
+      <div className="text-sm font-black text-zinc-950 dark:text-white">{title}</div>
+
+      <div className="mt-5 flex h-36 items-end gap-2">
+        {rows.length === 0 ? (
+          <div className="text-sm font-semibold text-zinc-500">Veri yok</div>
+        ) : (
+          rows.map((x) => (
+            <div key={x.date} className="flex flex-1 flex-col items-center gap-2">
+              <div
+                className="w-full rounded-t-xl bg-emerald-500/70"
+                style={{
+                  height: `${Math.max(8, (Number(x.count ?? 0) / max) * 120)}px`,
+                }}
+              />
+              <div className="text-[10px] font-black text-zinc-400">
+                {x.date.slice(5)}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+function CategoryChart({
+  title,
+  rows,
+}: {
+  title: string;
+  rows: { category: string; count: number }[];
+}) {
+  const max = Math.max(1, ...rows.map((x) => Number(x.count ?? 0)));
+
+  return (
+    <div className="rounded-[30px] border border-black/10 bg-white/80 p-5 shadow-[0_20px_80px_rgba(0,0,0,.05)] dark:border-white/10 dark:bg-white/[0.045]">
+      <div className="text-sm font-black text-zinc-950 dark:text-white">{title}</div>
+
+      <div className="mt-5 space-y-3">
+        {rows.length === 0 ? (
+          <div className="text-sm font-semibold text-zinc-500">Veri yok</div>
+        ) : (
+          rows.map((x) => (
+            <div key={x.category}>
+              <div className="mb-1 flex items-center justify-between text-xs font-black text-zinc-500">
+                <span>{x.category}</span>
+                <span>{x.count}</span>
+              </div>
+              <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
+                <div
+                  className="h-full rounded-full bg-cyan-500"
+                  style={{
+                    width: `${Math.max(5, (Number(x.count ?? 0) / max) * 100)}%`,
+                  }}
+                />
+              </div>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   );
 }

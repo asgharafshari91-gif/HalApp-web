@@ -93,14 +93,13 @@ export default function SupportCenterClient() {
       )}`;
 
       const { error } = await supabase.from("support_tickets").insert({
-        user_id: uid,
-        ticket_no: ticketNo,
-        subject: subject.trim(),
-        category,
-        message: message.trim(),
-        status: "open",
-        priority: "normal",
-      });
+  user_id: uid,
+  subject: subject.trim(),
+  category,
+  message: message.trim(),
+  status: "open",
+  priority: "normal",
+});
 
       if (error) throw error;
 
