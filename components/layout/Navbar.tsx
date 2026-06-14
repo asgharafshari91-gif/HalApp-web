@@ -526,7 +526,9 @@ async function openProtectedPage(path: string) {
 >
   Favoriler
 </button>
-
+<Link href="/support/my-tickets" className={desktopLinkCls}>
+  Ticketlarım
+</Link>
                 <Link href="/conversations" className={desktopLinkCls}>
                   Mesajlar <UnreadBadge n={unread} />
                 </Link>
@@ -642,7 +644,15 @@ async function openProtectedPage(path: string) {
                               router.push("/pazar");
                             }}
                           />
-
+<MenuItem
+  icon={<Icon name="shield" />}
+  title="Ticketlarım"
+  subtitle="Destek taleplerini görüntüle"
+  onClick={() => {
+    setOpenUser(false);
+    router.push("/support/my-tickets");
+  }}
+/>
                           <MenuItem
                             icon={<Icon name="settings" />}
                             title="Ayarlar"
