@@ -703,39 +703,24 @@ function openQrLogin() {
         </div>
       </div>
 {qrModalOpen && (
-  <div className="fixed inset-0 z-[999] flex items-center justify-center bg-black/70 px-4 backdrop-blur-xl">
-    <div className="relative w-full max-w-md overflow-hidden rounded-[34px] border border-white/10 bg-[#07100C] p-6 text-white shadow-[0_30px_120px_rgba(0,0,0,.45)]">
+  <div className="fixed inset-0 z-[999] flex items-center justify-center bg-white/75 px-4 backdrop-blur-xl">
+    <div className="relative w-full max-w-md overflow-hidden rounded-[34px] border border-slate-200 bg-white p-6 text-slate-950 shadow-[0_30px_120px_rgba(15,23,42,.18)]">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute left-[-80px] top-[-80px] h-56 w-56 rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="absolute bottom-[-90px] right-[-90px] h-56 w-56 rounded-full bg-cyan-500/10 blur-3xl" />
+        <div className="absolute left-[-80px] top-[-80px] h-56 w-56 rounded-full bg-emerald-300/35 blur-3xl" />
+        <div className="absolute bottom-[-90px] right-[-90px] h-56 w-56 rounded-full bg-cyan-200/35 blur-3xl" />
       </div>
 
       <div className="relative">
         <div className="mb-5 flex items-start gap-3">
-          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/15 text-emerald-400">
-            <svg
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="3" y="3" width="5" height="5" rx="1" />
-              <rect x="16" y="3" width="5" height="5" rx="1" />
-              <rect x="3" y="16" width="5" height="5" rx="1" />
-              <path d="M16 16h1" />
-              <path d="M20 16v1" />
-              <path d="M16 20h4" />
-              <path d="M20 17v3" />
-            </svg>
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-emerald-500/12 text-emerald-600">
+            <span className="text-xl">▦</span>
           </div>
 
           <div className="min-w-0 flex-1">
-            <h2 className="text-xl font-black">QR ile Web Girişi</h2>
-            <p className="mt-1 text-sm font-semibold leading-relaxed text-white/55">
+            <h2 className="text-xl font-black text-slate-950">
+              QR ile Web Girişi
+            </h2>
+            <p className="mt-1 text-sm font-semibold leading-relaxed text-slate-500">
               Mobil HalApp uygulamasında Profil &gt; Web QR Girişi bölümünden
               bu web oturumunu onayla.
             </p>
@@ -744,38 +729,21 @@ function openQrLogin() {
           <button
             type="button"
             onClick={() => setQrModalOpen(false)}
-            className="rounded-full bg-white/10 p-2 text-white/70 transition hover:bg-white/15 hover:text-white"
+            className="rounded-full bg-slate-100 p-2 text-slate-500 transition hover:bg-slate-200 hover:text-slate-900"
           >
             ✕
           </button>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white/[0.06] p-4">
-          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-emerald-500/25 bg-black/25 p-5 text-center">
+        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+          <div className="flex min-h-[220px] items-center justify-center rounded-2xl border border-dashed border-emerald-500/25 bg-white p-5 text-center">
             <div>
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-500/15 text-emerald-400">
-                <svg
-                  width="34"
-                  height="34"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.1"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M23 19a2 2 0 0 1-2 2h-3" />
-                  <path d="M1 19a2 2 0 0 0 2 2h3" />
-                  <path d="M23 5a2 2 0 0 0-2-2h-3" />
-                  <path d="M1 5a2 2 0 0 1 2-2h3" />
-                  <path d="M7 8h10" />
-                  <path d="M7 12h10" />
-                  <path d="M7 16h10" />
-                </svg>
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-3xl bg-emerald-500/12 text-emerald-600">
+                ▦
               </div>
 
-              <p className="text-sm font-bold text-white/80">{qrMessage}</p>
-              <p className="mt-2 text-xs font-semibold text-white/40">
+              <p className="text-sm font-black text-slate-800">{qrMessage}</p>
+              <p className="mt-2 text-xs font-semibold text-slate-500">
                 Kamera mobil uygulamada açılır. Web burada QR giriş sayfasına
                 yönlendirilir.
               </p>
@@ -787,7 +755,7 @@ function openQrLogin() {
           <button
             type="button"
             onClick={() => setQrModalOpen(false)}
-            className="h-12 rounded-2xl border border-white/10 bg-white/5 text-sm font-black text-white/75 transition hover:bg-white/10 hover:text-white"
+            className="h-12 rounded-2xl border border-slate-200 bg-white text-sm font-black text-slate-700 transition hover:bg-slate-50"
           >
             Vazgeç
           </button>
@@ -798,7 +766,7 @@ function openQrLogin() {
               setQrModalOpen(false);
               router.push(`/qr-login?next=${encodeURIComponent(next)}`);
             }}
-            className="h-12 rounded-2xl bg-emerald-500 text-sm font-black text-black transition hover:bg-emerald-400"
+            className="h-12 rounded-2xl bg-emerald-500 text-sm font-black text-black shadow-[0_18px_50px_rgba(34,197,94,.22)] transition hover:bg-emerald-400"
           >
             QR Sayfasını Aç
           </button>
