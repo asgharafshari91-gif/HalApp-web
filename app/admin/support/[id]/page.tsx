@@ -1,56 +1,98 @@
 // app/admin/support/[id]/page.tsx
 import { redirect } from "next/navigation";
-import { requireAdminOrRedirect } from "@/lib/admin";
+import { adminServerClient, requireAdminOrRedirect } from "@/lib/admin";
 import SupportDetailClient from "./ui/support-detail-client";
-import { headers } from "next/headers";
 
 export const dynamic = "force-dynamic";
 
-function buildBaseUrl() {
-  const base =
-    process.env.NEXT_PUBLIC_BASE_URL?.trim() ||
-    process.env.NEXT_PUBLIC_SITE_URL?.trim() ||
-    process.env.VERCEL_URL?.trim() ||
-    "http://localhost:3000";
-
-  const withProto = base.startsWith("http") ? base : `https://${base}`;
-  return withProto.replace(/\/$/, "");
-}
+const ticketSelect = `
+  id,
+  user_id,
+  subject,
+  message,
+  body,
+  contact,
+  status,
+  resolution,
+  category,
+  priority,
+  internal_note,
+  assigned_admin_id,
+  closed_at,
+  closed_by,
+  created_at,
+  updated_at,
+  last_message_at,
+  last_admin_reply_at,
+  last_user_reply_at,
+  last_message_preview,
+  unread_admin_count,
+  unread_user_count,
+  rating,
+  rating_comment,
+  rated_at,
+  ticket_no,
+  profiles:profiles(
+    id,
+    full_name,
+    company_name,
+    phone,
+    email,
+    avatar_url,
+    city,
+    district,
+    neighborhood,
+    role,
+    registration_type,
+    kyc_status,
+    is_premium,
+    premium_until,
+    membership_status,
+    membership_expires_at
+  )
+`;
 
 export default async function AdminSupportDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const g = await requireAdminOrRedirect("/admin/support");
-  if (!g.ok) redirect(g.redirectTo);
+  const gate = await requireAdminOrRedirect("/admin/support");
+
+  if (!gate.ok) {
+    redirect(gate.redirectTo);
+  }
 
   const { id } = await params;
+  const sb = await adminServerClient();
 
-  // ✅ cookie header'ını doğru şekilde al
-  const h = await headers();
-  const cookie = h.get("cookie") ?? "";
+  const { data: ticket, error } = await sb
+    .from("support_tickets")
+    .select(ticketSelect)
+    .eq("id", id)
+    .maybeSingle();
 
-  const base = buildBaseUrl();
-  const url = `${base}/api/admin/support/${encodeURIComponent(id)}`;
-
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: cookie ? { cookie } : undefined,
-  });
-
-  const j = await res.json().catch(() => ({}));
-
-  if (!res.ok) {
+  if (error) {
     return (
       <div className="rounded-[22px] border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="text-lg font-black">🎫 Support Ticket</div>
         <div className="mt-2 text-sm text-rose-600 dark:text-rose-400">
-          API Hatası: {j?.error ?? "ticket_fetch_failed"}
+          Supabase Hatası: {error.message}
         </div>
       </div>
     );
   }
 
-  return <SupportDetailClient initialTicket={j.ticket} />;
+  if (!ticket) {
+    return (
+      <div className="rounded-[22px] border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="text-lg font-black">🎫 Support Ticket</div>
+        <div className="mt-2 text-sm text-rose-600 dark:text-rose-400">
+          Ticket bulunamadı.
+        </div>
+      </div>
+    );
+  }
+
+  return <SupportDetailClient initialTicket={ticket} />;
 }
