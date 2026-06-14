@@ -14,14 +14,63 @@ function normStatus(v: any): "open" | "closed" | null {
   if (s === "open" || s === "closed") return s;
   return null;
 }
+function normPriority(v: any): "low" | "normal" | "high" | "critical" | null {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (["low", "normal", "high", "critical"].includes(s)) return s as any;
+  return null;
+}
 
+function normCategory(v: any): string | null {
+  const s = String(v ?? "").trim().toLowerCase();
+  if (!s) return null;
+  return s;
+}
 function normText(v: any): string | null {
   if (v == null) return null;
   const s = String(v).trim();
   return s ? s : null;
 }
 
-export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
+const ticketSelect = `
+  id,
+  user_id,
+  subject,
+  message,
+  body,
+  contact,
+  status,
+  resolution,
+  closed_at,
+  closed_by,
+  created_at,
+  updated_at,
+  profiles:profiles(
+ category,
+priority,
+internal_note,
+assigned_admin_id, 
+  id,
+    full_name,
+    company_name,
+    phone,
+    email,
+    avatar_url,
+    city,
+    district,
+    neighborhood,
+    role,
+    registration_type,
+    kyc_status,
+    is_premium,
+    premium_until,
+    membership_status,
+    membership_expires_at
+  )
+`;
+export async function GET(
+  _req: Request,
+  ctx: { params: Promise<{ id: string }> }
+) {
   const gate = await requireAdminOrRedirect("/admin/support");
   if (!gate.ok) return json({ error: gate.reason ?? "not_allowed" }, 403);
 
@@ -30,12 +79,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
 
   const { data, error } = await sb
     .from("support_tickets")
-    .select(
-      `
-      id,user_id,subject,message,body,contact,status,resolution,closed_at,closed_by,created_at,updated_at,
-      profiles:profiles(id,full_name,company_name,phone,email)
-    `
-    )
+    .select(ticketSelect)
     .eq("id", id)
     .maybeSingle();
 
@@ -51,7 +95,10 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
  *  - status?: "open"|"closed"
  *  - resolution?: string|null
  */
-export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  req: Request,
+  ctx: { params: Promise<{ id: string }> }
+) {
   const gate = await requireAdminOrRedirect("/admin/support");
   if (!gate.ok) return json({ error: gate.reason ?? "not_allowed" }, 403);
 
@@ -60,22 +107,51 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
 
   const body = await req.json().catch(() => ({}));
 
-  const nextStatus = body.status !== undefined ? normStatus(body.status) : null;
-  if (body.status !== undefined && !nextStatus) return json({ error: "invalid_status" }, 400);
+  const nextStatus =
+    body.status !== undefined ? normStatus(body.status) : null;
 
-  const nextResolution = body.resolution !== undefined ? normText(body.resolution) : undefined;
+  if (body.status !== undefined && !nextStatus) {
+    return json({ error: "invalid_status" }, 400);
+  }
+const nextPriority =
+  body.priority !== undefined ? normPriority(body.priority) : null;
 
-  const { data: beforeRow, error: be } = await sb.from("support_tickets").select("*").eq("id", id).maybeSingle();
+if (body.priority !== undefined && !nextPriority) {
+  return json({ error: "invalid_priority" }, 400);
+}
+
+const nextCategory =
+  body.category !== undefined ? normCategory(body.category) : undefined;
+
+const nextInternalNote =
+  body.internal_note !== undefined ? normText(body.internal_note) : undefined;
+
+const assignToMe = body.assign_to_me === true;
+  const nextResolution =
+    body.resolution !== undefined ? normText(body.resolution) : undefined;
+
+  const { data: beforeRow, error: be } = await sb
+    .from("support_tickets")
+    .select("*")
+    .eq("id", id)
+    .maybeSingle();
+
   if (be) return json({ error: be.message }, 400);
   if (!beforeRow) return json({ error: "not_found" }, 404);
 
   const patch: Record<string, any> = {};
   const now = new Date().toISOString();
 
-  if (nextResolution !== undefined) patch.resolution = nextResolution;
-
+  if (nextResolution !== undefined) {
+    patch.resolution = nextResolution;
+  }
+if (nextPriority) patch.priority = nextPriority;
+if (nextCategory !== undefined) patch.category = nextCategory;
+if (nextInternalNote !== undefined) patch.internal_note = nextInternalNote;
+if (assignToMe) patch.assigned_admin_id = gate.uid;
   if (nextStatus) {
     patch.status = nextStatus;
+
     if (nextStatus === "closed") {
       patch.closed_at = now;
       patch.closed_by = gate.uid;
@@ -85,7 +161,9 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     }
   }
 
-  if (Object.keys(patch).length === 0) return json({ error: "no_fields" }, 400);
+  if (Object.keys(patch).length === 0) {
+    return json({ error: "no_fields" }, 400);
+  }
 
   patch.updated_at = now;
 
@@ -93,9 +171,7 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
     .from("support_tickets")
     .update(patch)
     .eq("id", id)
-    .select(
-      "id,user_id,subject,message,body,contact,status,resolution,closed_at,closed_by,created_at,updated_at"
-    )
+    .select(ticketSelect)
     .maybeSingle();
 
   if (error) return json({ error: error.message }, 400);
@@ -105,17 +181,21 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
   const afterStatus = String(afterRow.status ?? "").toLowerCase();
 
   let action = "support.update";
-  if (beforeStatus !== afterStatus) action = afterStatus === "closed" ? "support.close" : "support.reopen";
-  else if (nextResolution !== undefined) action = "support.resolution.update";
+
+  if (beforeStatus !== afterStatus) {
+    action = afterStatus === "closed" ? "support.close" : "support.reopen";
+  } else if (nextResolution !== undefined) {
+    action = "support.resolution.update";
+  }
 
   const summary =
     action === "support.close"
       ? `Support kapatıldı (#${id})`
       : action === "support.reopen"
-      ? `Support yeniden açıldı (#${id})`
-      : action === "support.resolution.update"
-      ? `Support çözüm güncellendi (#${id})`
-      : `Support güncellendi (#${id})`;
+        ? `Support yeniden açıldı (#${id})`
+        : action === "support.resolution.update"
+          ? `Support çözüm güncellendi (#${id})`
+          : `Support güncellendi (#${id})`;
 
   await auditLog(req, sb, {
     actor_id: gate.uid,
