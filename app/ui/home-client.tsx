@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+
 import { supabase } from "@/lib/supabaseClient";
 import { useMe } from "@/lib/me";
 import TurkeyHeatMap from "@/components/map/TurkeyHeatMap";
@@ -76,12 +78,23 @@ function productEmoji(title: string) {
 function formatPrice(row: any) {
   const unit = row?.unit ? ` / ${row.unit}` : "";
 
-  if (row?.price) return `${Number(row.price).toLocaleString("tr-TR")}₺${unit}`;
-  if (row?.price_per_unit) return `${Number(row.price_per_unit).toLocaleString("tr-TR")}₺${unit}`;
+  if (row?.price) {
+    return `${Number(row.price).toLocaleString("tr-TR")}₺${unit}`;
+  }
+
+  if (row?.price_per_unit) {
+    return `${Number(row.price_per_unit).toLocaleString("tr-TR")}₺${unit}`;
+  }
 
   if (row?.min_price || row?.max_price) {
-    const min = row?.min_price ? Number(row.min_price).toLocaleString("tr-TR") : "-";
-    const max = row?.max_price ? Number(row.max_price).toLocaleString("tr-TR") : "-";
+    const min = row?.min_price
+      ? Number(row.min_price).toLocaleString("tr-TR")
+      : "-";
+
+    const max = row?.max_price
+      ? Number(row.max_price).toLocaleString("tr-TR")
+      : "-";
+
     return `${min}₺ - ${max}₺`;
   }
 
@@ -95,6 +108,7 @@ function coverOf(row: any) {
     const sorted = [...media].sort(
       (a, b) => Number(a?.sort_order ?? 0) - Number(b?.sort_order ?? 0)
     );
+
     return sorted[0]?.thumb_url || sorted[0]?.url || "";
   }
 
@@ -102,16 +116,27 @@ function coverOf(row: any) {
   return mediaUrls[0] || "";
 }
 
-function StatCard({ value, label, text }: { value: string; label: string; text: string }) {
+function StatCard({
+  value,
+  label,
+  text,
+}: {
+  value: string;
+  label: string;
+  text: string;
+}) {
   return (
     <div className="group relative overflow-hidden rounded-[26px] border border-black/10 bg-white/75 p-5 shadow-[0_20px_70px_rgba(0,0,0,0.06)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_30px_90px_rgba(16,185,129,.18)] dark:border-white/10 dark:bg-white/[0.055] sm:rounded-[30px]">
       <div className="absolute -right-12 -top-12 h-32 w-32 rounded-full bg-emerald-400/10 blur-2xl transition group-hover:bg-emerald-400/20" />
+
       <div className="relative text-[28px] font-black leading-none tracking-tight text-zinc-950 dark:text-white sm:text-[30px]">
         {value}
       </div>
+
       <div className="relative mt-3 text-[13px] font-black text-emerald-700 dark:text-emerald-300">
         {label}
       </div>
+
       <p className="relative mt-2 text-[12.5px] leading-relaxed text-zinc-600 dark:text-white/60">
         {text}
       </p>
@@ -148,8 +173,13 @@ function ExpandCard({
           {icon}
         </div>
 
-        <h3 className="mt-5 text-lg font-black text-zinc-950 dark:text-white">{title}</h3>
-        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-white/60">{text}</p>
+        <h3 className="mt-5 text-lg font-black text-zinc-950 dark:text-white">
+          {title}
+        </h3>
+
+        <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-white/60">
+          {text}
+        </p>
 
         <div
           className={[
@@ -219,11 +249,11 @@ function AccountCTA() {
           </span>
         )}
       </span>
+
       <span className="max-w-[150px] truncate">{displayName}</span>
     </a>
   );
 }
-
 function PhoneMockup3D({
   items,
   onlineUsers,
@@ -339,8 +369,12 @@ function PhoneMockup3D({
                         className="rounded-[22px] bg-white/14 p-3 text-center shadow-[inset_0_1px_0_rgba(255,255,255,.18)] transition hover:-translate-y-1 hover:bg-white/24"
                       >
                         <div className="text-2xl">{icon}</div>
-                        <div className="mt-2 text-sm font-black text-white">{a}</div>
-                        <div className="mt-1 text-[11px] font-bold text-white/62">{b}</div>
+                        <div className="mt-2 text-sm font-black text-white">
+                          {a}
+                        </div>
+                        <div className="mt-1 text-[11px] font-bold text-white/62">
+                          {b}
+                        </div>
                       </Link>
                     ))}
                   </div>
@@ -500,15 +534,18 @@ function PhoneMockup3D({
             }
 
             @keyframes newAlertDrop {
-              0%, 18% {
+              0%,
+              18% {
                 opacity: 0;
                 transform: translateY(-28px) scale(0.96);
               }
-              26%, 72% {
+              26%,
+              72% {
                 opacity: 1;
                 transform: translateY(0) scale(1);
               }
-              82%, 100% {
+              82%,
+              100% {
                 opacity: 0;
                 transform: translateY(-18px) scale(0.98);
               }
@@ -545,7 +582,11 @@ function MarketFlowCard({ item, index }: { item: MarketItem; index: number }) {
     >
       <div className="flex h-14 w-14 items-center justify-center overflow-hidden rounded-[22px] bg-emerald-500/10 text-2xl ring-1 ring-emerald-500/15">
         {item.coverUrl ? (
-          <img src={item.coverUrl} alt={item.title} className="h-full w-full object-cover" />
+          <img
+            src={item.coverUrl}
+            alt={item.title}
+            className="h-full w-full object-cover"
+          />
         ) : (
           item.emoji
         )}
@@ -629,14 +670,17 @@ function HeroMarketPreview({ items }: { items: MarketItem[] }) {
 
       <style jsx>{`
         @keyframes heroMarketFlow {
-          0% { transform: translateY(0); }
-          100% { transform: translateY(-50%); }
+          0% {
+            transform: translateY(0);
+          }
+          100% {
+            transform: translateY(-50%);
+          }
         }
       `}</style>
     </div>
   );
 }
-
 function HowItWorksSection() {
   const steps = [
     ["1", "İlan Ver", "Ürününü fotoğraf, video, fiyat ve şehir bilgisiyle yayınla."],
@@ -664,13 +708,16 @@ function HowItWorksSection() {
             className="group relative overflow-hidden rounded-[32px] border border-black/10 bg-white/75 p-6 shadow-[0_20px_80px_rgba(0,0,0,0.06)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_32px_120px_rgba(34,197,94,.15)] dark:border-white/10 dark:bg-white/[0.045]"
           >
             <div className="absolute -right-20 -top-20 h-52 w-52 rounded-full bg-emerald-500/12 blur-3xl opacity-0 transition group-hover:opacity-100" />
+
             <div className="relative">
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500 text-xl font-black text-black shadow-lg shadow-emerald-500/25">
                 {no}
               </div>
+
               <h3 className="mt-5 text-lg font-black text-zinc-950 dark:text-white">
                 {title}
               </h3>
+
               <p className="mt-2 text-sm leading-relaxed text-zinc-600 dark:text-white/60">
                 {text}
               </p>
@@ -741,6 +788,7 @@ function PriceMovementSection({ items }: { items: MarketItem[] }) {
                     <div className="truncate text-base font-black text-zinc-950 dark:text-white">
                       {item.title}
                     </div>
+
                     <div className="mt-1 truncate text-xs font-bold uppercase tracking-wide text-zinc-500 dark:text-white/45">
                       {item.location}
                     </div>
@@ -750,6 +798,7 @@ function PriceMovementSection({ items }: { items: MarketItem[] }) {
                     <div className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-700 dark:text-emerald-300">
                       Yeni
                     </div>
+
                     <div className="mt-2 text-[11px] font-black text-zinc-400 group-hover:text-emerald-600">
                       Detay →
                     </div>
@@ -776,8 +825,34 @@ function PriceMovementSection({ items }: { items: MarketItem[] }) {
 }
 
 export default function HomeClient() {
+  const router = useRouter();
+
   const [marketItems, setMarketItems] = useState<MarketItem[]>([]);
   const [onlineUsers, setOnlineUsers] = useState(0);
+
+  async function openProtectedPage(path: string) {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user?.id) {
+      router.push(`/auth?next=${encodeURIComponent(path)}`);
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("kyc_status")
+      .eq("id", user.id)
+      .maybeSingle();
+
+    if (profile?.kyc_status !== "approved") {
+      router.push(`/profile?kyc=required&next=${encodeURIComponent(path)}`);
+      return;
+    }
+
+    router.push(path);
+  }
 
   useEffect(() => {
     let alive = true;
@@ -946,12 +1021,26 @@ export default function HomeClient() {
             </div>
           </div>
         </section>
-
-        <section id="trust" className="mt-14">
+<section id="trust" className="mt-14">
           <div className="grid gap-5 md:grid-cols-3">
-            <ExpandCard icon="✅" title="Onaylı Satıcı" text="Profil ve satıcı bilgileriyle daha güven veren ticaret deneyimi." detail="Onaylı satıcı yapısı sayesinde alıcılar satıcı profilini daha ciddi görür. Firma bilgileri, profil görünümü ve ilan düzeni güven algısını artırır." />
-            <ExpandCard icon="🛡️" title="Güvenli Ticaret" text="Alıcı ve satıcıyı tek platformda daha kontrollü şekilde buluşturur." detail="HalApp, ilanları düzenli ve takip edilebilir hale getirir. Kullanıcılar ürün, şehir, fiyat ve satıcı bilgilerini daha net görerek daha bilinçli ticaret yapar." />
-            <ExpandCard icon="📌" title="Gerçek Pazar Akışı" text="Aktif ilan, talep ve şehir sinyalleri tek ekranda takip edilir." detail="Canlı ilan akışı gerçek pazar hareketini gösterir. Yeni ürünler, talepler ve fiyat bilgileri güncel olarak takip edilebilir." />
+            <ExpandCard
+              icon="✅"
+              title="Onaylı Satıcı"
+              text="Profil ve satıcı bilgileriyle daha güven veren ticaret deneyimi."
+              detail="Onaylı satıcı yapısı sayesinde alıcılar satıcı profilini daha ciddi görür."
+            />
+            <ExpandCard
+              icon="🛡️"
+              title="Güvenli Ticaret"
+              text="Alıcı ve satıcıyı tek platformda daha kontrollü şekilde buluşturur."
+              detail="HalApp, ilanları düzenli ve takip edilebilir hale getirir."
+            />
+            <ExpandCard
+              icon="📌"
+              title="Gerçek Pazar Akışı"
+              text="Aktif ilan, talep ve şehir sinyalleri tek ekranda takip edilir."
+              detail="Canlı ilan akışı gerçek pazar hareketini gösterir."
+            />
           </div>
         </section>
 
@@ -967,10 +1056,30 @@ export default function HomeClient() {
           </div>
 
           <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
-            <ExpandCard icon="🌱" title="Üretici" text="Ürününü daha fazla alıcıya göster, pazar hareketini takip et." detail="Üretici, ürününü sadece çevresine değil daha geniş alıcı ağına gösterebilir. Piyasa hareketini takip ederek doğru zamanda doğru satış yapabilir." />
-            <ExpandCard icon="🏪" title="Hal & Komisyoncu" text="Güncel ilan akışıyla alıcı ve satıcı bağlantısını hızlandır." detail="Hal ve komisyoncular için HalApp; ürün akışını, satıcı bağlantılarını ve talep hareketlerini tek ekranda yönetilebilir hale getirir." />
-            <ExpandCard icon="🚚" title="Tüccar" text="Şehir, ürün ve fiyat bilgileriyle doğru fırsatı daha hızlı bul." detail="Tüccar, farklı şehirlerdeki ürünleri ve fiyatları hızlıca görerek fırsatları kaçırmadan doğru satıcıya ulaşabilir." />
-            <ExpandCard icon="🌍" title="İhracatçı" text="Kaliteli ürün, doğru satıcı ve güncel piyasa bilgisine ulaş." detail="İhracatçı için HalApp; kaliteli ürün arama, güven veren satıcı bulma ve piyasa takibi açısından güçlü bir dijital pazar alanı sağlar." />
+            <ExpandCard
+              icon="🌱"
+              title="Üretici"
+              text="Ürününü daha fazla alıcıya göster, pazar hareketini takip et."
+              detail="Üretici daha geniş alıcı ağına ulaşabilir."
+            />
+            <ExpandCard
+              icon="🏪"
+              title="Hal & Komisyoncu"
+              text="Güncel ilan akışıyla alıcı ve satıcı bağlantısını hızlandır."
+              detail="Ürün akışını ve talepleri tek ekranda takip eder."
+            />
+            <ExpandCard
+              icon="🚚"
+              title="Tüccar"
+              text="Şehir, ürün ve fiyat bilgileriyle doğru fırsatı daha hızlı bul."
+              detail="Farklı şehirlerdeki fırsatları hızlıca görür."
+            />
+            <ExpandCard
+              icon="🌍"
+              title="İhracatçı"
+              text="Kaliteli ürün, doğru satıcı ve güncel piyasa bilgisine ulaş."
+              detail="İhracata uygun ürün ve satıcıları daha hızlı bulur."
+            />
           </div>
         </section>
 
@@ -992,8 +1101,8 @@ export default function HomeClient() {
               </h2>
 
               <p className="mt-3 max-w-3xl text-sm leading-relaxed text-white/60 sm:text-base">
-                HalApp; ürün, talep, satıcı profili, şehir sinyali ve canlı pazar hareketini
-                tek bir modern platformda birleştirir.
+                HalApp; ürün, talep, satıcı profili, şehir sinyali ve canlı pazar
+                hareketini tek bir modern platformda birleştirir.
               </p>
             </div>
 
@@ -1011,34 +1120,71 @@ export default function HomeClient() {
         <footer className="mt-16 rounded-[30px] border border-black/10 bg-white/75 p-6 shadow-[0_18px_80px_rgba(0,0,0,0.06)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045] sm:rounded-[34px] sm:p-8">
           <div className="grid gap-8 md:grid-cols-4">
             <div>
-              <div className="text-xl font-black text-zinc-950 dark:text-white">HalApp</div>
+              <div className="text-xl font-black text-zinc-950 dark:text-white">
+                HalApp
+              </div>
               <p className="mt-2 text-sm text-zinc-600 dark:text-white/60">
                 Türkiye’nin dijital hal ve canlı pazar platformu.
               </p>
             </div>
 
             <div>
-              <div className="font-black text-zinc-950 dark:text-white">Platform</div>
+              <div className="font-black text-zinc-950 dark:text-white">
+                Platform
+              </div>
+
               <div className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-white/60">
-                <a href="/pazar" className="block hover:text-emerald-600">Pazar</a>
-                <a href="#live-map" className="block hover:text-emerald-600">Canlı Harita</a>
-                <a href="/favorites" className="block hover:text-emerald-600">Favoriler</a>
+                <a href="/pazar" className="block hover:text-emerald-600">
+                  Pazar
+                </a>
+
+                <a href="#live-map" className="block hover:text-emerald-600">
+                  Canlı Harita
+                </a>
+
+                <button
+                  type="button"
+                  onClick={() => openProtectedPage("/favorites")}
+                  className="block text-left hover:text-emerald-600"
+                >
+                  Favoriler
+                </button>
               </div>
             </div>
 
             <div>
-              <div className="font-black text-zinc-950 dark:text-white">Yasal</div>
+              <div className="font-black text-zinc-950 dark:text-white">
+                Yasal
+              </div>
+
               <div className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-white/60">
-                <a href="/privacy" className="block hover:text-emerald-600">KVKK & Gizlilik</a>
-                <a href="/terms" className="block hover:text-emerald-600">Kullanım Koşulları</a>
+                <a href="/privacy" className="block hover:text-emerald-600">
+                  KVKK & Gizlilik
+                </a>
+
+                <a href="/terms" className="block hover:text-emerald-600">
+                  Kullanım Koşulları
+                </a>
               </div>
             </div>
 
             <div>
-              <div className="font-black text-zinc-950 dark:text-white">Destek</div>
+              <div className="font-black text-zinc-950 dark:text-white">
+                Destek
+              </div>
+
               <div className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-white/60">
-                <a href="/support" className="block hover:text-emerald-600">Destek Merkezi</a>
-                <a href="mailto:destek@halapp.com" className="block hover:text-emerald-600">destek@halapp.app</a>
+                <a href="/support" className="block hover:text-emerald-600">
+                  Destek Merkezi
+                </a>
+
+                <a
+                  href="mailto:destek@halapp.app"
+                  className="block hover:text-emerald-600"
+                >
+                  destek@halapp.app
+                </a>
+
                 <span className="block">Instagram • LinkedIn</span>
               </div>
             </div>
