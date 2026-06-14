@@ -12,7 +12,6 @@ import { supabase } from "@/lib/supabaseClient";
 const nav = [
   { href: "/features", label: "Özellikler" },
   { href: "/map", label: "Canlı Türkiye Haritası" },
-  
 ];
 
 function clsx(...a: (string | false | null | undefined)[]) {
@@ -187,6 +186,7 @@ function ThemeButton({
           />
         </svg>
       )}
+
       <span className="hidden sm:inline">{isDark ? "Gece" : "Gündüz"}</span>
     </button>
   );
@@ -202,6 +202,7 @@ function PremiumPill() {
 
 function UnreadBadge({ n }: { n: number }) {
   if (!n || n <= 0) return null;
+
   return (
     <span className="ml-2 inline-flex items-center rounded-full bg-rose-500 px-2 py-0.5 text-[11px] font-black text-white">
       {n > 99 ? "99+" : n}
@@ -269,13 +270,20 @@ function MenuItem({
         <span className="grid h-9 w-9 place-items-center rounded-2xl border border-black/10 bg-white/70 text-black/80 dark:border-white/10 dark:bg-black/30 dark:text-white/80">
           {icon}
         </span>
+
         <div className="min-w-0 flex-1">
           <div className="flex items-center justify-between gap-2">
             <div className="truncate text-sm font-extrabold text-black/85 dark:text-white/85">{title}</div>
             {badge ? <div className="shrink-0">{badge}</div> : null}
           </div>
-          {subtitle ? <div className="mt-0.5 truncate text-[11px] text-black/55 dark:text-white/55">{subtitle}</div> : null}
+
+          {subtitle ? (
+            <div className="mt-0.5 truncate text-[11px] text-black/55 dark:text-white/55">
+              {subtitle}
+            </div>
+          ) : null}
         </div>
+
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" className="opacity-50">
           <path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
         </svg>
@@ -337,9 +345,14 @@ export default function Navbar() {
 
       const { data: sess } = await supabase.auth.getSession();
       const uid = sess.session?.user?.id;
+
       if (!uid) return;
 
-      const { data, error } = await supabase.from("profiles").select("is_admin").eq("id", uid).maybeSingle();
+      const { data, error } = await supabase
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", uid)
+        .maybeSingle();
 
       if (!mounted) return;
       if (!error) setIsAdmin(Boolean((data as any)?.is_admin));
@@ -352,13 +365,19 @@ export default function Navbar() {
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 6);
+
     onScroll();
-    window.addEventListener("scroll", onScroll, { passive: true });
+
+    window.addEventListener("scroll", onScroll, {
+      passive: true,
+    });
+
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   useEffect(() => {
     document.body.style.overflow = openMobile ? "hidden" : "";
+
     return () => {
       document.body.style.overflow = "";
     };
@@ -367,12 +386,18 @@ export default function Navbar() {
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!openUser) return;
+
       const el = userRef.current;
+
       if (!el) return;
-      if (e.target instanceof Node && !el.contains(e.target)) setOpenUser(false);
+
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setOpenUser(false);
+      }
     }
 
     document.addEventListener("mousedown", onDoc);
+
     return () => document.removeEventListener("mousedown", onDoc);
   }, [openUser]);
 
@@ -387,13 +412,18 @@ export default function Navbar() {
     (async () => {
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id ?? null;
+
       if (!mounted) return;
+
       setMyId(uid);
     })();
 
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, session) => {
       setMyId(session?.user?.id ?? null);
-      if (!session?.user?.id) setUnread(0);
+
+      if (!session?.user?.id) {
+        setUnread(0);
+      }
     });
 
     return () => {
@@ -405,11 +435,16 @@ export default function Navbar() {
   async function loadUnreadCount(uid: string) {
     const { count, error } = await supabase
       .from("messages")
-      .select("id", { count: "exact", head: true })
+      .select("id", {
+        count: "exact",
+        head: true,
+      })
       .eq("to_user", uid)
       .eq("is_read", false);
 
-    if (!error) setUnread(count ?? 0);
+    if (!error) {
+      setUnread(count ?? 0);
+    }
   }
 
   useEffect(() => {
@@ -419,11 +454,21 @@ export default function Navbar() {
 
     const ch = supabase
       .channel(`unread-${myId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "messages" }, (payload) => {
-        const row: any = payload.new ?? payload.old ?? null;
-        if (row?.to_user && row.to_user !== myId) return;
-        loadUnreadCount(myId);
-      })
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "messages",
+        },
+        (payload) => {
+          const row: any = payload.new ?? payload.old ?? null;
+
+          if (row?.to_user && row.to_user !== myId) return;
+
+          loadUnreadCount(myId);
+        }
+      )
       .subscribe();
 
     return () => {
@@ -434,38 +479,50 @@ export default function Navbar() {
   async function goLogin() {
     router.push(`/auth?next=${encodeURIComponent(pathname || "/")}`);
   }
-async function openProtectedPage(path: string) {
-  const { data } = await supabase.auth.getUser();
-  const uid = data.user?.id;
 
-  if (!uid) {
-    router.push(`/auth?next=${encodeURIComponent(path)}`);
-    return;
+  async function openProtectedPage(path: string) {
+    const { data } = await supabase.auth.getUser();
+    const uid = data.user?.id;
+
+    if (!uid) {
+      router.push(`/auth?next=${encodeURIComponent(path)}`);
+      return;
+    }
+
+    const { data: profile } = await supabase
+      .from("profiles")
+      .select("kyc_status")
+      .eq("id", uid)
+      .maybeSingle();
+
+    if ((profile as any)?.kyc_status !== "approved") {
+      router.push(`/profile?kyc=required&next=${encodeURIComponent(path)}`);
+      return;
+    }
+
+    router.push(path);
   }
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("kyc_status")
-    .eq("id", uid)
-    .maybeSingle();
-
-  if ((profile as any)?.kyc_status !== "approved") {
-    router.push(`/profile?kyc=required&next=${encodeURIComponent(path)}`);
-    return;
-  }
-
-  router.push(path);
-}
   async function logout() {
     try {
       await me.signOut();
-      toast({ variant: "info", title: "Çıkış", message: "Oturum kapatıldı." });
+
+      toast({
+        variant: "info",
+        title: "Çıkış",
+        message: "Oturum kapatıldı.",
+      });
+
       setOpenUser(false);
       setUnread(0);
       setIsAdmin(false);
       router.push("/");
     } catch (e: any) {
-      toast({ variant: "error", title: "Çıkış yapılamadı", message: e?.message ?? "Bir hata oluştu." });
+      toast({
+        variant: "error",
+        title: "Çıkış yapılamadı",
+        message: e?.message ?? "Bir hata oluştu.",
+      });
     }
   }
 
@@ -501,6 +558,7 @@ async function openProtectedPage(path: string) {
                   </span>
                   <PremiumPill />
                 </div>
+
                 <div className="text-[12px] text-black/55 dark:text-white/55">
                   Hızlı • Güvenli • Canlı akış
                 </div>
@@ -520,15 +578,19 @@ async function openProtectedPage(path: string) {
                 </Link>
 
                 <button
-  type="button"
-  onClick={() => openProtectedPage("/favorites")}
-  className={desktopLinkCls}
->
-  Favoriler
-</button>
-<Link href="/support/my-tickets" className={desktopLinkCls}>
-  Ticketlarım
-</Link>
+                  type="button"
+                  onClick={() => openProtectedPage("/favorites")}
+                  className={desktopLinkCls}
+                >
+                  Favoriler
+                </button>
+
+                {me.authed ? (
+                  <Link href="/support" className={desktopLinkCls}>
+                    Ticketlarım
+                  </Link>
+                ) : null}
+
                 <Link href="/conversations" className={desktopLinkCls}>
                   Mesajlar <UnreadBadge n={unread} />
                 </Link>
@@ -571,6 +633,7 @@ async function openProtectedPage(path: string) {
                             <div className="truncate text-sm font-black text-black/90 dark:text-white/90">
                               {displayName}
                             </div>
+
                             <div className="mt-0.5 flex flex-wrap gap-2">
                               <span className="inline-flex items-center rounded-full border border-black/10 bg-black/5 px-2.5 py-1 text-[11px] font-extrabold text-black/70 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
                                 {isPremium ? "Premium" : "Standart"}
@@ -625,15 +688,15 @@ async function openProtectedPage(path: string) {
                             }}
                           />
 
-                         <MenuItem
-  icon={<Icon name="heart" />}
-  title="Favoriler"
-  subtitle="Kaydedilen ilanlar"
-  onClick={() => {
-    setOpenUser(false);
-    openProtectedPage("/favorites");
-  }}
-/>
+                          <MenuItem
+                            icon={<Icon name="heart" />}
+                            title="Favoriler"
+                            subtitle="Kaydedilen ilanlar"
+                            onClick={() => {
+                              setOpenUser(false);
+                              openProtectedPage("/favorites");
+                            }}
+                          />
 
                           <MenuItem
                             icon={<Icon name="shop" />}
@@ -644,15 +707,17 @@ async function openProtectedPage(path: string) {
                               router.push("/pazar");
                             }}
                           />
-<MenuItem
-  icon={<Icon name="shield" />}
-  title="Ticketlarım"
-  subtitle="Destek taleplerini görüntüle"
-  onClick={() => {
-    setOpenUser(false);
-    router.push("/support/my-tickets");
-  }}
-/>
+
+                          <MenuItem
+                            icon={<Icon name="shield" />}
+                            title="Ticketlarım"
+                            subtitle="Destek taleplerini görüntüle"
+                            onClick={() => {
+                              setOpenUser(false);
+                              router.push("/support");
+                            }}
+                          />
+
                           <MenuItem
                             icon={<Icon name="settings" />}
                             title="Ayarlar"
@@ -676,6 +741,7 @@ async function openProtectedPage(path: string) {
                           {isAdmin ? (
                             <>
                               <div className="my-1 h-px bg-black/10 dark:bg-white/10" />
+
                               <MenuItem
                                 icon={<Icon name="shield" />}
                                 title="Admin Panel"
@@ -765,6 +831,7 @@ async function openProtectedPage(path: string) {
 
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-black text-black/90 dark:text-white/90">{displayName}</div>
+
                     <div className="mt-0.5 text-xs text-black/55 dark:text-white/55">
                       {isPremium ? "Premium üye" : "Standart üye"} {isAdmin ? "• Admin" : ""}
                     </div>
@@ -773,6 +840,7 @@ async function openProtectedPage(path: string) {
               ) : (
                 <div className="flex items-center justify-between gap-2">
                   <div className="text-sm font-extrabold text-black/80 dark:text-white/80">Giriş gerekli</div>
+
                   <button
                     onClick={() => {
                       setOpenMobile(false);
@@ -813,12 +881,24 @@ async function openProtectedPage(path: string) {
               <button
                 className="block w-full rounded-2xl px-3 py-3 text-left text-sm font-extrabold text-black/80 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/5"
                 onClick={() => {
-  setOpenMobile(false);
-  openProtectedPage("/favorites");
-}}
+                  setOpenMobile(false);
+                  openProtectedPage("/favorites");
+                }}
               >
                 ❤️ Favoriler
               </button>
+
+              {me.authed ? (
+                <button
+                  className="block w-full rounded-2xl px-3 py-3 text-left text-sm font-extrabold text-black/80 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/5"
+                  onClick={() => {
+                    setOpenMobile(false);
+                    router.push("/support");
+                  }}
+                >
+                  🎫 Ticketlarım
+                </button>
+              ) : null}
 
               <button
                 className="block w-full rounded-2xl px-3 py-3 text-left text-sm font-extrabold text-black/80 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/5"
