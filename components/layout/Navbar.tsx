@@ -434,7 +434,28 @@ export default function Navbar() {
   async function goLogin() {
     router.push(`/auth?next=${encodeURIComponent(pathname || "/")}`);
   }
+async function openProtectedPage(path: string) {
+  const { data } = await supabase.auth.getUser();
+  const uid = data.user?.id;
 
+  if (!uid) {
+    router.push(`/auth?next=${encodeURIComponent(path)}`);
+    return;
+  }
+
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("kyc_status")
+    .eq("id", uid)
+    .maybeSingle();
+
+  if ((profile as any)?.kyc_status !== "approved") {
+    router.push(`/profile?kyc=required&next=${encodeURIComponent(path)}`);
+    return;
+  }
+
+  router.push(path);
+}
   async function logout() {
     try {
       await me.signOut();
@@ -498,9 +519,13 @@ export default function Navbar() {
                   Pazar
                 </Link>
 
-                <Link href="/favorites" className={desktopLinkCls}>
-                  Favoriler
-                </Link>
+                <button
+  type="button"
+  onClick={() => openProtectedPage("/favorites")}
+  className={desktopLinkCls}
+>
+  Favoriler
+</button>
 
                 <Link href="/conversations" className={desktopLinkCls}>
                   Mesajlar <UnreadBadge n={unread} />
@@ -598,15 +623,15 @@ export default function Navbar() {
                             }}
                           />
 
-                          <MenuItem
-                            icon={<Icon name="heart" />}
-                            title="Favoriler"
-                            subtitle="Kaydedilen ilanlar"
-                            onClick={() => {
-                              setOpenUser(false);
-                              router.push("/favorites");
-                            }}
-                          />
+                         <MenuItem
+  icon={<Icon name="heart" />}
+  title="Favoriler"
+  subtitle="Kaydedilen ilanlar"
+  onClick={() => {
+    setOpenUser(false);
+    openProtectedPage("/favorites");
+  }}
+/>
 
                           <MenuItem
                             icon={<Icon name="shop" />}
@@ -778,9 +803,9 @@ export default function Navbar() {
               <button
                 className="block w-full rounded-2xl px-3 py-3 text-left text-sm font-extrabold text-black/80 hover:bg-black/5 dark:text-white/80 dark:hover:bg-white/5"
                 onClick={() => {
-                  setOpenMobile(false);
-                  router.push("/favorites");
-                }}
+  setOpenMobile(false);
+  openProtectedPage("/favorites");
+}}
               >
                 ❤️ Favoriler
               </button>
