@@ -2,16 +2,14 @@
 import type { Metadata, Viewport } from "next";
 import "./globals.css";
 
-import Navbar from "@/components/layout/Navbar";
 import Providers from "./providers";
 import { ToastProvider } from "@/components/ui/toast";
 
-import CookieConsent from "@/components/CookieConsent";
 import ConsentSync from "@/components/ConsentSync";
 import TrackInit from "@/components/TrackInit";
 import ConsentScripts from "@/components/ConsentScripts";
 import PushNavigationListener from "@/components/PushNavigationListener";
-import MobileWebNotice from "@/components/MobileWebNotice";
+import RootChrome from "@/components/layout/RootChrome";
 
 const SITE_URL = "https://halapp.app";
 
@@ -169,10 +167,6 @@ export const viewport: Viewport = {
   ],
 };
 
-function FooterYear() {
-  return <>{new Date().getFullYear()}</>;
-}
-
 export default function RootLayout({
   children,
 }: {
@@ -316,44 +310,7 @@ export default function RootLayout({
             <ConsentScripts />
             <PushNavigationListener />
 
-            <Navbar />
-            <MobileWebNotice />
-
-            <main className="relative mx-auto w-full min-w-0 max-w-6xl overflow-x-clip px-4 pb-16 pt-6">
-              {children}
-            </main>
-
-            <footer className="w-full max-w-full overflow-x-clip border-t border-black/10 bg-white/50 dark:border-white/10 dark:bg-black/30">
-              <div className="mx-auto w-full min-w-0 max-w-6xl px-4 py-10 text-sm text-black/60 dark:text-white/60">
-                <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="font-semibold text-black/80 dark:text-white/80">
-                    HalApp
-                  </div>
-
-                  <div className="shrink-0">
-                    ©️ <FooterYear /> HalApp • Tüm hakları saklıdır.
-                  </div>
-                </div>
-
-                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2 text-xs">
-                  <a
-                    href="/privacy"
-                    className="font-extrabold text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
-                  >
-                    KVKK & Çerez Politikası
-                  </a>
-
-                  <a
-                    href="/terms"
-                    className="font-extrabold text-black/70 hover:text-black dark:text-white/70 dark:hover:text-white"
-                  >
-                    Kullanım Koşulları
-                  </a>
-                </div>
-              </div>
-            </footer>
-
-            <CookieConsent />
+            <RootChrome>{children}</RootChrome>
           </ToastProvider>
         </Providers>
       </body>

@@ -1038,7 +1038,7 @@ export default function HomeClient() {
               <div className="font-black text-zinc-950 dark:text-white">Destek</div>
               <div className="mt-3 space-y-2 text-sm text-zinc-600 dark:text-white/60">
                 <a href="/support" className="block hover:text-emerald-600">Destek Merkezi</a>
-                <a href="mailto:destek@halapp.com" className="block hover:text-emerald-600">destek@halapp.com</a>
+                <a href="mailto:destek@halapp.com" className="block hover:text-emerald-600">destek@halapp.app</a>
                 <span className="block">Instagram • LinkedIn</span>
               </div>
             </div>
