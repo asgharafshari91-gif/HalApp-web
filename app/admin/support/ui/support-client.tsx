@@ -18,24 +18,40 @@ function statusBadge(status: string) {
 function priorityBadge(priority?: string | null) {
   const p = String(priority ?? "normal").toLowerCase();
 
-  if (p === "critical") return "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-200";
-  if (p === "high") return "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200";
-  if (p === "low") return "bg-zinc-500/10 text-zinc-600 border-zinc-500/20 dark:text-zinc-300";
+  if (p === "critical") {
+    return "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-200";
+  }
+
+  if (p === "high") {
+    return "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200";
+  }
+
+  if (p === "low") {
+    return "bg-zinc-500/10 text-zinc-600 border-zinc-500/20 dark:text-zinc-300";
+  }
 
   return "bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-200";
 }
 
 function priorityLabel(priority?: string | null) {
   const p = String(priority ?? "normal").toLowerCase();
+
   if (p === "critical") return "KRİTİK";
   if (p === "high") return "YÜKSEK";
   if (p === "low") return "DÜŞÜK";
+
   return "NORMAL";
 }
 
 function replyState(ticket: any) {
-  const userAt = ticket?.last_user_reply_at ? new Date(ticket.last_user_reply_at).getTime() : 0;
-  const adminAt = ticket?.last_admin_reply_at ? new Date(ticket.last_admin_reply_at).getTime() : 0;
+  const userAt = ticket?.last_user_reply_at
+    ? new Date(ticket.last_user_reply_at).getTime()
+    : 0;
+
+  const adminAt = ticket?.last_admin_reply_at
+    ? new Date(ticket.last_admin_reply_at).getTime()
+    : 0;
+
   const closed = String(ticket?.status ?? "open").toLowerCase() === "closed";
 
   if (closed) {
@@ -67,6 +83,7 @@ function replyState(ticket: any) {
 
 function fmt(dt?: string | null) {
   if (!dt) return "—";
+
   try {
     return new Date(dt).toLocaleString("tr-TR", {
       dateStyle: "medium",
@@ -79,7 +96,9 @@ function fmt(dt?: string | null) {
 
 function timeAgo(dt?: string | null) {
   if (!dt) return "—";
+
   const t = new Date(dt).getTime();
+
   if (!Number.isFinite(t)) return "—";
 
   const diff = Date.now() - t;
@@ -100,9 +119,22 @@ type DashboardData = {
     closed?: number;
     waiting?: number;
     today?: number;
+    last24h?: number;
     critical?: number;
+
     avgRating?: number | null;
     ratingCount?: number;
+    fiveStarCount?: number;
+    fiveStarRate?: number | null;
+
+    avgResolutionHours?: number | null;
+    avgFirstReplyHours?: number | null;
+    closeRate?: number | null;
+
+    topCategory?: {
+      category: string;
+      count: number;
+    } | null;
   };
   charts?: {
     last7Days?: { date: string; count: number }[];
@@ -200,12 +232,16 @@ export default function SupportClient({
   }, []);
 
   const openCount = useMemo(
-    () => items.filter((x) => String(x.status ?? "open").toLowerCase() !== "closed").length,
+    () =>
+      items.filter((x) => String(x.status ?? "open").toLowerCase() !== "closed")
+        .length,
     [items]
   );
 
   const closedCount = useMemo(
-    () => items.filter((x) => String(x.status ?? "").toLowerCase() === "closed").length,
+    () =>
+      items.filter((x) => String(x.status ?? "").toLowerCase() === "closed")
+        .length,
     [items]
   );
 
@@ -280,18 +316,50 @@ export default function SupportClient({
         </div>
       </section>
 
+      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+        <StatCard
+          label="⭐ Ortalama Puan"
+          value={stats?.avgRating ?? "—"}
+          tone="amber"
+          suffix={stats?.ratingCount ? `/${stats.ratingCount}` : ""}
+        />
+
+        <StatCard
+          label="⚡ İlk Cevap Süresi"
+          value={stats?.avgFirstReplyHours ?? "—"}
+          tone="blue"
+          suffix={stats?.avgFirstReplyHours != null ? " saat" : ""}
+        />
+
+        <StatCard
+          label="🎯 Çözüm Süresi"
+          value={stats?.avgResolutionHours ?? "—"}
+          tone="emerald"
+          suffix={stats?.avgResolutionHours != null ? " saat" : ""}
+        />
+
+        <StatCard
+          label="📈 Kapanma Oranı"
+          value={stats?.closeRate ?? "—"}
+          tone="orange"
+          suffix={stats?.closeRate != null ? "%" : ""}
+        />
+
+        <StatCard
+          label="🏆 En Yoğun Kategori"
+          value={stats?.topCategory?.category ?? "—"}
+          tone="rose"
+          suffix={stats?.topCategory?.count ? `/${stats.topCategory.count}` : ""}
+        />
+      </section>
+
       <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
         <StatCard label="Açık Ticket" value={stats?.open ?? openCount} tone="orange" />
         <StatCard label="Cevap Bekleyen" value={stats?.waiting ?? waitingCount} tone="rose" />
         <StatCard label="Kritik" value={stats?.critical ?? 0} tone="rose" />
         <StatCard label="Bugün" value={stats?.today ?? 0} tone="blue" />
+        <StatCard label="Son 24 Saat" value={stats?.last24h ?? 0} tone="blue" />
         <StatCard label="Kapalı" value={stats?.closed ?? closedCount} tone="emerald" />
-        <StatCard
-          label="Ortalama Puan"
-          value={stats?.avgRating ?? "—"}
-          tone="amber"
-          suffix={stats?.ratingCount ? `/${stats.ratingCount}` : ""}
-        />
       </section>
 
       <section className="grid gap-4 lg:grid-cols-2">
@@ -346,6 +414,7 @@ export default function SupportClient({
             <div className="mt-4 text-xl font-black text-zinc-950 dark:text-white">
               Ticket bulunamadı
             </div>
+
             <p className="mt-2 text-sm font-semibold text-zinc-500">
               Arama veya filtreyi değiştir.
             </p>
@@ -355,7 +424,8 @@ export default function SupportClient({
             {items.map((ticket) => {
               const ticketStatus = String(ticket.status ?? "open").toLowerCase();
               const title = ticket.subject || ticket.title || "Destek Talebi";
-              const message = ticket.last_message_preview || ticket.message || ticket.body || "";
+              const message =
+                ticket.last_message_preview || ticket.message || ticket.body || "";
               const contact = ticket.contact || ticket.email || ticket.phone || "—";
               const r = replyState(ticket);
               const lastAt =
@@ -377,15 +447,25 @@ export default function SupportClient({
                           #{ticket.ticket_no || ticket.id}
                         </span>
 
-                        <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${statusBadge(ticketStatus)}`}>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${statusBadge(
+                            ticketStatus
+                          )}`}
+                        >
                           {ticketStatus}
                         </span>
 
-                        <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${priorityBadge(ticket.priority)}`}>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${priorityBadge(
+                            ticket.priority
+                          )}`}
+                        >
                           {priorityLabel(ticket.priority)}
                         </span>
 
-                        <span className={`rounded-full border px-3 py-1 text-[11px] font-black ${r.cls}`}>
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${r.cls}`}
+                        >
                           {r.label}
                         </span>
 
@@ -488,6 +568,7 @@ function StatCard({
   return (
     <div className={`rounded-[26px] border p-5 ${cls}`}>
       <div className="text-sm font-black opacity-75">{label}</div>
+
       <div className="mt-2 text-3xl font-black">
         {value}
         {suffix ? <span className="ml-1 text-sm opacity-60">{suffix}</span> : null}
@@ -507,7 +588,9 @@ function MiniChart({
 
   return (
     <div className="rounded-[30px] border border-black/10 bg-white/80 p-5 shadow-[0_20px_80px_rgba(0,0,0,.05)] dark:border-white/10 dark:bg-white/[0.045]">
-      <div className="text-sm font-black text-zinc-950 dark:text-white">{title}</div>
+      <div className="text-sm font-black text-zinc-950 dark:text-white">
+        {title}
+      </div>
 
       <div className="mt-5 flex h-36 items-end gap-2">
         {rows.length === 0 ? (
@@ -521,6 +604,7 @@ function MiniChart({
                   height: `${Math.max(8, (Number(x.count ?? 0) / max) * 120)}px`,
                 }}
               />
+
               <div className="text-[10px] font-black text-zinc-400">
                 {x.date.slice(5)}
               </div>
@@ -543,7 +627,9 @@ function CategoryChart({
 
   return (
     <div className="rounded-[30px] border border-black/10 bg-white/80 p-5 shadow-[0_20px_80px_rgba(0,0,0,.05)] dark:border-white/10 dark:bg-white/[0.045]">
-      <div className="text-sm font-black text-zinc-950 dark:text-white">{title}</div>
+      <div className="text-sm font-black text-zinc-950 dark:text-white">
+        {title}
+      </div>
 
       <div className="mt-5 space-y-3">
         {rows.length === 0 ? (
@@ -555,6 +641,7 @@ function CategoryChart({
                 <span>{x.category}</span>
                 <span>{x.count}</span>
               </div>
+
               <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
                 <div
                   className="h-full rounded-full bg-cyan-500"
