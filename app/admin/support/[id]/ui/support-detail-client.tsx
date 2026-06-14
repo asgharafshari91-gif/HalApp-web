@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-
+import SupportChat from "./support-chat";
 function clsx(...a: (string | false | null | undefined)[]) {
   return a.filter(Boolean).join(" ");
 }
@@ -445,6 +445,7 @@ export default function SupportDetailClient({
             <div className="space-y-3">
               <TimelineItem title="Ticket oluşturuldu" time={fmt(t?.created_at)} />
               <TimelineItem title="Son güncelleme" time={fmt(t?.updated_at)} />
+<SupportChat ticketId={String(t.id)} />
               {t?.assigned_admin_id ? (
                 <TimelineItem title="Admin ataması yapıldı" time={t?.assigned_admin_id} />
               ) : null}
@@ -458,7 +459,6 @@ export default function SupportDetailClient({
     </div>
   );
 }
-
 function AdminControlCard({
   title,
   children,
