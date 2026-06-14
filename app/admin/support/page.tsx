@@ -2,7 +2,7 @@
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { requireAdminOrRedirect } from "@/lib/admin";
-import SupportClient from "../ui/support-client";
+import SupportClient from "./ui/support-client";
 
 export const dynamic = "force-dynamic";
 

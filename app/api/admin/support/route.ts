@@ -54,7 +54,8 @@ export async function GET(req: Request) {
     `,
       { count: "exact" }
     )
-    .order("created_at", { ascending: false });
+    .order("last_message_at", { ascending: false, nullsFirst: false })
+.order("created_at", { ascending: false })
 
   if (status) qb = qb.eq("status", status);
 

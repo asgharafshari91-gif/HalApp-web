@@ -7,18 +7,84 @@ function statusBadge(status: string) {
   const s = String(status || "open").toLowerCase();
 
   if (s === "closed" || s === "resolved") {
-    return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20";
+    return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200";
   }
 
   if (s === "review" || s === "in_review") {
-    return "bg-blue-500/10 text-blue-700 border-blue-500/20";
+    return "bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-200";
   }
 
   if (s === "answered") {
-    return "bg-violet-500/10 text-violet-700 border-violet-500/20";
+    return "bg-violet-500/10 text-violet-700 border-violet-500/20 dark:text-violet-200";
   }
 
-  return "bg-orange-500/10 text-orange-700 border-orange-500/20";
+  return "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200";
+}
+
+function priorityBadge(priority?: string | null) {
+  const p = String(priority ?? "normal").toLowerCase();
+
+  if (p === "critical") {
+    return "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-200";
+  }
+
+  if (p === "high") {
+    return "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200";
+  }
+
+  if (p === "low") {
+    return "bg-zinc-500/10 text-zinc-600 border-zinc-500/20 dark:text-zinc-300";
+  }
+
+  return "bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-200";
+}
+
+function priorityLabel(priority?: string | null) {
+  const p = String(priority ?? "normal").toLowerCase();
+
+  if (p === "critical") return "KRİTİK";
+  if (p === "high") return "YÜKSEK";
+  if (p === "low") return "DÜŞÜK";
+
+  return "NORMAL";
+}
+
+function replyState(ticket: any) {
+  const userAt = ticket?.last_user_reply_at
+    ? new Date(ticket.last_user_reply_at).getTime()
+    : 0;
+
+  const adminAt = ticket?.last_admin_reply_at
+    ? new Date(ticket.last_admin_reply_at).getTime()
+    : 0;
+
+  const closed = String(ticket?.status ?? "open").toLowerCase() === "closed";
+
+  if (closed) {
+    return {
+      label: "Kapatıldı",
+      cls: "bg-zinc-500/10 text-zinc-600 border-zinc-500/20 dark:text-zinc-300",
+    };
+  }
+
+  if (userAt > adminAt) {
+    return {
+      label: "Kullanıcı cevap bekliyor",
+      cls: "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-200",
+    };
+  }
+
+  if (adminAt > 0 && adminAt >= userAt) {
+    return {
+      label: "Admin cevapladı",
+      cls: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200",
+    };
+  }
+
+  return {
+    label: "Yeni talep",
+    cls: "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200",
+  };
 }
 
 function fmt(dt?: string | null) {
@@ -32,6 +98,26 @@ function fmt(dt?: string | null) {
   } catch {
     return dt;
   }
+}
+
+function timeAgo(dt?: string | null) {
+  if (!dt) return "—";
+
+  const t = new Date(dt).getTime();
+
+  if (!Number.isFinite(t)) return "—";
+
+  const diff = Date.now() - t;
+  const min = Math.floor(diff / 60000);
+
+  if (min < 1) return "az önce";
+  if (min < 60) return `${min} dk önce`;
+
+  const hour = Math.floor(min / 60);
+  if (hour < 24) return `${hour} saat önce`;
+
+  const day = Math.floor(hour / 24);
+  return `${day} gün önce`;
 }
 
 export default function SupportClient({
@@ -60,6 +146,11 @@ export default function SupportClient({
   const closedCount = initialItems.filter(
     (x) => String(x.status ?? "").toLowerCase() === "closed"
   ).length;
+
+  const waitingCount = initialItems.filter((x) => {
+    const r = replyState(x);
+    return r.label === "Kullanıcı cevap bekliyor";
+  }).length;
 
   function submitSearch(formData: FormData) {
     const nextQ = String(formData.get("q") ?? "").trim();
@@ -103,7 +194,7 @@ export default function SupportClient({
             </h1>
 
             <p className="mt-2 text-sm font-semibold text-zinc-600 dark:text-white/60">
-              Kullanıcı ticketlarını takip et, durum değiştir ve çözüm notu gir.
+              Son mesaj durumuna göre ticketları takip et, kullanıcıya hızlı cevap ver.
             </p>
           </div>
 
@@ -117,37 +208,17 @@ export default function SupportClient({
       </section>
 
       <section className="grid gap-4 md:grid-cols-4">
-        <div className="rounded-[26px] border border-black/10 bg-white/75 p-5 dark:border-white/10 dark:bg-white/[0.045]">
-          <div className="text-sm font-black text-zinc-500">Toplam</div>
-          <div className="mt-2 text-3xl font-black text-zinc-950 dark:text-white">
-            {total}
-          </div>
-        </div>
-
-        <div className="rounded-[26px] border border-orange-500/20 bg-orange-500/10 p-5">
-          <div className="text-sm font-black text-orange-700">Bu Sayfa Açık</div>
-          <div className="mt-2 text-3xl font-black text-orange-700">
-            {openCount}
-          </div>
-        </div>
-
-        <div className="rounded-[26px] border border-emerald-500/20 bg-emerald-500/10 p-5">
-          <div className="text-sm font-black text-emerald-700">Bu Sayfa Kapalı</div>
-          <div className="mt-2 text-3xl font-black text-emerald-700">
-            {closedCount}
-          </div>
-        </div>
-
-        <div className="rounded-[26px] border border-blue-500/20 bg-blue-500/10 p-5">
-          <div className="text-sm font-black text-blue-700">Sayfa</div>
-          <div className="mt-2 text-3xl font-black text-blue-700">
-            {page}/{pages}
-          </div>
-        </div>
+        <StatCard label="Toplam" value={total} tone="default" />
+        <StatCard label="Bu Sayfa Açık" value={openCount} tone="orange" />
+        <StatCard label="Cevap Bekleyen" value={waitingCount} tone="rose" />
+        <StatCard label="Bu Sayfa Kapalı" value={closedCount} tone="emerald" />
       </section>
 
       <section className="rounded-[30px] border border-black/10 bg-white/80 p-5 shadow-[0_20px_80px_rgba(0,0,0,.05)] dark:border-white/10 dark:bg-white/[0.045]">
-        <form action={submitSearch} className="grid gap-3 md:grid-cols-[1fr_180px_140px]">
+        <form
+          action={submitSearch}
+          className="grid gap-3 md:grid-cols-[1fr_180px_140px]"
+        >
           <input
             name="q"
             defaultValue={q}
@@ -173,8 +244,14 @@ export default function SupportClient({
 
       <section className="overflow-hidden rounded-[32px] border border-black/10 bg-white/80 shadow-[0_24px_90px_rgba(0,0,0,.06)] dark:border-white/10 dark:bg-white/[0.045]">
         <div className="border-b border-black/10 px-5 py-4 dark:border-white/10">
-          <div className="text-sm font-black text-zinc-950 dark:text-white">
-            Ticket Listesi
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-sm font-black text-zinc-950 dark:text-white">
+              Ticket Listesi
+            </div>
+
+            <div className="text-xs font-black text-zinc-500">
+              Sayfa {page}/{pages}
+            </div>
           </div>
         </div>
 
@@ -195,6 +272,12 @@ export default function SupportClient({
               const title = ticket.subject || ticket.title || "Destek Talebi";
               const message = ticket.message || ticket.body || "";
               const contact = ticket.contact || ticket.email || ticket.phone || "—";
+              const r = replyState(ticket);
+              const lastAt =
+                ticket.last_message_at ||
+                ticket.updated_at ||
+                ticket.created_at ||
+                null;
 
               return (
                 <Link
@@ -217,9 +300,23 @@ export default function SupportClient({
                           {ticketStatus}
                         </span>
 
-                        {ticket.priority ? (
-                          <span className="rounded-full border border-rose-500/20 bg-rose-500/10 px-3 py-1 text-[11px] font-black text-rose-700">
-                            {ticket.priority}
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${priorityBadge(
+                            ticket.priority
+                          )}`}
+                        >
+                          {priorityLabel(ticket.priority)}
+                        </span>
+
+                        <span
+                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${r.cls}`}
+                        >
+                          {r.label}
+                        </span>
+
+                        {ticket.category ? (
+                          <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-black text-cyan-700 dark:text-cyan-200">
+                            {ticket.category}
                           </span>
                         ) : null}
                       </div>
@@ -231,6 +328,10 @@ export default function SupportClient({
                       <div className="mt-1 line-clamp-1 text-sm font-semibold text-zinc-500 dark:text-white/50">
                         {message || "Mesaj yok"}
                       </div>
+
+                      <div className="mt-2 text-xs font-bold text-zinc-400">
+                        Son hareket: {timeAgo(lastAt)}
+                      </div>
                     </div>
 
                     <div className="shrink-0 text-left lg:text-right">
@@ -239,11 +340,11 @@ export default function SupportClient({
                       </div>
 
                       <div className="mt-1 text-xs font-semibold text-zinc-500">
-                        {fmt(ticket.created_at)}
+                        {fmt(lastAt)}
                       </div>
 
                       <div className="mt-3 text-xs font-black text-emerald-700 opacity-0 transition group-hover:opacity-100">
-                        Detayı aç →
+                        Sohbeti aç →
                       </div>
                     </div>
                   </div>
@@ -276,5 +377,31 @@ export default function SupportClient({
         </button>
       </section>
     </main>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: "default" | "orange" | "rose" | "emerald";
+}) {
+  const cls =
+    tone === "orange"
+      ? "border-orange-500/20 bg-orange-500/10 text-orange-700 dark:text-orange-200"
+      : tone === "rose"
+        ? "border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-200"
+        : tone === "emerald"
+          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
+          : "border-black/10 bg-white/75 text-zinc-950 dark:border-white/10 dark:bg-white/[0.045] dark:text-white";
+
+  return (
+    <div className={`rounded-[26px] border p-5 ${cls}`}>
+      <div className="text-sm font-black opacity-75">{label}</div>
+      <div className="mt-2 text-3xl font-black">{value}</div>
+    </div>
   );
 }
