@@ -53,11 +53,18 @@ export default function SupportChatClient({ ticket }: { ticket: any }) {
         }),
       });
 
-      const j = await res.json().catch(() => ({}));
+     const j = await res.json().catch(() => ({}));
 
-      if (!res.ok) throw new Error(j?.error ?? "send_failed");
+if (!res.ok) throw new Error(j?.error ?? "send_failed");
 
-      setText("");
+if (j?.message) {
+  setMessages((prev) => {
+    if (prev.some((x) => x.id === j.message.id)) return prev;
+    return [...prev, j.message];
+  });
+}
+
+setText("");
     } catch (e: any) {
       alert(e?.message ?? "Mesaj gönderilemedi.");
     } finally {
