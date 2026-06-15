@@ -123,3 +123,10 @@ export async function POST(req: Request) {
     return json({ error: e?.message ?? "server_error" }, 500);
   }
 }
+export async function GET() {
+  return NextResponse.json({
+    ok: true,
+    route: "qr-complete",
+    method: "GET test",
+  });
+}
