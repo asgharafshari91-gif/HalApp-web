@@ -56,7 +56,7 @@ export async function POST(req: Request) {
       user_id,
       expires_at,
       approved_at,
-      consumed_at,
+      used_at,
       access_token,
       refresh_token
     `
@@ -75,8 +75,8 @@ export async function POST(req: Request) {
     return json({ error: "missing_user_id" }, 400);
   }
 
-  if (sessionRow.consumed_at) {
-    return json({ error: "qr_already_consumed" }, 400);
+  if (sessionRow.used_at) {
+    return json({ error: "qr_already_used" }, 400);
   }
 
   const expiresAt = sessionRow.expires_at
@@ -110,11 +110,13 @@ export async function POST(req: Request) {
     return json({ error: sessionError.message }, 400);
   }
 
-  if (!authData.session?.user?.id) {
+  const userId = authData.session?.user?.id;
+
+  if (!userId) {
     return json({ error: "web_session_failed" }, 400);
   }
 
-  if (authData.session.user.id !== sessionRow.user_id) {
+  if (userId !== sessionRow.user_id) {
     return json({ error: "user_mismatch" }, 400);
   }
 
@@ -123,12 +125,12 @@ export async function POST(req: Request) {
   await admin
     .from("web_qr_login_sessions")
     .update({
-      status: "consumed",
-      consumed_at: now,
+      status: "used",
+      used_at: now,
       access_token: null,
       refresh_token: null,
     })
     .eq("token", token);
 
-  return json({ ok: true, user_id: authData.session.user.id });
+  return json({ ok: true, user_id: userId });
 }
