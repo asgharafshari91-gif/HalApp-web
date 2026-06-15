@@ -36,6 +36,38 @@ async function webClient() {
   );
 }
 
+function browserFromUserAgent(ua?: string | null) {
+  const s = String(ua ?? "").toLowerCase();
+
+  if (s.includes("edg/")) return "Microsoft Edge";
+  if (s.includes("opr/") || s.includes("opera")) return "Opera";
+  if (s.includes("firefox/")) return "Firefox";
+  if (s.includes("chrome/") && !s.includes("edg/")) return "Google Chrome";
+  if (s.includes("safari/") && s.includes("version/")) return "Safari";
+
+  return "Web tarayıcı";
+}
+
+function osFromUserAgent(ua?: string | null) {
+  const s = String(ua ?? "").toLowerCase();
+
+  if (s.includes("mac os x")) return "macOS";
+  if (s.includes("windows")) return "Windows";
+  if (s.includes("android")) return "Android";
+  if (s.includes("iphone") || s.includes("ipad")) return "iOS";
+  if (s.includes("linux")) return "Linux";
+
+  return "Web";
+}
+
+export async function GET() {
+  return json({
+    ok: true,
+    route: "qr-complete",
+    methods: ["POST"],
+  });
+}
+
 export async function POST(req: Request) {
   try {
     const body = await req.json().catch(() => ({}));
@@ -48,7 +80,19 @@ export async function POST(req: Request) {
     const { data: sessionRow, error } = await admin
       .from("web_qr_login_sessions")
       .select(
-        "id,token,status,user_id,expires_at,approved_at,used_at,access_token,refresh_token"
+        `
+        id,
+        token,
+        status,
+        user_id,
+        expires_at,
+        approved_at,
+        used_at,
+        device_label,
+        user_agent,
+        access_token,
+        refresh_token
+      `
       )
       .eq("token", token)
       .maybeSingle();
@@ -108,7 +152,7 @@ export async function POST(req: Request) {
 
     const now = new Date().toISOString();
 
-    await admin
+    const { error: updateError } = await admin
       .from("web_qr_login_sessions")
       .update({
         status: "used",
@@ -118,7 +162,45 @@ export async function POST(req: Request) {
       })
       .eq("token", token);
 
-    return json({ ok: true, user_id: userId });
+    if (updateError) {
+      return json({ error: updateError.message }, 400);
+    }
+
+    const ua = String(sessionRow.user_agent ?? "");
+    const browser = browserFromUserAgent(ua);
+    const os = osFromUserAgent(ua);
+    const deviceLabel = String(sessionRow.device_label ?? "Bilinmeyen cihaz");
+
+    await admin.from("notifications").insert({
+      user_id: userId,
+      type: "security",
+      title: "Yeni Web Oturumu Açıldı",
+      body: `${deviceLabel} ile ${os} / ${browser} üzerinden HalApp Web oturumu açıldı.`,
+      is_read: false,
+      data: {
+        kind: "web_login",
+        session_id: sessionRow.id,
+        device_label: deviceLabel,
+        user_agent: ua,
+        browser,
+        os,
+        approved_at: sessionRow.approved_at,
+        used_at: now,
+      },
+      metadata: {
+        source: "qr_login",
+        route: "/api/auth/qr-complete",
+      },
+    });
+
+    return json({
+      ok: true,
+      user_id: userId,
+      session_id: sessionRow.id,
+      device_label: deviceLabel,
+      browser,
+      os,
+    });
   } catch (e: any) {
     return json({ error: e?.message ?? "server_error" }, 500);
   }
