@@ -2,7 +2,14 @@
 
 import Image from "next/image";
 import QRCode from "qrcode";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { supabase } from "@/lib/supabaseClient";
@@ -21,12 +28,10 @@ function clsx(...a: (string | false | null | undefined)[]) {
 
 function safeNext(raw: string | null) {
   const v = (raw ?? "").trim();
-
   if (!v) return "/";
   if (v.startsWith("http://") || v.startsWith("https://")) return "/";
   if (v.startsWith("//")) return "/";
   if (!v.startsWith("/")) return "/";
-
   return v;
 }
 
@@ -65,44 +70,62 @@ function QrLoginContent() {
     return `halapp://web-login?token=${token}`;
   }, [token]);
 
-  const completeQrLogin = useCallback(async () => {
-    if (!token) return;
-    if (consumedRef.current) return;
+  const completeQrLogin = useCallback(
+    async (silent = false) => {
+      if (!token) return false;
+      if (consumedRef.current) return false;
 
-    consumedRef.current = true;
+      consumedRef.current = true;
 
-    try {
-      setStatus("approved");
-      setMessage("Mobil onay alındı. Web oturumu hazırlanıyor...");
+      try {
+        if (!silent) {
+          setStatus("approved");
+          setMessage("Mobil onay alındı. Web oturumu hazırlanıyor...");
+        }
 
-      const res = await fetch("/api/auth/qr-complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ token }),
-      });
+        const res = await fetch("/api/auth/qr-complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ token }),
+        });
 
-      const j = await res.json().catch(() => ({}));
+        const j = await res.json().catch(() => ({}));
 
-      if (!res.ok) {
-        console.error("QR COMPLETE API ERROR:", j);
-        throw new Error(j?.error ?? "qr_complete_failed");
+        if (!res.ok) {
+          consumedRef.current = false;
+
+          if (j?.error === "qr_not_approved") return false;
+
+          if (!silent) {
+            setStatus("error");
+            setMessage(j?.error ?? "Web oturumu oluşturulamadı.");
+          }
+
+          return false;
+        }
+
+        setStatus("approved");
+        setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
+
+        window.setTimeout(() => {
+          router.replace(next);
+          router.refresh();
+        }, 600);
+
+        return true;
+      } catch (e: any) {
+        consumedRef.current = false;
+
+        if (!silent) {
+          setStatus("error");
+          setMessage(e?.message ?? "Web oturumu oluşturulamadı.");
+        }
+
+        return false;
       }
-
-      setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
-
-      window.setTimeout(() => {
-        router.replace(next);
-        router.refresh();
-      }, 600);
-    } catch (e: any) {
-      console.error("QR COMPLETE ERROR:", e);
-      consumedRef.current = false;
-      setStatus("error");
-      setMessage(e?.message ?? "Web oturumu oluşturulamadı.");
-    }
-  }, [token, next, router]);
+    },
+    [token, next, router]
+  );
 
   useEffect(() => {
     setToken(makeToken());
@@ -149,9 +172,7 @@ function QrLoginContent() {
         setMessage("HalApp mobil uygulamasından QR kodu okut.");
       } catch (e) {
         console.error("QR LOGIN BOOT ERROR:", e);
-
         if (!alive) return;
-
         setStatus("error");
         setMessage("QR oluşturulamadı. Sayfayı yenile.");
       }
@@ -178,13 +199,10 @@ function QrLoginContent() {
           filter: `token=eq.${token}`,
         },
         async (payload) => {
-          const row = payload.new as {
-            status?: string;
-            user_id?: string | null;
-          };
+          const row = payload.new as { status?: string };
 
           if (row.status === "approved") {
-            await completeQrLogin();
+            await completeQrLogin(false);
           }
 
           if (row.status === "cancelled") {
@@ -200,7 +218,6 @@ function QrLoginContent() {
           if (row.status === "used") {
             setStatus("approved");
             setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
-
             window.setTimeout(() => {
               router.replace(next);
               router.refresh();
@@ -217,64 +234,14 @@ function QrLoginContent() {
 
   useEffect(() => {
     if (!token) return;
-    if (status !== "pending" && status !== "loading" && status !== "approved") {
-      return;
-    }
+    if (status !== "pending" && status !== "loading") return;
 
-    let alive = true;
+    const timer = window.setInterval(() => {
+      completeQrLogin(true);
+    }, 1500);
 
-    const timer = window.setInterval(async () => {
-      if (!alive) return;
-      if (!token) return;
-      if (consumedRef.current) return;
-
-      try {
-        const { data, error } = await supabase
-          .from("web_qr_login_sessions")
-          .select("status")
-          .eq("token", token)
-          .maybeSingle();
-
-        if (error) {
-          console.error("QR POLL ERROR:", error);
-          return;
-        }
-
-        if (!data) return;
-
-        if (data.status === "approved") {
-          await completeQrLogin();
-        }
-
-        if (data.status === "cancelled") {
-          setStatus("cancelled");
-          setMessage("QR giriş isteği mobil uygulamada iptal edildi.");
-        }
-
-        if (data.status === "expired") {
-          setStatus("expired");
-          setMessage("QR süresi doldu. Sayfayı yenile.");
-        }
-
-        if (data.status === "used") {
-          setStatus("approved");
-          setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
-
-          window.setTimeout(() => {
-            router.replace(next);
-            router.refresh();
-          }, 600);
-        }
-      } catch (e) {
-        console.error("QR POLL COMPLETE ERROR:", e);
-      }
-    }, 1800);
-
-    return () => {
-      alive = false;
-      window.clearInterval(timer);
-    };
-  }, [token, status, next, router, completeQrLogin]);
+    return () => window.clearInterval(timer);
+  }, [token, status, completeQrLogin]);
 
   useEffect(() => {
     if (status !== "pending" && status !== "loading") return;
