@@ -72,6 +72,34 @@ function getIp(h: Headers) {
   );
 }
 
+async function sendPushNotification({
+  userId,
+  title,
+  body,
+  data,
+}: {
+  userId: string;
+  title: string;
+  body: string;
+  data: Record<string, any>;
+}) {
+  try {
+    const admin = serviceRoleClient();
+
+    await admin.functions.invoke("send-user-notification", {
+      body: {
+        user_id: userId,
+        title,
+        body,
+        type: "security",
+        data,
+      },
+    });
+  } catch (e) {
+    console.error("QR PUSH NOTIFICATION ERROR:", e);
+  }
+}
+
 export async function GET() {
   return json({
     ok: true,
@@ -181,6 +209,21 @@ export async function POST(req: Request) {
     const os = osFromUserAgent(ua);
     const deviceLabel = String(sessionRow.device_label ?? "Bilinmeyen cihaz");
 
+    const pushTitle = "Yeni Web Oturumu Açıldı";
+    const pushBody = `${deviceLabel} ile ${os} / ${browser} üzerinden HalApp Web oturumu açıldı.`;
+
+    const notificationData = {
+      kind: "web_login",
+      session_id: sessionRow.id,
+      device_label: deviceLabel,
+      user_agent: ua,
+      browser,
+      os,
+      ip_address: ip,
+      approved_at: sessionRow.approved_at,
+      used_at: now,
+    };
+
     const { error: updateError } = await admin
       .from("web_qr_login_sessions")
       .update({
@@ -199,27 +242,28 @@ export async function POST(req: Request) {
       return json({ error: updateError.message }, 400);
     }
 
-    await admin.from("notifications").insert({
+    const { error: notifError } = await admin.from("notifications").insert({
       user_id: userId,
       type: "security",
-      title: "Yeni Web Oturumu Açıldı",
-      body: `${deviceLabel} ile ${os} / ${browser} üzerinden HalApp Web oturumu açıldı.`,
+      title: pushTitle,
+      body: pushBody,
       is_read: false,
-      data: {
-        kind: "web_login",
-        session_id: sessionRow.id,
-        device_label: deviceLabel,
-        user_agent: ua,
-        browser,
-        os,
-        ip_address: ip,
-        approved_at: sessionRow.approved_at,
-        used_at: now,
-      },
+      data: notificationData,
       metadata: {
         source: "qr_login",
         route: "/api/auth/qr-complete",
       },
+    });
+
+    if (notifError) {
+      console.error("QR NOTIFICATION INSERT ERROR:", notifError);
+    }
+
+    await sendPushNotification({
+      userId,
+      title: pushTitle,
+      body: pushBody,
+      data: notificationData,
     });
 
     return json({
