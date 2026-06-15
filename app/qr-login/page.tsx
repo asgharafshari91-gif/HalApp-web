@@ -140,18 +140,41 @@ function QrLoginContent() {
             user_id?: string | null;
           };
 
-          if (row.status === "approved") {
-            setStatus("approved");
-            setMessage("Mobil onay alındı. Web oturumu hazırlanıyor...");
+         if (row.status === "approved") {
+  setStatus("approved");
+  setMessage("Mobil onay alındı. Web oturumu hazırlanıyor...");
 
-            if (!consumedRef.current) {
-              consumedRef.current = true;
+  if (!consumedRef.current) {
+    consumedRef.current = true;
 
-              window.setTimeout(() => {
-                router.replace(next);
-              }, 1200);
-            }
-          }
+    try {
+      const res = await fetch("/api/auth/qr-complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      const j = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(j?.error ?? "qr_complete_failed");
+      }
+
+      setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
+
+      window.setTimeout(() => {
+        router.replace(next);
+      }, 600);
+    } catch (e: any) {
+      console.error("QR COMPLETE ERROR:", e);
+      consumedRef.current = false;
+      setStatus("error");
+      setMessage(e?.message ?? "Web oturumu oluşturulamadı.");
+    }
+  }
+}
 
           if (row.status === "cancelled") {
             setStatus("cancelled");
