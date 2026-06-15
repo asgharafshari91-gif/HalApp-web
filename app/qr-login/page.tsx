@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import QRCode from "qrcode";
-import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { supabase } from "@/lib/supabaseClient";
@@ -21,10 +21,12 @@ function clsx(...a: (string | false | null | undefined)[]) {
 
 function safeNext(raw: string | null) {
   const v = (raw ?? "").trim();
+
   if (!v) return "/";
   if (v.startsWith("http://") || v.startsWith("https://")) return "/";
   if (v.startsWith("//")) return "/";
   if (!v.startsWith("/")) return "/";
+
   return v;
 }
 
@@ -63,6 +65,45 @@ function QrLoginContent() {
     return `halapp://web-login?token=${token}`;
   }, [token]);
 
+  const completeQrLogin = useCallback(async () => {
+    if (!token) return;
+    if (consumedRef.current) return;
+
+    consumedRef.current = true;
+
+    try {
+      setStatus("approved");
+      setMessage("Mobil onay alındı. Web oturumu hazırlanıyor...");
+
+      const res = await fetch("/api/auth/qr-complete", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      const j = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        console.error("QR COMPLETE API ERROR:", j);
+        throw new Error(j?.error ?? "qr_complete_failed");
+      }
+
+      setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
+
+      window.setTimeout(() => {
+        router.replace(next);
+        router.refresh();
+      }, 600);
+    } catch (e: any) {
+      console.error("QR COMPLETE ERROR:", e);
+      consumedRef.current = false;
+      setStatus("error");
+      setMessage(e?.message ?? "Web oturumu oluşturulamadı.");
+    }
+  }, [token, next, router]);
+
   useEffect(() => {
     setToken(makeToken());
   }, []);
@@ -74,7 +115,9 @@ function QrLoginContent() {
 
     async function boot() {
       try {
+        consumedRef.current = false;
         setStatus("loading");
+        setSecondsLeft(120);
         setMessage("QR oturumu hazırlanıyor...");
 
         const expiresAt = new Date(Date.now() + 2 * 60 * 1000).toISOString();
@@ -140,41 +183,9 @@ function QrLoginContent() {
             user_id?: string | null;
           };
 
-         if (row.status === "approved") {
-  setStatus("approved");
-  setMessage("Mobil onay alındı. Web oturumu hazırlanıyor...");
-
-  if (!consumedRef.current) {
-    consumedRef.current = true;
-
-    try {
-      const res = await fetch("/api/auth/qr-complete", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ token }),
-      });
-
-      const j = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(j?.error ?? "qr_complete_failed");
-      }
-
-      setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
-
-      window.setTimeout(() => {
-        router.replace(next);
-      }, 600);
-    } catch (e: any) {
-      console.error("QR COMPLETE ERROR:", e);
-      consumedRef.current = false;
-      setStatus("error");
-      setMessage(e?.message ?? "Web oturumu oluşturulamadı.");
-    }
-  }
-}
+          if (row.status === "approved") {
+            await completeQrLogin();
+          }
 
           if (row.status === "cancelled") {
             setStatus("cancelled");
@@ -185,6 +196,16 @@ function QrLoginContent() {
             setStatus("expired");
             setMessage("QR süresi doldu. Sayfayı yenile.");
           }
+
+          if (row.status === "used") {
+            setStatus("approved");
+            setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
+
+            window.setTimeout(() => {
+              router.replace(next);
+              router.refresh();
+            }, 600);
+          }
         }
       )
       .subscribe();
@@ -192,7 +213,68 @@ function QrLoginContent() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [token, next, router]);
+  }, [token, next, router, completeQrLogin]);
+
+  useEffect(() => {
+    if (!token) return;
+    if (status !== "pending" && status !== "loading" && status !== "approved") {
+      return;
+    }
+
+    let alive = true;
+
+    const timer = window.setInterval(async () => {
+      if (!alive) return;
+      if (!token) return;
+      if (consumedRef.current) return;
+
+      try {
+        const { data, error } = await supabase
+          .from("web_qr_login_sessions")
+          .select("status")
+          .eq("token", token)
+          .maybeSingle();
+
+        if (error) {
+          console.error("QR POLL ERROR:", error);
+          return;
+        }
+
+        if (!data) return;
+
+        if (data.status === "approved") {
+          await completeQrLogin();
+        }
+
+        if (data.status === "cancelled") {
+          setStatus("cancelled");
+          setMessage("QR giriş isteği mobil uygulamada iptal edildi.");
+        }
+
+        if (data.status === "expired") {
+          setStatus("expired");
+          setMessage("QR süresi doldu. Sayfayı yenile.");
+        }
+
+        if (data.status === "used") {
+          setStatus("approved");
+          setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
+
+          window.setTimeout(() => {
+            router.replace(next);
+            router.refresh();
+          }, 600);
+        }
+      } catch (e) {
+        console.error("QR POLL COMPLETE ERROR:", e);
+      }
+    }, 1800);
+
+    return () => {
+      alive = false;
+      window.clearInterval(timer);
+    };
+  }, [token, status, next, router, completeQrLogin]);
 
   useEffect(() => {
     if (status !== "pending" && status !== "loading") return;
@@ -203,6 +285,16 @@ function QrLoginContent() {
           window.clearInterval(timer);
           setStatus("expired");
           setMessage("QR süresi doldu. Yeni QR almak için sayfayı yenile.");
+
+          if (token) {
+            supabase
+              .from("web_qr_login_sessions")
+              .update({ status: "expired" })
+              .eq("token", token)
+              .eq("status", "pending")
+              .then(() => {});
+          }
+
           return 0;
         }
 
@@ -211,7 +303,7 @@ function QrLoginContent() {
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [status]);
+  }, [status, token]);
 
   const progress = Math.max(0, Math.min(100, (secondsLeft / 120) * 100));
 
