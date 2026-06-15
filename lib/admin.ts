@@ -1,6 +1,6 @@
 // lib/admin.ts
 import "server-only";
-
+import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { createServerClient } from "@supabase/ssr";
@@ -120,4 +120,21 @@ export async function supabaseServer() {
  */
 export async function supabaseServerClient() {
   return sbServer();
+}
+export function serviceRoleClient() {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+
+  if (!url || !key) {
+    throw new Error(
+      "ENV eksik: NEXT_PUBLIC_SUPABASE_URL veya SUPABASE_SERVICE_ROLE_KEY"
+    );
+  }
+
+  return createClient(url, key, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    },
+  });
 }
