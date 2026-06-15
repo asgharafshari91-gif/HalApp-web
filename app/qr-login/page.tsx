@@ -108,8 +108,7 @@ function QrLoginContent() {
         setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
 
         window.setTimeout(() => {
-          router.replace(next);
-          router.refresh();
+        window.location.replace(next);
         }, 600);
 
         return true;
@@ -219,8 +218,7 @@ function QrLoginContent() {
             setStatus("approved");
             setMessage("Giriş tamamlandı. Yönlendiriliyorsun...");
             window.setTimeout(() => {
-              router.replace(next);
-              router.refresh();
+            window.location.replace(next);
             }, 600);
           }
         }
