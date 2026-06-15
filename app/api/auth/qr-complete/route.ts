@@ -1,7 +1,7 @@
 // app/api/auth/qr-complete/route.ts
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { serviceRoleClient } from "@/lib/admin";
 
 export const dynamic = "force-dynamic";
@@ -45,7 +45,7 @@ function browserFromUserAgent(ua?: string | null) {
   if (s.includes("chrome/") && !s.includes("edg/")) return "Google Chrome";
   if (s.includes("safari/") && s.includes("version/")) return "Safari";
 
-  return "Web tarayıcı";
+  return "Web Tarayıcı";
 }
 
 function osFromUserAgent(ua?: string | null) {
@@ -58,6 +58,18 @@ function osFromUserAgent(ua?: string | null) {
   if (s.includes("linux")) return "Linux";
 
   return "Web";
+}
+
+function getIp(h: Headers) {
+  const forwarded = h.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0]?.trim() || null;
+
+  return (
+    h.get("x-real-ip") ||
+    h.get("cf-connecting-ip") ||
+    h.get("x-vercel-forwarded-for") ||
+    null
+  );
 }
 
 export async function GET() {
@@ -75,6 +87,9 @@ export async function POST(req: Request) {
 
     if (!token) return json({ error: "invalid_token" }, 400);
 
+    const h = await headers();
+    const ip = getIp(h);
+
     const admin = serviceRoleClient();
 
     const { data: sessionRow, error } = await admin
@@ -90,6 +105,8 @@ export async function POST(req: Request) {
         used_at,
         device_label,
         user_agent,
+        browser,
+        os,
         access_token,
         refresh_token
       `
@@ -101,11 +118,18 @@ export async function POST(req: Request) {
     if (!sessionRow) return json({ error: "qr_session_not_found" }, 404);
 
     if (sessionRow.status === "used") {
-      return json({ ok: true, already_used: true });
+      return json({
+        ok: true,
+        already_used: true,
+        session_id: sessionRow.id,
+      });
     }
 
     if (sessionRow.status !== "approved") {
-      return json({ error: "qr_not_approved", status: sessionRow.status }, 400);
+      return json(
+        { error: "qr_not_approved", status: sessionRow.status },
+        400
+      );
     }
 
     if (!sessionRow.user_id) return json({ error: "missing_user_id" }, 400);
@@ -152,11 +176,20 @@ export async function POST(req: Request) {
 
     const now = new Date().toISOString();
 
+    const ua = String(sessionRow.user_agent ?? "");
+    const browser = browserFromUserAgent(ua);
+    const os = osFromUserAgent(ua);
+    const deviceLabel = String(sessionRow.device_label ?? "Bilinmeyen cihaz");
+
     const { error: updateError } = await admin
       .from("web_qr_login_sessions")
       .update({
         status: "used",
         used_at: now,
+        last_seen_at: now,
+        browser,
+        os,
+        ip_address: ip,
         access_token: null,
         refresh_token: null,
       })
@@ -165,11 +198,6 @@ export async function POST(req: Request) {
     if (updateError) {
       return json({ error: updateError.message }, 400);
     }
-
-    const ua = String(sessionRow.user_agent ?? "");
-    const browser = browserFromUserAgent(ua);
-    const os = osFromUserAgent(ua);
-    const deviceLabel = String(sessionRow.device_label ?? "Bilinmeyen cihaz");
 
     await admin.from("notifications").insert({
       user_id: userId,
@@ -184,6 +212,7 @@ export async function POST(req: Request) {
         user_agent: ua,
         browser,
         os,
+        ip_address: ip,
         approved_at: sessionRow.approved_at,
         used_at: now,
       },
@@ -200,6 +229,7 @@ export async function POST(req: Request) {
       device_label: deviceLabel,
       browser,
       os,
+      ip_address: ip,
     });
   } catch (e: any) {
     return json({ error: e?.message ?? "server_error" }, 500);
