@@ -10,7 +10,7 @@ import TrackInit from "@/components/TrackInit";
 import ConsentScripts from "@/components/ConsentScripts";
 import PushNavigationListener from "@/components/PushNavigationListener";
 import RootChrome from "@/components/layout/RootChrome";
-
+import WebSessionGuard from "@/components/WebSessionGuard";
 const SITE_URL = "https://halapp.app";
 
 export const metadata: Metadata = {
@@ -283,7 +283,8 @@ export default function RootLayout({
       >
         <Providers>
           <ToastProvider>
-            <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+     <WebSessionGuard /> 
+      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
               <div className="hidden dark:block">
                 <div className="absolute left-[-200px] top-[-260px] h-[520px] w-[520px] rounded-full bg-emerald-500/18 blur-3xl" />
 
@@ -293,7 +294,6 @@ export default function RootLayout({
 
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(16,185,129,.10),transparent_45%),radial-gradient(circle_at_80%_40%,rgba(34,197,94,.08),transparent_50%),radial-gradient(circle_at_50%_100%,rgba(52,211,153,.06),transparent_60%)]" />
               </div>
-
               <div className="block dark:hidden">
                 <div className="absolute left-[-220px] top-[-300px] h-[560px] w-[560px] rounded-full bg-emerald-500/12 blur-3xl" />
 

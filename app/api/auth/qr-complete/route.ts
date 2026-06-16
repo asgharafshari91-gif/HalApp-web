@@ -203,7 +203,7 @@ export async function POST(req: Request) {
     }
 
     const now = new Date().toISOString();
-
+const sessionKey = crypto.randomUUID();
     const ua = String(sessionRow.user_agent ?? "");
     const browser = browserFromUserAgent(ua);
     const os = osFromUserAgent(ua);
@@ -230,18 +230,26 @@ export async function POST(req: Request) {
         status: "used",
         used_at: now,
         last_seen_at: now,
-        browser,
+session_key: sessionKey, 
+       browser,
         os,
         ip_address: ip,
         access_token: null,
         refresh_token: null,
       })
       .eq("token", token);
-
-    if (updateError) {
+ if (updateError) {
       return json({ error: updateError.message }, 400);
     }
+  const cookieStore = await cookies();
 
+cookieStore.set("halapp_web_session_key", sessionKey, {
+  path: "/",
+  httpOnly: false,
+  sameSite: "lax",
+  secure: true,
+  maxAge: 60 * 60 * 24 * 30,
+}); 
     const { error: notifError } = await admin.from("notifications").insert({
       user_id: userId,
       type: "security",
@@ -265,9 +273,9 @@ export async function POST(req: Request) {
       body: pushBody,
       data: notificationData,
     });
-
     return json({
       ok: true,
+session_key: sessionKey,
       user_id: userId,
       session_id: sessionRow.id,
       device_label: deviceLabel,
