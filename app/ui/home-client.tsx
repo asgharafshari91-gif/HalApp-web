@@ -23,58 +23,77 @@ type MarketItem = {
   createdAt?: string;
 };
 
+function normalizeTr(input: string) {
+  return (input || "")
+    .toLowerCase()
+    .replaceAll("ı", "i")
+    .replaceAll("İ", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .trim();
+}
+
 function productEmoji(title: string) {
-  const t = title.toLowerCase();
+  const raw = (title || "").toLowerCase();
+  const t = normalizeTr(title);
 
   const map: Array<[string[], string]> = [
     [["elma"], "🍎"],
-    [["armut"], "🍐"],
-    [["portakal", "mandalina"], "🍊"],
-    [["limon"], "🍋"],
+    [["armut", "ayva"], "🍐"],
+    [["portakal", "mandalina", "mandarin", "greyfurt"], "🍊"],
+    [["limon", "lime"], "🍋"],
     [["muz", "banana"], "🍌"],
     [["karpuz"], "🍉"],
     [["kavun"], "🍈"],
-    [["üzüm", "uzum"], "🍇"],
-    [["çilek", "cilek"], "🍓"],
-    [["kiraz"], "🍒"],
-    [["şeftali", "seftali", "kayısı", "kayisi"], "🍑"],
+    [["uzum", "üzüm"], "🍇"],
+    [["cilek", "çilek", "altin cilek", "altın çilek"], "🍓"],
+    [["ahududu", "bogurtlen", "böğürtlen", "blueberry", "yaban mersini", "yaban", "dut"], "🫐"],
+    [["kiraz", "visne", "vişne"], "🍒"],
+    [["seftali", "şeftali", "kayisi", "kayısı", "nektarin"], "🍑"],
     [["erik"], "🟣"],
-    [["incir"], "🟤"],
     [["nar"], "🔴"],
-    [["ananas"], "🍍"],
-    [["avokado"], "🥑"],
-    [["blue", "blueberry", "yaban"], "🫐"],
-    [["ahududu", "frambuaz"], "🍓"],
-    [["böğürtlen", "bogurtlen"], "🫐"],
+    [["incir", "i̇ncir"], "🟣"],
     [["kivi"], "🥝"],
+    [["ananas"], "🍍"],
     [["mango"], "🥭"],
+    [["avokado"], "🥑"],
     [["hindistan cevizi"], "🥥"],
+    [["hurma"], "🌴"],
+
     [["domates"], "🍅"],
-    [["salatalık", "salatalik", "kabak"], "🥒"],
     [["biber"], "🌶️"],
-    [["patlıcan", "patlican"], "🍆"],
-    [["havuç", "havuc"], "🥕"],
+    [["patlican", "patlıcan"], "🍆"],
+    [["salatalik", "salatalık", "hiyar", "hıyar"], "🥒"],
+    [["kabak"], "🎃"],
     [["patates"], "🥔"],
-    [["soğan", "sogan"], "🧅"],
-    [["sarımsak", "sarimsak"], "🧄"],
-    [["marul", "lahana", "ıspanak", "ispanak", "roka"], "🥬"],
-    [["maydanoz", "nane", "dereotu"], "🌿"],
+    [["sogan", "soğan"], "🧅"],
+    [["sarimsak", "sarımsak"], "🧄"],
+    [["havuc", "havuç", "turp", "pancar"], "🥕"],
     [["brokoli", "karnabahar"], "🥦"],
+    [["lahana", "marul", "ispanak", "ıspanak", "pazi", "pazı", "kereviz", "pirasa", "pırasa"], "🥬"],
+    [["enginar", "bamya"], "🌿"],
+    [["fasulye", "bezelye", "bakla"], "🫛"],
+    [["misir", "mısır"], "🌽"],
     [["mantar"], "🍄"],
-    [["mısır", "misir"], "🌽"],
-    [["bezelye"], "🫛"],
-    [["fasulye"], "🫘"],
-    [["kuşkonmaz", "kuskonmaz"], "🌱"],
+    [["kuskonmaz", "kuşkonmaz"], "🌱"],
+
+    [["roka", "nane", "maydanoz", "maydonoz", "dereotu", "feslegen", "fesleğen", "tere"], "🌿"],
+
+    [["ceviz", "badem", "findik", "fındık", "antep fistigi", "antep fıstığı"], "🥜"],
     [["zencefil"], "🫚"],
   ];
 
   for (const [keys, emoji] of map) {
-    if (keys.some((k) => t.includes(k))) return emoji;
+    if (keys.some((k) => raw.includes(k.toLowerCase()) || t.includes(normalizeTr(k)))) {
+      return emoji;
+    }
   }
 
   return "🛒";
 }
-
 function formatPrice(row: any) {
   const unit = row?.unit ? ` / ${row.unit}` : "";
 
