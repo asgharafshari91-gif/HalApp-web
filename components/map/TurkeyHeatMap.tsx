@@ -233,14 +233,15 @@ function signalColor(s?: CitySignal) {
   const count = Number(s?.signals ?? 0);
   const gps = Number(s?.gpsSignals ?? 0);
 
-  // GPS sadece aktif nokta/radar rengini turkuaz yapar.
-  // İl dolgu rengi signalFill içinde yoğunluğa göre hesaplanır.
+  // Radar / sinyal noktası rengi
+  // GPS varsa turkuaz göster
   if (gps > 0) return "#2dd4bf";
 
-  if (count >= 100) return "#ff4d5a";
-  if (count >= 50) return "#ff8a2a";
-  if (count >= 20) return "#ffe257";
-  if (count > 0) return "#86efac";
+  // IP / yoğunluk sinyalleri
+  if (count >= 100) return "#ff4d5a"; // çok yüksek
+  if (count >= 50) return "#ff8a2a";  // yüksek
+  if (count >= 20) return "#ffe257";  // orta
+  if (count > 0) return "#86efac";    // düşük
 
   return "#2f5c43";
 }
@@ -248,12 +249,9 @@ function signalColor(s?: CitySignal) {
 function signalFill(s?: CitySignal) {
   const count = Number(s?.signals ?? 0);
 
-  // Harita il rengi her zaman 24 saatlik sinyal yoğunluğuna göre olur.
-  // Böylece Antalya 44 sinyal ise sarı görünür.
-  if (count >= 100) return "rgba(255,77,90,.38)";
-  if (count >= 50) return "rgba(255,138,42,.34)";
-  if (count >= 20) return "rgba(255,226,87,.36)";
-  if (count > 0) return "rgba(134,239,172,.24)";
+  // İl dolgu rengi eski premium yeşil kalsın.
+  // Yoğunluk artık il renginde değil, radar halkası/noktada gösterilecek.
+  if (count > 0) return "rgba(34,197,94,.18)";
 
   return "rgba(16,73,59,.42)";
 }
