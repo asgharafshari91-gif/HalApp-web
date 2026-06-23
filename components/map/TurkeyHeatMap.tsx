@@ -231,13 +231,8 @@ function productEmoji(name: any) {
 
 function signalColor(s?: CitySignal) {
   const count = Number(s?.signals ?? 0);
-  const gps = Number(s?.gpsSignals ?? 0);
 
-  // Radar / sinyal noktası rengi
-  // GPS varsa turkuaz göster
-  if (gps > 0) return "#2dd4bf";
-
-  // IP / yoğunluk sinyalleri
+  // Radar / sinyal halkası rengi sadece yoğunluğa göre
   if (count >= 100) return "#ff4d5a"; // çok yüksek
   if (count >= 50) return "#ff8a2a";  // yüksek
   if (count >= 20) return "#ffe257";  // orta
@@ -322,7 +317,60 @@ function StatCard({
     </div>
   );
 }
+function LastSignalCard({
+  city,
+  title,
+  source,
+  createdAt,
+}: {
+  city: string;
+  title: string;
+  source: string;
+  createdAt?: string;
+}) {
+  const isGps = source === "GPS";
 
+  return (
+    <div className="rounded-[22px] border border-cyan-300/15 bg-cyan-300/10 p-4 shadow-[0_18px_70px_rgba(0,0,0,.34)] backdrop-blur-xl">
+      <div className="flex items-center gap-4">
+        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-cyan-300/25 bg-cyan-300/10 text-3xl shadow-[0_0_28px_rgba(45,212,191,.18)]">
+          🛰️
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 text-xs font-black text-cyan-100">
+            <span className="h-2 w-2 animate-pulse rounded-full bg-cyan-300 shadow-[0_0_14px_rgba(103,232,249,.9)]" />
+            SON SİNYAL
+          </div>
+
+          <div className="mt-1 truncate text-2xl font-black leading-none text-white">
+            {city}
+          </div>
+
+          <div className="mt-2 line-clamp-1 text-xs font-semibold text-white/62">
+            {title}
+          </div>
+
+          <div className="mt-2 flex items-center gap-2 text-[10px] font-black">
+            <span
+              className={
+                isGps
+                  ? "rounded-md bg-cyan-400/12 px-2 py-0.5 text-cyan-200"
+                  : "rounded-md bg-orange-400/12 px-2 py-0.5 text-orange-200"
+              }
+            >
+              {source}
+            </span>
+
+            <span className="text-white/45">
+              {createdAt ? timeAgoTR(createdAt) : "canlı"}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
 function AdvantageCard({
   icon,
   title,
@@ -816,13 +864,20 @@ export default function TurkeyHeatMap() {
           </div>
         </div>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
-          <StatCard icon="📦" label="Aktif İlan" value={dashboard.activeListings} sub="Yayındaki akış" />
-          <StatCard icon="👥" label="Aktif Satıcı" value={dashboard.activeSellers} sub="Türkiye genelinde" />
-          <StatCard icon="🎯" label="Alıcı Talebi" value={dashboard.buyerRequests} sub="Pazarda bekleyen" />
-          <StatCard icon="🏙️" label="Sinyal Veren İl" value={dashboard.activeSignalCities} sub="Son 24 saat" />
-          <StatCard icon="⚡" label="5dk Sinyal" value={dashboard.totalSignals5m} sub="Anlık radar hareketi" />
-        </div>
+        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+  <StatCard icon="📦" label="Aktif İlan" value={dashboard.activeListings} sub="Yayındaki akış" />
+  <StatCard icon="👥" label="Aktif Satıcı" value={dashboard.activeSellers} sub="Türkiye genelinde" />
+  <StatCard icon="🎯" label="Alıcı Talebi" value={dashboard.buyerRequests} sub="Pazarda bekleyen" />
+  <StatCard icon="🏙️" label="Sinyal Veren İl" value={dashboard.activeSignalCities} sub="Son 24 saat" />
+  <StatCard icon="⚡" label="5dk Sinyal" value={dashboard.totalSignals5m} sub="Anlık radar hareketi" />
+
+  <LastSignalCard
+    city={lastSignalCity}
+    title={lastSignalTitle}
+    source={lastSignalSource}
+    createdAt={lastSignal?.createdAt}
+  />
+</div>
 
         <div className="mt-6 overflow-hidden rounded-[32px] border border-white/10 bg-[#061512] p-3 shadow-[0_28px_110px_rgba(0,0,0,.26)] sm:p-4">
           <div
