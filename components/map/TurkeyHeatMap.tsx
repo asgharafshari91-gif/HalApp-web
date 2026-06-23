@@ -786,13 +786,13 @@ export default function TurkeyHeatMap() {
       const color = signalColor(signal);
 
       const radius =
-        signal.signals >= 100
-          ? 34
-          : signal.signals >= 50
-          ? 28
-          : signal.signals >= 20
-          ? 24
-          : 18;
+  signal.signals >= 100
+    ? 26
+    : signal.signals >= 50
+    ? 23
+    : signal.signals >= 20
+    ? 20
+    : 16;
 
       mapLayer
         .append("circle")
@@ -811,14 +811,14 @@ export default function TurkeyHeatMap() {
           .attr("cy", cy)
           .attr("r", 8)
           .attr("fill", "none")
-          .attr("stroke", color)
-          .attr("stroke-width", 2)
+         .attr("stroke-width", 1.35)
+.attr("opacity", 0.72)
           .attr("opacity", 0.9)
           .style("pointer-events", "none")
           .append("animate")
           .attr("attributeName", "r")
           .attr("from", "8")
-          .attr("to", radius + 30)
+          .attr("to", radius + 18)
           .attr("dur", "2.4s")
           .attr("begin", `${i * 0.8}s`)
           .attr("repeatCount", "indefinite");
