@@ -68,37 +68,124 @@ const TOOLTIP_PAD = 12;
 
 function normalizeCityName(value?: string) {
   if (!value) return "";
-  const v = value.trim();
+
+  let v = String(value).trim();
+
+  v = v
+    .replace(/\s+Province$/i, "")
+    .replace(/\s+Province\s*$/i, "")
+    .replace(/\s+İli$/i, "")
+    .replace(/\s+Ili$/i, "")
+    .replace(/\s+Il$/i, "")
+    .trim();
+
+  const key = v
+    .toLocaleLowerCase("tr-TR")
+    .replaceAll("ı", "i")
+    .replaceAll("ğ", "g")
+    .replaceAll("ü", "u")
+    .replaceAll("ş", "s")
+    .replaceAll("ö", "o")
+    .replaceAll("ç", "c")
+    .replaceAll("â", "a")
+    .replaceAll("î", "i")
+    .replaceAll("û", "u")
+    .replace(/[^a-z0-9]/g, "");
 
   const fixes: Record<string, string> = {
-    Istanbul: "İstanbul",
-    istanbul: "İstanbul",
-    ISTANBUL: "İstanbul",
-    İSTANBUL: "İstanbul",
-    Izmir: "İzmir",
-    izmir: "İzmir",
-    IZMIR: "İzmir",
-    İZMİR: "İzmir",
-    Ankara: "Ankara",
-    ankara: "Ankara",
-    Antalya: "Antalya",
-    antalya: "Antalya",
-    Isparta: "Isparta",
-    isparta: "Isparta",
-    Mersin: "Mersin",
-    mersin: "Mersin",
-    Adana: "Adana",
     adana: "Adana",
-    Konya: "Konya",
+    adiyaman: "Adıyaman",
+    afyon: "Afyonkarahisar",
+    afyonkarahisar: "Afyonkarahisar",
+    agri: "Ağrı",
+    aksaray: "Aksaray",
+    amasya: "Amasya",
+    ankara: "Ankara",
+    antalya: "Antalya",
+    ardahan: "Ardahan",
+    artvin: "Artvin",
+    aydin: "Aydın",
+    balikesir: "Balıkesir",
+    bartin: "Bartın",
+    batman: "Batman",
+    bayburt: "Bayburt",
+    bilecik: "Bilecik",
+    bingol: "Bingöl",
+    bitlis: "Bitlis",
+    bolu: "Bolu",
+    burdur: "Burdur",
+    bursa: "Bursa",
+    canakkale: "Çanakkale",
+    cankiri: "Çankırı",
+    corum: "Çorum",
+    denizli: "Denizli",
+    diyarbakir: "Diyarbakır",
+    duzce: "Düzce",
+    edirne: "Edirne",
+    elazig: "Elazığ",
+    erzincan: "Erzincan",
+    erzurum: "Erzurum",
+    eskisehir: "Eskişehir",
+    gaziantep: "Gaziantep",
+    antep: "Gaziantep",
+    giresun: "Giresun",
+    gumushane: "Gümüşhane",
+    hakkari: "Hakkari",
+    hatay: "Hatay",
+    antakya: "Hatay",
+    igdir: "Iğdır",
+    isparta: "Isparta",
+    istanbul: "İstanbul",
+    izmir: "İzmir",
+    kahramanmaras: "Kahramanmaraş",
+    maras: "Kahramanmaraş",
+    kmaras: "Kahramanmaraş",
+    karabuk: "Karabük",
+    karaman: "Karaman",
+    kars: "Kars",
+    kastamonu: "Kastamonu",
+    kayseri: "Kayseri",
+    kilis: "Kilis",
+    kirikkale: "Kırıkkale",
+    kirklareli: "Kırklareli",
+    kirsehir: "Kırşehir",
+    kocaeli: "Kocaeli",
+    izmit: "Kocaeli",
     konya: "Konya",
-    Urfa: "Şanlıurfa",
-    Sanliurfa: "Şanlıurfa",
-    "Şanlı Urfa": "Şanlıurfa",
-    Kahramanmaras: "Kahramanmaraş",
-    "K.Maraş": "Kahramanmaraş",
+    kutahya: "Kütahya",
+    malatya: "Malatya",
+    manisa: "Manisa",
+    mardin: "Mardin",
+    mersin: "Mersin",
+    icel: "Mersin",
+    mugla: "Muğla",
+    mus: "Muş",
+    nevsehir: "Nevşehir",
+    nigde: "Niğde",
+    ordu: "Ordu",
+    osmaniye: "Osmaniye",
+    rize: "Rize",
+    sakarya: "Sakarya",
+    adapazari: "Sakarya",
+    samsun: "Samsun",
+    sanliurfa: "Şanlıurfa",
+    urfa: "Şanlıurfa",
+    siirt: "Siirt",
+    sinop: "Sinop",
+    sirnak: "Şırnak",
+    sivas: "Sivas",
+    tekirdag: "Tekirdağ",
+    tokat: "Tokat",
+    trabzon: "Trabzon",
+    tunceli: "Tunceli",
+    usak: "Uşak",
+    van: "Van",
+    yalova: "Yalova",
+    yozgat: "Yozgat",
+    zonguldak: "Zonguldak",
   };
 
-  return fixes[v] || v;
+  return fixes[key] || v;
 }
 
 function cityKey(value?: string) {
@@ -824,59 +911,59 @@ export default function TurkeyHeatMap() {
   return (
     <section id="live-map" className="mt-16">
       <div className="mx-auto w-full max-w-7xl overflow-hidden rounded-[34px] border border-white/10 bg-[#020908] p-4 text-white shadow-[0_34px_140px_rgba(0,0,0,.38)] sm:rounded-[42px] sm:p-7">
-        <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
-          <div>
-            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-100">
-              <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,.9)]" />
-              CANLI TÜRKİYE HARİTASI
-            </div>
+       <div className="grid gap-8 lg:grid-cols-[1fr_auto] lg:items-start">
+  <div>
+    <div className="inline-flex items-center gap-2 rounded-full border border-emerald-300/20 bg-emerald-300/10 px-4 py-2 text-xs font-black text-emerald-100">
+      <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-emerald-300 shadow-[0_0_18px_rgba(110,231,183,.9)]" />
+      CANLI TÜRKİYE HARİTASI
+    </div>
 
-            <h2 className="mt-5 max-w-4xl text-[34px] font-black leading-[1.03] tracking-[-0.055em] text-white sm:text-5xl lg:text-[64px]">
-              Türkiye’nin{" "}
-              <span className="bg-gradient-to-r from-emerald-200 via-lime-200 to-emerald-100 bg-clip-text text-transparent">
-                hal hareketi
-              </span>{" "}
-              anlık burada.
-            </h2>
+    <h2 className="mt-5 max-w-4xl text-[34px] font-black leading-[1.03] tracking-[-0.055em] text-white sm:text-5xl lg:text-[64px]">
+      Türkiye’nin{" "}
+      <span className="bg-gradient-to-r from-emerald-200 via-lime-200 to-emerald-100 bg-clip-text text-transparent">
+        hal hareketi
+      </span>{" "}
+      anlık burada.
+    </h2>
 
-            <p className="mt-4 max-w-3xl text-base font-medium leading-relaxed text-white/76">
-              İlan ve talep sinyalleri il bazlı olarak haritada canlı görünür.
-              GPS destekli kayıtlar turkuaz renkle öne çıkar.
-            </p>
-          </div>
+    <p className="mt-4 max-w-3xl text-base font-medium leading-relaxed text-white/76">
+      İlan ve talep sinyalleri il bazlı olarak haritada canlı görünür.
+      GPS destekli kayıtlar turkuaz renkle öne çıkar.
+    </p>
+  </div>
 
-          <div className="flex flex-col gap-3 sm:flex-row lg:w-[340px] lg:flex-col">
-            <button
-              type="button"
-              onClick={loadDashboard}
-              className="inline-flex h-14 items-center justify-center rounded-2xl border border-white/10 bg-[#071713] px-6 text-sm font-black text-white shadow-[0_18px_70px_rgba(0,0,0,.22)] transition hover:bg-[#0b211b]"
-            >
-              <span className="mr-2 h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(110,231,183,.9)]" />
-              Canlı Veriyi Yenile ↻
-            </button>
+  <div className="flex flex-col gap-3 sm:flex-row lg:w-[340px] lg:flex-col">
+    <button
+      type="button"
+      onClick={loadDashboard}
+      className="inline-flex h-14 items-center justify-center rounded-2xl border border-white/10 bg-[#071713] px-6 text-sm font-black text-white shadow-[0_18px_70px_rgba(0,0,0,.22)] transition hover:bg-[#0b211b]"
+    >
+      <span className="mr-2 h-2.5 w-2.5 rounded-full bg-emerald-300 shadow-[0_0_16px_rgba(110,231,183,.9)]" />
+      Canlı Veriyi Yenile ↻
+    </button>
 
-            <div className="rounded-2xl border border-white/10 bg-[#071713] px-5 py-3 text-xs font-bold text-white/62">
-              Son güncelleme:
-              <span className="ml-2 font-black text-white">
-                {lastRefresh || "yükleniyor"}
-              </span>
-            </div>
-          </div>
-        </div>
+    <div className="rounded-2xl border border-white/10 bg-[#071713] px-5 py-3 text-xs font-bold text-white/62">
+      Son güncelleme:
+      <span className="ml-2 font-black text-white">
+        {lastRefresh || "yükleniyor"}
+      </span>
+    </div>
 
-        <div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-6">
+    <LastSignalCard
+      city={lastSignalCity}
+      title={lastSignalTitle}
+      source={lastSignalSource}
+      createdAt={lastSignal?.createdAt}
+    />
+  </div>
+</div>
+
+<div className="mt-10 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
   <StatCard icon="📦" label="Aktif İlan" value={dashboard.activeListings} sub="Yayındaki akış" />
   <StatCard icon="👥" label="Aktif Satıcı" value={dashboard.activeSellers} sub="Türkiye genelinde" />
   <StatCard icon="🎯" label="Alıcı Talebi" value={dashboard.buyerRequests} sub="Pazarda bekleyen" />
   <StatCard icon="🏙️" label="Sinyal Veren İl" value={dashboard.activeSignalCities} sub="Son 24 saat" />
   <StatCard icon="⚡" label="5dk Sinyal" value={dashboard.totalSignals5m} sub="Anlık radar hareketi" />
-
-  <LastSignalCard
-    city={lastSignalCity}
-    title={lastSignalTitle}
-    source={lastSignalSource}
-    createdAt={lastSignal?.createdAt}
-  />
 </div>
 
         <div className="mt-6 overflow-hidden rounded-[32px] border border-white/10 bg-[#061512] p-3 shadow-[0_28px_110px_rgba(0,0,0,.26)] sm:p-4">
