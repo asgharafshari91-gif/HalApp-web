@@ -426,10 +426,12 @@ function LastSignalCard({
       href={href}
       className="group relative block overflow-hidden rounded-[26px] border border-cyan-300/15 bg-cyan-300/10 p-4 shadow-[0_18px_70px_rgba(0,0,0,.34)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200/30 hover:bg-cyan-300/15"
     >
-      <div className="pointer-events-none absolute right-5 top-5 h-20 w-20 rounded-full border border-cyan-200/25 opacity-60">
-        <span className="absolute inset-3 rounded-full border border-cyan-200/25" />
-        <span className="absolute inset-7 rounded-full bg-cyan-200/30 shadow-[0_0_22px_rgba(103,232,249,.55)]" />
-      </div>
+      <div className="pointer-events-none absolute right-5 top-5 h-24 w-24">
+  <span className="absolute inset-8 rounded-full bg-cyan-200/35 shadow-[0_0_26px_rgba(103,232,249,.7)] animate-[miniPulseCore_1.05s_ease-in-out_infinite]" />
+  <span className="absolute inset-6 rounded-full border border-cyan-200/45 animate-[miniSignalRing_1.7s_ease-out_infinite]" />
+  <span className="absolute inset-6 rounded-full border border-cyan-200/35 animate-[miniSignalRing_1.7s_ease-out_.42s_infinite]" />
+  <span className="absolute inset-6 rounded-full border border-cyan-200/25 animate-[miniSignalRing_1.7s_ease-out_.84s_infinite]" />
+</div>
 
       <div className="relative z-10 flex items-center gap-4">
         <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/8 text-4xl shadow-[0_0_34px_rgba(45,212,191,.16)]">
@@ -823,7 +825,8 @@ export default function TurkeyHeatMap() {
         .attr("filter", "url(#signalGlow)")
         .style("pointer-events", "none");
 
-    for (let i = 0; i < 4; i++) {
+    // Canlı yayılan sinyal halkaları
+for (let i = 0; i < 4; i++) {
   mapLayer
     .append("circle")
     .attr("cx", cx)
@@ -859,6 +862,8 @@ export default function TurkeyHeatMap() {
     .attr("begin", `${i * 0.42}s`)
     .attr("repeatCount", "indefinite");
 }
+
+// Merkez parlama / nabız efekti
 mapLayer
   .append("circle")
   .attr("cx", cx)
@@ -873,24 +878,27 @@ mapLayer
   .attr("values", "7;13;7")
   .attr("dur", "1.05s")
   .attr("repeatCount", "indefinite");
-      mapLayer
-        .append("circle")
-        .attr("cx", cx)
-        .attr("cy", cy)
-        .attr("r", signal.gpsSignals ? 8 : 6.5)
-        .attr("fill", color)
-        .attr("stroke", "#ffffff")
-        .attr("stroke-width", 2)
-        .attr("filter", "url(#signalGlow)")
-        .style("pointer-events", "none");
 
-      mapLayer
-        .append("circle")
-        .attr("cx", cx)
-        .attr("cy", cy)
-        .attr("r", 2.8)
-        .attr("fill", "#ffffff")
-        .style("pointer-events", "none");
+// Ana sinyal noktası
+mapLayer
+  .append("circle")
+  .attr("cx", cx)
+  .attr("cy", cy)
+  .attr("r", signal.gpsSignals ? 8 : 6.5)
+  .attr("fill", color)
+  .attr("stroke", "#ffffff")
+  .attr("stroke-width", 2)
+  .attr("filter", "url(#signalGlow)")
+  .style("pointer-events", "none");
+
+// İç beyaz merkez
+mapLayer
+  .append("circle")
+  .attr("cx", cx)
+  .attr("cy", cy)
+  .attr("r", 2.8)
+  .attr("fill", "#ffffff")
+  .style("pointer-events", "none");
     });
 
     const zoom = d3
@@ -1241,16 +1249,39 @@ mapLayer
           </div>
         </div>
 
-        <style jsx>{`
-          @keyframes tickerFlow {
-            0% {
-              transform: translateY(0);
-            }
-            100% {
-              transform: translateY(-50%);
-            }
-          }
-        `}</style>
+       <style jsx>{`
+  @keyframes tickerFlow {
+    0% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(-50%);
+    }
+  }
+
+  @keyframes miniSignalRing {
+    0% {
+      transform: scale(0.35);
+      opacity: 0.85;
+    }
+    100% {
+      transform: scale(1.15);
+      opacity: 0;
+    }
+  }
+
+  @keyframes miniPulseCore {
+    0%,
+    100% {
+      transform: scale(0.75);
+      opacity: 0.28;
+    }
+    50% {
+      transform: scale(1.05);
+      opacity: 0.62;
+    }
+  }
+`}</style>
       </div>
     </section>
   );
