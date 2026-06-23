@@ -806,76 +806,82 @@ export default function TurkeyHeatMap() {
       const [cx, cy] = path.centroid(d);
       const color = signalColor(signal);
 
-      const radius =
+     // Premium canlı sinyal efekti
+// Son Sinyal kartındaki radar hissinin harita versiyonu
+
+const ringMax =
   signal.signals >= 100
-    ? 26
+    ? 42
     : signal.signals >= 50
-    ? 23
+    ? 38
     : signal.signals >= 20
-    ? 20
-    : 16;
+    ? 34
+    : 28;
 
-      mapLayer
-        .append("circle")
-        .attr("cx", cx)
-        .attr("cy", cy)
-        .attr("r", radius)
-        .attr("fill", color)
-        .attr("opacity", 0.15)
-        .attr("filter", "url(#signalGlow)")
-        .style("pointer-events", "none");
+const coreSize = signal.gpsSignals ? 7.5 : 6.5;
 
-    // Canlı yayılan sinyal halkaları
+// Arkadaki yumuşak ışık alanı
+mapLayer
+  .append("circle")
+  .attr("cx", cx)
+  .attr("cy", cy)
+  .attr("r", ringMax * 0.72)
+  .attr("fill", color)
+  .attr("opacity", 0.1)
+  .attr("filter", "url(#signalGlow)")
+  .style("pointer-events", "none");
+
+// Dışa yayılan canlı radar halkaları
 for (let i = 0; i < 4; i++) {
   mapLayer
     .append("circle")
     .attr("cx", cx)
     .attr("cy", cy)
-    .attr("r", 6)
+    .attr("r", coreSize)
     .attr("fill", "none")
     .attr("stroke", color)
-    .attr("stroke-width", 1.45)
-    .attr("opacity", 0.82)
+    .attr("stroke-width", 1.35)
+    .attr("opacity", 0.78)
     .style("pointer-events", "none")
     .append("animate")
     .attr("attributeName", "r")
-    .attr("from", "6")
-    .attr("to", radius + 24)
-    .attr("dur", "1.7s")
-    .attr("begin", `${i * 0.42}s`)
+    .attr("from", String(coreSize))
+    .attr("to", String(ringMax))
+    .attr("dur", "1.8s")
+    .attr("begin", `${i * 0.45}s`)
     .attr("repeatCount", "indefinite");
 
   mapLayer
     .append("circle")
     .attr("cx", cx)
     .attr("cy", cy)
-    .attr("r", 6)
+    .attr("r", coreSize)
     .attr("fill", "none")
     .attr("stroke", color)
-    .attr("stroke-width", 1.45)
+    .attr("stroke-width", 1.35)
     .style("pointer-events", "none")
     .append("animate")
     .attr("attributeName", "opacity")
-    .attr("from", "0.82")
+    .attr("from", "0.78")
     .attr("to", "0")
-    .attr("dur", "1.7s")
-    .attr("begin", `${i * 0.42}s`)
+    .attr("dur", "1.8s")
+    .attr("begin", `${i * 0.45}s`)
     .attr("repeatCount", "indefinite");
 }
 
-// Merkez parlama / nabız efekti
+// İç kalp atışı / nabız glow
 mapLayer
   .append("circle")
   .attr("cx", cx)
   .attr("cy", cy)
-  .attr("r", 9)
+  .attr("r", coreSize + 3)
   .attr("fill", color)
-  .attr("opacity", 0.22)
+  .attr("opacity", 0.2)
   .attr("filter", "url(#signalGlow)")
   .style("pointer-events", "none")
   .append("animate")
   .attr("attributeName", "r")
-  .attr("values", "7;13;7")
+  .attr("values", `${coreSize + 1};${coreSize + 8};${coreSize + 1}`)
   .attr("dur", "1.05s")
   .attr("repeatCount", "indefinite");
 
@@ -884,21 +890,27 @@ mapLayer
   .append("circle")
   .attr("cx", cx)
   .attr("cy", cy)
-  .attr("r", signal.gpsSignals ? 8 : 6.5)
+  .attr("r", coreSize)
   .attr("fill", color)
   .attr("stroke", "#ffffff")
-  .attr("stroke-width", 2)
+  .attr("stroke-width", 1.9)
   .attr("filter", "url(#signalGlow)")
   .style("pointer-events", "none");
 
-// İç beyaz merkez
+// İç beyaz canlı merkez
 mapLayer
   .append("circle")
   .attr("cx", cx)
   .attr("cy", cy)
-  .attr("r", 2.8)
+  .attr("r", 2.5)
   .attr("fill", "#ffffff")
-  .style("pointer-events", "none");
+  .attr("opacity", 0.95)
+  .style("pointer-events", "none")
+  .append("animate")
+  .attr("attributeName", "opacity")
+  .attr("values", "0.95;0.45;0.95")
+  .attr("dur", "1.05s")
+  .attr("repeatCount", "indefinite");
     });
 
     const zoom = d3
