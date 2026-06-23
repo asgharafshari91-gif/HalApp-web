@@ -409,19 +409,31 @@ function LastSignalCard({
   title,
   source,
   createdAt,
+  href,
+  emoji,
 }: {
   city: string;
   title: string;
   source: string;
   createdAt?: string;
+  href: string;
+  emoji: string;
 }) {
   const isGps = source === "GPS";
 
   return (
-    <div className="rounded-[22px] border border-cyan-300/15 bg-cyan-300/10 p-4 shadow-[0_18px_70px_rgba(0,0,0,.34)] backdrop-blur-xl">
-      <div className="flex items-center gap-4">
-        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-[18px] border border-cyan-300/25 bg-cyan-300/10 text-3xl shadow-[0_0_28px_rgba(45,212,191,.18)]">
-          🛰️
+    <a
+      href={href}
+      className="group relative block overflow-hidden rounded-[26px] border border-cyan-300/15 bg-cyan-300/10 p-4 shadow-[0_18px_70px_rgba(0,0,0,.34)] backdrop-blur-xl transition hover:-translate-y-0.5 hover:border-cyan-200/30 hover:bg-cyan-300/15"
+    >
+      <div className="pointer-events-none absolute right-5 top-5 h-20 w-20 rounded-full border border-cyan-200/25 opacity-60">
+        <span className="absolute inset-3 rounded-full border border-cyan-200/25" />
+        <span className="absolute inset-7 rounded-full bg-cyan-200/30 shadow-[0_0_22px_rgba(103,232,249,.55)]" />
+      </div>
+
+      <div className="relative z-10 flex items-center gap-4">
+        <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-[20px] border border-white/10 bg-white/8 text-4xl shadow-[0_0_34px_rgba(45,212,191,.16)]">
+          {emoji}
         </div>
 
         <div className="min-w-0 flex-1">
@@ -430,12 +442,15 @@ function LastSignalCard({
             SON SİNYAL
           </div>
 
-          <div className="mt-1 truncate text-2xl font-black leading-none text-white">
+          <div className="mt-1 truncate text-3xl font-black leading-none text-white">
             {city}
           </div>
 
-          <div className="mt-2 line-clamp-1 text-xs font-semibold text-white/62">
-            {title}
+          <div className="mt-2 flex items-center gap-2">
+            <span className="text-xl">{emoji}</span>
+            <span className="line-clamp-1 text-sm font-black text-white/78">
+              {title}
+            </span>
           </div>
 
           <div className="mt-2 flex items-center gap-2 text-[10px] font-black">
@@ -452,10 +467,14 @@ function LastSignalCard({
             <span className="text-white/45">
               {createdAt ? timeAgoTR(createdAt) : "canlı"}
             </span>
+
+            <span className="ml-auto text-cyan-100/80 transition group-hover:translate-x-0.5">
+              Aç →
+            </span>
           </div>
         </div>
       </div>
-    </div>
+    </a>
   );
 }
 function AdvantageCard({
@@ -804,43 +823,56 @@ export default function TurkeyHeatMap() {
         .attr("filter", "url(#signalGlow)")
         .style("pointer-events", "none");
 
-      for (let i = 0; i < 3; i++) {
-        mapLayer
-          .append("circle")
-          .attr("cx", cx)
-          .attr("cy", cy)
-          .attr("r", 8)
-          .attr("fill", "none")
-         .attr("stroke-width", 1.35)
-.attr("opacity", 0.72)
-          .attr("opacity", 0.9)
-          .style("pointer-events", "none")
-          .append("animate")
-          .attr("attributeName", "r")
-          .attr("from", "8")
-          .attr("to", radius + 18)
-          .attr("dur", "2.4s")
-          .attr("begin", `${i * 0.8}s`)
-          .attr("repeatCount", "indefinite");
+    for (let i = 0; i < 4; i++) {
+  mapLayer
+    .append("circle")
+    .attr("cx", cx)
+    .attr("cy", cy)
+    .attr("r", 6)
+    .attr("fill", "none")
+    .attr("stroke", color)
+    .attr("stroke-width", 1.45)
+    .attr("opacity", 0.82)
+    .style("pointer-events", "none")
+    .append("animate")
+    .attr("attributeName", "r")
+    .attr("from", "6")
+    .attr("to", radius + 24)
+    .attr("dur", "1.7s")
+    .attr("begin", `${i * 0.42}s`)
+    .attr("repeatCount", "indefinite");
 
-        mapLayer
-          .append("circle")
-          .attr("cx", cx)
-          .attr("cy", cy)
-          .attr("r", 8)
-          .attr("fill", "none")
-          .attr("stroke", color)
-          .attr("stroke-width", 2)
-          .style("pointer-events", "none")
-          .append("animate")
-          .attr("attributeName", "opacity")
-          .attr("from", "0.9")
-          .attr("to", "0")
-          .attr("dur", "2.4s")
-          .attr("begin", `${i * 0.8}s`)
-          .attr("repeatCount", "indefinite");
-      }
-
+  mapLayer
+    .append("circle")
+    .attr("cx", cx)
+    .attr("cy", cy)
+    .attr("r", 6)
+    .attr("fill", "none")
+    .attr("stroke", color)
+    .attr("stroke-width", 1.45)
+    .style("pointer-events", "none")
+    .append("animate")
+    .attr("attributeName", "opacity")
+    .attr("from", "0.82")
+    .attr("to", "0")
+    .attr("dur", "1.7s")
+    .attr("begin", `${i * 0.42}s`)
+    .attr("repeatCount", "indefinite");
+}
+mapLayer
+  .append("circle")
+  .attr("cx", cx)
+  .attr("cy", cy)
+  .attr("r", 9)
+  .attr("fill", color)
+  .attr("opacity", 0.22)
+  .attr("filter", "url(#signalGlow)")
+  .style("pointer-events", "none")
+  .append("animate")
+  .attr("attributeName", "r")
+  .attr("values", "7;13;7")
+  .attr("dur", "1.05s")
+  .attr("repeatCount", "indefinite");
       mapLayer
         .append("circle")
         .attr("cx", cx)
@@ -950,11 +982,13 @@ export default function TurkeyHeatMap() {
     </div>
 
     <LastSignalCard
-      city={lastSignalCity}
-      title={lastSignalTitle}
-      source={lastSignalSource}
-      createdAt={lastSignal?.createdAt}
-    />
+  city={lastSignalCity}
+  title={lastSignalTitle}
+  source={lastSignalSource}
+  createdAt={lastSignal?.createdAt}
+  href={lastSignal?.listingId ? `/pazar/${lastSignal.listingId}` : "/pazar"}
+  emoji={productEmoji(lastSignalTitle)}
+/>
   </div>
 </div>
 
