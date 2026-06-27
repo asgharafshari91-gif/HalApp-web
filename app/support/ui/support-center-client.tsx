@@ -29,6 +29,15 @@ type SmartTopic = {
   cta: string;
 };
 
+type AcademyVideo = {
+  id: string;
+  icon: string;
+  title: string;
+  duration: string;
+  desc: string;
+  href: string;
+};
+
 const smartTopics: SmartTopic[] = [
   {
     id: "premium",
@@ -140,6 +149,57 @@ const smartTopics: SmartTopic[] = [
   },
 ];
 
+const academyVideos: AcademyVideo[] = [
+  {
+    id: "create-listing",
+    icon: "📦",
+    title: "İlan nasıl oluşturulur?",
+    duration: "2 dk",
+    desc: "Ürün, fiyat, şehir, fotoğraf ve video ile profesyonel ilan oluşturma.",
+    href: "/academy/ilan-olusturma",
+  },
+  {
+    id: "kyc",
+    icon: "🛡️",
+    title: "KYC nasıl tamamlanır?",
+    duration: "2 dk",
+    desc: "Kimlik, selfie ve firma bilgileriyle hesap doğrulama adımları.",
+    href: "/academy/kyc-onay",
+  },
+  {
+    id: "premium",
+    icon: "⭐",
+    title: "Premium ve Vitrin kullanımı",
+    duration: "3 dk",
+    desc: "İlanı öne çıkarma, vitrin paketi ve görünürlük artırma rehberi.",
+    href: "/academy/premium-vitrin",
+  },
+  {
+    id: "buyer-demand",
+    icon: "🛒",
+    title: "Alıcı talebi nasıl açılır?",
+    duration: "2 dk",
+    desc: "Ürün arayan alıcılar için hızlı talep oluşturma ve satıcıya ulaşma.",
+    href: "/academy/alici-talebi",
+  },
+  {
+    id: "signals",
+    icon: "📡",
+    title: "Market Intelligence nasıl okunur?",
+    duration: "4 dk",
+    desc: "Şehir, ürün, talep sinyali ve pazar hareketlerini yorumlama.",
+    href: "/academy/market-intelligence",
+  },
+  {
+    id: "safe-trade",
+    icon: "🤝",
+    title: "Güvenli ticaret ipuçları",
+    duration: "3 dk",
+    desc: "Satıcı/alıcı kontrolü, ödeme güvenliği ve doğru iletişim adımları.",
+    href: "/academy/guvenli-ticaret",
+  },
+];
+
 function fmt(dt?: string | null) {
   if (!dt) return "—";
   try {
@@ -218,10 +278,7 @@ export default function SupportCenterClient() {
 
   const unreadCount = useMemo(
     () =>
-      tickets.reduce(
-        (sum, x) => sum + Number(x.unread_user_count ?? 0),
-        0
-      ),
+      tickets.reduce((sum, x) => sum + Number(x.unread_user_count ?? 0), 0),
     [tickets]
   );
 
@@ -356,9 +413,9 @@ export default function SupportCenterClient() {
             </h1>
 
             <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-zinc-600 dark:text-white/60 sm:text-lg">
-              Premium, KYC, ilan, ödeme, QR giriş ve mesaj sorunları için önce hızlı
-              çözüm önerilerini gösteririz. Çözülmezse ticket oluşturup cevabı canlı
-              takip edebilirsin.
+              Premium, KYC, ilan, ödeme, QR giriş ve mesaj sorunları için önce
+              hızlı çözüm önerilerini gösteririz. Çözülmezse ticket oluşturup
+              cevabı canlı takip edebilirsin.
             </p>
           </div>
 
@@ -426,6 +483,8 @@ export default function SupportCenterClient() {
               );
             })}
           </section>
+
+          <HalAppAcademy />
 
           <section className="mt-6 grid gap-6 lg:grid-cols-12">
             <div className="lg:col-span-5">
@@ -637,6 +696,72 @@ export default function SupportCenterClient() {
         </>
       )}
     </main>
+  );
+}
+
+function HalAppAcademy() {
+  return (
+    <section className="mt-8 rounded-[40px] border border-black/10 bg-white/80 p-6 shadow-[0_24px_90px_rgba(0,0,0,.06)] backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.045] sm:p-8">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div>
+          <div className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-4 py-2 text-xs font-black text-emerald-700 dark:text-emerald-200">
+            HALAPP AKADEMİ
+          </div>
+
+          <h2 className="mt-4 text-3xl font-black tracking-tight text-zinc-950 dark:text-white">
+            HalApp’i 2 dakikada öğren.
+          </h2>
+
+          <p className="mt-2 max-w-2xl text-sm font-semibold leading-relaxed text-zinc-500 dark:text-white/55">
+            Satıcılar, alıcılar ve firma hesapları için kısa eğitim rehberleri.
+            Ticket açmadan önce bu eğitimlerden hızlıca çözüm bulabilirsin.
+          </p>
+        </div>
+
+        <Link
+          href="/academy"
+          className="inline-flex rounded-2xl bg-emerald-500 px-5 py-3 text-sm font-black text-black shadow-[0_20px_60px_rgba(34,197,94,.20)] transition hover:bg-emerald-400"
+        >
+          Tüm Akademi →
+        </Link>
+      </div>
+
+      <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+        {academyVideos.map((v) => (
+          <Link
+            key={v.id}
+            href={v.href}
+            className="group relative overflow-hidden rounded-[30px] border border-black/10 bg-white/70 p-5 transition hover:-translate-y-1 hover:bg-emerald-500/5 dark:border-white/10 dark:bg-white/[0.04]"
+          >
+            <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-emerald-500/10 blur-3xl opacity-0 transition group-hover:opacity-100" />
+
+            <div className="relative">
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex h-13 w-13 items-center justify-center rounded-2xl bg-emerald-500/10 text-3xl">
+                  {v.icon}
+                </div>
+
+                <span className="rounded-full bg-black/5 px-3 py-1 text-xs font-black text-zinc-500 dark:bg-white/10 dark:text-white/60">
+                  {v.duration}
+                </span>
+              </div>
+
+              <h3 className="mt-4 text-lg font-black text-zinc-950 dark:text-white">
+                {v.title}
+              </h3>
+
+              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-500 dark:text-white/55">
+                {v.desc}
+              </p>
+
+              <div className="mt-4 text-xs font-black text-emerald-700 dark:text-emerald-300">
+                Eğitimi aç →
+              </div>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
   );
 }
 
