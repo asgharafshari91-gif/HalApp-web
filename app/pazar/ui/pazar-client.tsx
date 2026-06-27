@@ -11,86 +11,129 @@ type MediaType = "image" | "video";
 type LocationsMap = Record<string, Record<string, string[]>>;
 
 const PRODUCTS = [
-  "Ahududu",
-  "Altınçilek",
-  "Amme(Cennet Meyvesi)",
-  "Ananas",
+  "Elma",
+  "Elma (Golden)",
+  "Elma (Granny Smith)",
+  "Elma (Starking)",
   "Armut",
-  "Avokado",
   "Ayva",
+  "Portakal",
+  "Portakal (Sıkmalık)",
+  "Portakal (Valencia Pak)",
+  "Mandalina",
+  "Mandarin",
+  "Mandarin (Paket)",
+  "Greyfurt",
+  "Limon",
+  "Lime Limon",
+  "Muz",
+  "Muz (Yerli)",
+  "Muz İthal",
+  "Karpuz",
+  "Kavun",
+  "Kavun (Kırkağaç)",
+  "Üzüm",
+  "Üzüm (Beyaz)",
+  "Üzüm (Siyah)",
+  "Çilek",
+  "Altın Çilek",
+  "Ahududu",
+  "Böğürtlen",
+  "Blue Berry",
+  "Yaban Mersini",
+  "Dut",
+  "Kiraz",
+  "Vişne",
+  "Şeftali",
+  "Kayısı",
+  "Nektarin",
+  "Erik",
+  "Nar",
+  "İncir",
+  "Kivi",
+  "Ananas",
+  "Mango",
+  "Avokado",
+  "Hindistan Cevizi",
+  "Hurma",
+  "Amme (Cennet Meyvesi)",
+
+  "Domates",
+  "Domates (Ceri)",
+  "Domates (Pembe)",
+  "Domates Kokteyl",
   "Biber",
   "Biber Çarli",
   "Biber Kapya",
   "Biber Sivri",
   "Biber Üçburun",
-  "Blue Berry",
-  "Böğürtlen",
-  "Brokoli",
-  "Çilek",
-  "Dereotu",
-  "Domates",
-  "Domates (Ceri)",
-  "Domates (Pembe)",
-  "Domates Kokteyl",
-  "Elma (Golden)",
-  "Elma (Grann Smith)",
-  "Elma (Starking)",
-  "Fasulye",
-  "Fesleğen",
-  "Frenk Üzümü",
-  "Greyfurt",
-  "Havuç",
+  "Patlıcan",
+  "Patlıcan (Topak)",
+  "Salatalık",
   "Hıyar",
-  "Hindistan Cevizi",
-  "Ispanak",
+  "Kabak",
   "Kabak (Bal)",
   "Kabak (Sakız)",
-  "Karadeniz Yaprağı",
-  "Karnabahar",
-  "Kavun(Kırkağaç)",
-  "Kereviz",
-  "Kivi",
-  "Kuzu Kulağı",
-  "Lahana (Beyaz)",
-  "Lahana (Kırmızı)",
-  "Lime Limon",
-  "Limon",
-  "Mandarin(Paket)",
-  "Mango",
-  "Mantar",
-  "Marul (Aysberk)",
-  "Marul (Düz)",
-  "Marul (Kıvırcık)",
-  "Maydonoz",
-  "Muz (Yerli)",
-  "Muz İthal",
-  "Nane",
-  "Nar",
-  "Pancar",
   "Patates",
   "Patates (Baby)",
   "Patates (Kumpirlik)",
-  "Patlıcan",
-  "Patlıcan (Topak)",
-  "Pazı Bağ",
-  "Pırasa",
-  "Portakal (Sıkmalık)",
-  "Portakal (Valencia Pak)",
-  "Roka Bağ",
-  "Sarımsak (Taze)",
-  "Semizotu Bağ",
-  "Soğan (Arpacık)",
-  "Soğan (Kırmız)",
-  "Soğan (Yeşil) Bağ",
+  "Soğan",
   "Soğan Kuru",
+  "Soğan (Arpacık)",
+  "Soğan (Kırmızı)",
+  "Soğan (Yeşil) Bağ",
+  "Sarımsak",
+  "Sarımsak (Taze)",
+  "Havuç",
+  "Turp",
+  "Turp (Kırmızı)",
+  "Turp (Fındık)",
+  "Pancar",
+  "Brokoli",
+  "Karnabahar",
+  "Lahana",
+  "Lahana (Beyaz)",
+  "Lahana (Kırmızı)",
+  "Marul",
+  "Marul (Aysberk)",
+  "Marul (Düz)",
+  "Marul (Kıvırcık)",
+  "Ispanak",
+  "Pazı",
+  "Pazı Bağ",
+  "Kereviz",
+  "Pırasa",
+  "Karadeniz Yaprağı",
+  "Kuzu Kulağı",
+  "Semizotu",
+  "Semizotu Bağ",
+  "Enginar",
+  "Bamya",
+  "Fasulye",
+  "Bezelye",
+  "Bakla",
+  "Mısır",
+  "Mantar",
+  "Kuşkonmaz",
+
+  "Roka",
+  "Roka Bağ",
+  "Nane",
+  "Maydanoz",
+  "Maydonoz",
+  "Dereotu",
+  "Fesleğen",
+  "Tere",
   "Tere Bağ",
   "Tere Su",
-  "Turp (Kırmızı)",
-  "Turp(Fındık)",
-  "Üzüm (Beyaz)",
-  "Üzüm (Siyah)",
+
+  "Ceviz",
+  "Badem",
+  "Fındık",
+  "Antep Fıstığı",
   "Zencefil",
 ];
+
 const productEmojiMap: [string[], string][] = [
   [["elma"], "🍎"],
   [["armut", "ayva"], "🍐"],
@@ -101,7 +144,18 @@ const productEmojiMap: [string[], string][] = [
   [["kavun"], "🍈"],
   [["uzum", "üzüm"], "🍇"],
   [["cilek", "çilek", "altin cilek", "altın çilek"], "🍓"],
-  [["ahududu", "bogurtlen", "böğürtlen", "blue berry", "blueberry", "yaban mersini", "dut"], "🫐"],
+  [
+    [
+      "ahududu",
+      "bogurtlen",
+      "böğürtlen",
+      "blue berry",
+      "blueberry",
+      "yaban mersini",
+      "dut",
+    ],
+    "🫐",
+  ],
   [["kiraz", "visne", "vişne"], "🍒"],
   [["seftali", "şeftali", "kayisi", "kayısı", "nektarin"], "🍑"],
   [["erik"], "🟣"],
@@ -124,13 +178,41 @@ const productEmojiMap: [string[], string][] = [
   [["sarimsak", "sarımsak"], "🧄"],
   [["havuc", "havuç", "turp", "pancar"], "🥕"],
   [["brokoli", "karnabahar"], "🥦"],
-  [["lahana", "marul", "ispanak", "ıspanak", "pazi", "pazı", "kereviz", "pirasa", "pırasa", "semizotu", "karadeniz yaprağı", "kuzu kulağı"], "🥬"],
+  [
+    [
+      "lahana",
+      "marul",
+      "ispanak",
+      "ıspanak",
+      "pazi",
+      "pazı",
+      "kereviz",
+      "pirasa",
+      "pırasa",
+      "semizotu",
+      "karadeniz yaprağı",
+      "kuzu kulağı",
+    ],
+    "🥬",
+  ],
   [["enginar", "bamya"], "🌿"],
   [["fasulye", "bezelye", "bakla"], "🫛"],
   [["misir", "mısır"], "🌽"],
   [["mantar"], "🍄"],
   [["kuskonmaz", "kuşkonmaz"], "🌱"],
-  [["roka", "nane", "maydanoz", "maydonoz", "dereotu", "feslegen", "fesleğen", "tere"], "🌿"],
+  [
+    [
+      "roka",
+      "nane",
+      "maydanoz",
+      "maydonoz",
+      "dereotu",
+      "feslegen",
+      "fesleğen",
+      "tere",
+    ],
+    "🌿",
+  ],
   [["ceviz", "badem", "findik", "fındık", "antep fistigi", "antep fıstığı"], "🥜"],
   [["zencefil"], "🫚"],
 ];
@@ -151,6 +233,7 @@ function getProductEmoji(value?: string | null) {
 
   return "🥬";
 }
+
 function cn(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
@@ -176,8 +259,7 @@ function daysLeft(expiresAt: any) {
   const dt = new Date(s);
   if (Number.isNaN(dt.getTime())) return null;
   const now = new Date();
-  const diff = Math.ceil((dt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return diff;
+  return Math.ceil((dt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function fmtPrice(x: any) {
@@ -206,14 +288,19 @@ function isVideoType(t: any): t is "video" {
 }
 
 function getMedia(listing: any): { urls: string[]; types: MediaType[] } {
-  const urls: string[] = Array.isArray(listing?.media_urls) ? listing.media_urls : [];
-  const typesRaw: any[] = Array.isArray(listing?.media_types) ? listing.media_types : [];
-  const types: MediaType[] = typesRaw.map((t) => (isVideoType(t) ? "video" : "image"));
+  const urls: string[] = Array.isArray(listing?.media_urls)
+    ? listing.media_urls
+    : [];
+  const typesRaw: any[] = Array.isArray(listing?.media_types)
+    ? listing.media_types
+    : [];
+  const types: MediaType[] = typesRaw.map((t) =>
+    isVideoType(t) ? "video" : "image"
+  );
   const len = Math.min(urls.length, types.length);
   return { urls: urls.slice(0, len), types: types.slice(0, len) };
 }
 
-/** listing_media tablosundan (DB tablo) medya çek (varsa) */
 async function fetchListingMediaFor(listingIds: string[]) {
   const map = new Map<string, { urls: string[]; types: MediaType[] }>();
   const uniq = Array.from(new Set(listingIds)).filter(Boolean);
@@ -236,6 +323,7 @@ async function fetchListingMediaFor(listingIds: string[]) {
     cur.types.push(type);
     map.set(id, cur);
   }
+
   return map;
 }
 
@@ -260,7 +348,9 @@ async function fetchSellerProfiles(sellerIds: string[]) {
 
   if (!uniq.length) return map;
 
-  const { data, error } = await supabase.rpc("get_public_profiles", { ids: uniq });
+  const { data, error } = await supabase.rpc("get_public_profiles", {
+    ids: uniq,
+  });
 
   if (error) {
     console.error("get_public_profiles error:", (error as any)?.message ?? error);
@@ -275,10 +365,10 @@ async function fetchSellerProfiles(sellerIds: string[]) {
       is_premium: p.is_premium ?? null,
     });
   }
+
   return map;
 }
 
-/** Opsiyonel: satıcı mini istatistik (RPC varsa alır, yoksa 0 döner) */
 async function fetchSellerStats(sellerIds: string[]) {
   const map = new Map<string, SellerStats>();
   const uniq = Array.from(new Set(sellerIds))
@@ -288,7 +378,10 @@ async function fetchSellerStats(sellerIds: string[]) {
   if (!uniq.length) return map;
 
   try {
-    const { data, error } = await supabase.rpc("get_seller_stats", { ids: uniq });
+    const { data, error } = await supabase.rpc("get_seller_stats", {
+      ids: uniq,
+    });
+
     if (error) throw error;
 
     for (const r of (data ?? []) as any[]) {
@@ -301,28 +394,32 @@ async function fetchSellerStats(sellerIds: string[]) {
   } catch {
     // boş
   }
+
   return map;
 }
 
-/** Opsiyonel: görüntülenme sayısı (RPC varsa alır) */
 async function fetchListingViews(listingIds: string[]) {
   const map = new Map<string, number>();
   const uniq = Array.from(new Set(listingIds)).filter(Boolean);
   if (!uniq.length) return map;
 
   try {
-    const { data, error } = await supabase.rpc("get_listing_views", { ids: uniq });
+    const { data, error } = await supabase.rpc("get_listing_views", {
+      ids: uniq,
+    });
+
     if (error) throw error;
+
     for (const r of (data ?? []) as any[]) {
       map.set(String(r.listing_id), Number(r.views ?? r.view_count ?? 0) || 0);
     }
   } catch {
     // boş
   }
+
   return map;
 }
 
-/** Opsiyonel: view increment (RPC varsa) */
 async function bumpView(listingId: string) {
   try {
     await supabase.rpc("increment_listing_view", { listing_id: listingId });
@@ -332,15 +429,22 @@ async function bumpView(listingId: string) {
 }
 
 async function fetchMyFavoriteIds(userId: string) {
-  const { data, error } = await supabase.from("listing_favorites").select("listing_id").eq("user_id", userId);
+  const { data, error } = await supabase
+    .from("listing_favorites")
+    .select("listing_id")
+    .eq("user_id", userId);
+
   if (error) throw error;
+
   return new Set((data ?? []).map((r: any) => String(r.listing_id)));
 }
 
-/** ✅ Haftanın ilanları: RPC (get_featured_listings) */
 async function fetchFeaturedListings(limit = 12) {
   try {
-    const { data, error } = await supabase.rpc("get_featured_listings", { lim: limit });
+    const { data, error } = await supabase.rpc("get_featured_listings", {
+      lim: limit,
+    });
+
     if (error) throw error;
     return (data ?? []) as any[];
   } catch {
@@ -358,7 +462,6 @@ function withinDays(d: any, days: number) {
   return diff <= days;
 }
 
-/** mini Featured card */
 function FeaturedCard({
   x,
   seller,
@@ -378,9 +481,12 @@ function FeaturedCard({
 }) {
   const { urls, types } = getMedia(x);
   const priceView = fmtPrice(x);
-  const sellerName = seller?.full_name?.trim() || `Kullanıcı • ${String(x?.seller_id ?? "").slice(0, 6)}…`;
+  const sellerName =
+    seller?.full_name?.trim() ||
+    `Kullanıcı • ${String(x?.seller_id ?? "").slice(0, 6)}…`;
   const isPremiumSeller = !!seller?.is_premium;
   const left = daysLeft(x?.expires_at);
+  const productLabel = x.product_name ?? x.product_type ?? "—";
 
   return (
     <div className="snap-start">
@@ -392,16 +498,17 @@ function FeaturedCard({
             types={types}
             isBoosted={!!x.is_boosted}
             isPremiumSeller={isPremiumSeller}
-            onOpen={() => {
-              onOpenMedia(urls, types, x.title ?? "İlan");
-            }}
+            onOpen={() => onOpenMedia(urls, types, x.title ?? "İlan")}
           />
 
           <div className="mt-3 flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="truncate text-base font-black text-zinc-900 dark:text-zinc-100">{x.title ?? "İlan"}</div>
+              <div className="truncate text-base font-black text-zinc-900 dark:text-zinc-100">
+                {x.title ?? "İlan"}
+              </div>
+
               <div className="mt-1 truncate text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                {x.product_name ?? x.product_type ?? "—"}
+                {getProductEmoji(productLabel)} {productLabel}
               </div>
             </div>
 
@@ -420,22 +527,8 @@ function FeaturedCard({
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-2">
-            <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
-              <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Fiyat</div>
-              <div className="mt-1 flex items-end gap-2">
-                <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">{priceView.main}</div>
-                {priceView.sub ? (
-                  <div className="pb-[2px] text-xs font-black text-zinc-500 dark:text-zinc-400">{priceView.sub}</div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
-              <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">👁️ Görünt.</div>
-              <div className="mt-1 text-lg font-black text-zinc-900 dark:text-zinc-100">
-                {views == null ? "—" : fmtNum(views)}
-              </div>
-            </div>
+            <InfoBox label="Fiyat" value={priceView.main} sub={priceView.sub} />
+            <InfoBox label="👁️ Görünt." value={views == null ? "—" : fmtNum(views)} />
           </div>
 
           <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
@@ -468,6 +561,7 @@ function FeaturedCard({
               >
                 Detay
               </Link>
+
               <Link
                 href={x?.seller_id ? `/chat/user/${String(x.seller_id)}` : "#"}
                 className={cn(
@@ -492,25 +586,50 @@ function FeaturedCard({
   );
 }
 
+function InfoBox({
+  label,
+  value,
+  sub,
+}: {
+  label: string;
+  value: string;
+  sub?: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
+      <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+        {label}
+      </div>
+
+      <div className="mt-1 flex items-end gap-2">
+        <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">
+          {value}
+        </div>
+
+        {sub ? (
+          <div className="pb-[2px] text-xs font-black text-zinc-500 dark:text-zinc-400">
+            {sub}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
 export default function PazarClient() {
-  // auth + base
   const [me, setMe] = useState<string | null>(null);
   const [favSet, setFavSet] = useState<Set<string>>(new Set());
   const [busyFav, setBusyFav] = useState<string | null>(null);
 
-  // data
   const [rows, setRows] = useState<any[]>([]);
   const [featured, setFeatured] = useState<any[]>([]);
   const [sellerMap, setSellerMap] = useState<Map<string, SellerProfile>>(new Map());
   const [sellerStats, setSellerStats] = useState<Map<string, SellerStats>>(new Map());
   const [viewsMap, setViewsMap] = useState<Map<string, number>>(new Map());
 
-  // ui state
   const [loading, setLoading] = useState(true);
   const [loadingFeatured, setLoadingFeatured] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // filters
   const [q, setQ] = useState("");
   const [product, setProduct] = useState("");
   const [city, setCity] = useState("");
@@ -520,7 +639,6 @@ export default function PazarClient() {
   const [maxPrice, setMaxPrice] = useState<string>("");
   const [onlyFeatured, setOnlyFeatured] = useState(false);
 
-  // locations.json
   const [locMap, setLocMap] = useState<LocationsMap>({});
 
   useEffect(() => {
@@ -530,11 +648,16 @@ export default function PazarClient() {
       .catch((e) => console.error("locations.json error", e));
   }, []);
 
-  const cities = useMemo(() => Object.keys(locMap).sort((a, b) => a.localeCompare(b, "tr")), [locMap]);
+  const cities = useMemo(
+    () => Object.keys(locMap).sort((a, b) => a.localeCompare(b, "tr")),
+    [locMap]
+  );
 
   const districts = useMemo(() => {
     if (!city) return [];
-    return Object.keys(locMap[city] || {}).sort((a, b) => a.localeCompare(b, "tr"));
+    return Object.keys(locMap[city] || {}).sort((a, b) =>
+      a.localeCompare(b, "tr")
+    );
   }, [locMap, city]);
 
   const neighborhoods = useMemo(() => {
@@ -542,7 +665,6 @@ export default function PazarClient() {
     return locMap[city]?.[district] || [];
   }, [locMap, city, district]);
 
-  // lightbox
   const [lbOpen, setLbOpen] = useState(false);
   const [lbTitle, setLbTitle] = useState("");
   const [lbUrls, setLbUrls] = useState<string[]>([]);
@@ -550,15 +672,14 @@ export default function PazarClient() {
   const [lbPosters, setLbPosters] = useState<Array<string | null>>([]);
   const [lbStart, setLbStart] = useState(0);
 
-  // pagination / infinite scroll
   const PAGE = 18;
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
 
-  // featured carousel container (optional scroll buttons)
   const featuredWrapRef = useRef<HTMLDivElement | null>(null);
+
   function scrollFeatured(dir: "left" | "right") {
     const el = featuredWrapRef.current;
     if (!el) return;
@@ -568,13 +689,15 @@ export default function PazarClient() {
 
   async function loadFeatured() {
     setLoadingFeatured(true);
+
     try {
-      // 1) RPC ile getir
       let list = await fetchFeaturedListings(12);
 
-      // 2) RPC yoksa fallback: son 7 gün + boost_score + created_at (kaba)
       if (!list.length) {
-        const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+        const since = new Date(
+          Date.now() - 7 * 24 * 60 * 60 * 1000
+        ).toISOString();
+
         const { data } = await supabase
           .from("listings")
           .select(
@@ -618,9 +741,9 @@ export default function PazarClient() {
         list = data ?? [];
       }
 
-      // listing_media override
       const ids = list.map((x: any) => String(x.id));
       const mediaMap = await fetchListingMediaFor(ids);
+
       const fixed = list.map((x: any) => {
         const cur = getMedia(x);
         if (cur.urls.length === 0 && mediaMap.has(String(x.id))) {
@@ -632,9 +755,14 @@ export default function PazarClient() {
 
       setFeatured(fixed);
 
-      // merge seller profiles + views into global maps
-      const sellerIds = fixed.map((x: any) => String(x.seller_id)).filter(Boolean);
-      const [pmapNew, vmapNew] = await Promise.all([fetchSellerProfiles(sellerIds), fetchListingViews(ids)]);
+      const sellerIds = fixed
+        .map((x: any) => String(x.seller_id))
+        .filter(Boolean);
+
+      const [pmapNew, vmapNew] = await Promise.all([
+        fetchSellerProfiles(sellerIds),
+        fetchListingViews(ids),
+      ]);
 
       setSellerMap((prev) => {
         const n = new Map(prev);
@@ -662,9 +790,9 @@ export default function PazarClient() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
       setMe(user?.id ?? null);
 
-      // ✅ ilk sayfa
       const { data, error } = await supabase
         .from("listings")
         .select(
@@ -707,10 +835,9 @@ export default function PazarClient() {
       if (error) throw error;
 
       const list = data ?? [];
-
-      // listing_media override
       const ids = list.map((x: any) => String(x.id));
       const mediaMap = await fetchListingMediaFor(ids);
+
       const fixed = list.map((x: any) => {
         const cur = getMedia(x);
         if (cur.urls.length === 0 && mediaMap.has(String(x.id))) {
@@ -723,16 +850,20 @@ export default function PazarClient() {
       setRows(fixed);
       setHasMore(fixed.length >= PAGE);
 
-      // seller profiles + stats + views
-      const sellerIds = fixed.map((x: any) => String(x.seller_id)).filter(Boolean);
-      const [pmap, smap] = await Promise.all([fetchSellerProfiles(sellerIds), fetchSellerStats(sellerIds)]);
+      const sellerIds = fixed
+        .map((x: any) => String(x.seller_id))
+        .filter(Boolean);
+
+      const [pmap, smap, vmap] = await Promise.all([
+        fetchSellerProfiles(sellerIds),
+        fetchSellerStats(sellerIds),
+        fetchListingViews(ids),
+      ]);
+
       setSellerMap(pmap);
       setSellerStats(smap);
-
-      const vmap = await fetchListingViews(ids);
       setViewsMap(vmap);
 
-      // favorites
       if (user?.id) setFavSet(await fetchMyFavoriteIds(user.id));
       else setFavSet(new Set());
     } catch (e: any) {
@@ -744,6 +875,7 @@ export default function PazarClient() {
 
   async function loadMore() {
     if (loadingMore || loading || !hasMore) return;
+
     setLoadingMore(true);
     setErr(null);
 
@@ -795,8 +927,8 @@ export default function PazarClient() {
 
       const list = data ?? [];
       const ids = list.map((x: any) => String(x.id));
-
       const mediaMap = await fetchListingMediaFor(ids);
+
       const fixed = list.map((x: any) => {
         const cur = getMedia(x);
         if (cur.urls.length === 0 && mediaMap.has(String(x.id))) {
@@ -809,19 +941,27 @@ export default function PazarClient() {
       setRows((prev) => {
         const seen = new Set(prev.map((r: any) => String(r.id)));
         const merged = [...prev];
+
         for (const r of fixed) {
           const id = String(r.id);
           if (!seen.has(id)) merged.push(r);
         }
+
         return merged;
       });
 
       setHasMore(fixed.length >= PAGE);
       setPage(nextPage);
 
-      // seller profiles/stats/views merge
-      const sellerIds = fixed.map((x: any) => String(x.seller_id)).filter(Boolean);
-      const [pmapNew, statsNew] = await Promise.all([fetchSellerProfiles(sellerIds), fetchSellerStats(sellerIds)]);
+      const sellerIds = fixed
+        .map((x: any) => String(x.seller_id))
+        .filter(Boolean);
+
+      const [pmapNew, statsNew, vmapNew] = await Promise.all([
+        fetchSellerProfiles(sellerIds),
+        fetchSellerStats(sellerIds),
+        fetchListingViews(ids),
+      ]);
 
       setSellerMap((prev) => {
         const n = new Map(prev);
@@ -835,7 +975,6 @@ export default function PazarClient() {
         return n;
       });
 
-      const vmapNew = await fetchListingViews(ids);
       setViewsMap((prev) => {
         const n = new Map(prev);
         for (const [k, v] of vmapNew.entries()) n.set(k, v);
@@ -850,13 +989,11 @@ export default function PazarClient() {
   }
 
   useEffect(() => {
-    // ilk yükleme: hem featured hem liste
     loadFeatured();
     loadFirst();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Infinite scroll observer
   useEffect(() => {
     const el = sentinelRef.current;
     if (!el) return;
@@ -876,22 +1013,24 @@ export default function PazarClient() {
 
   const featuredIds = useMemo(() => {
     const ids = new Set<string>();
+
     for (const x of featured) ids.add(String(x.id));
-    // fallback (featured boşsa): liste üzerinden kaba “haftalık”
+
     if (!ids.size) {
       for (const x of rows) {
         const boosted = !!x?.is_boosted;
         const score = Number(x?.boost_score ?? 0) || 0;
         const week = withinDays(x?.created_at, 7);
+
         if (boosted || score >= 10 || week) ids.add(String(x.id));
       }
     }
+
     return ids;
   }, [featured, rows]);
 
   const filtered = useMemo(() => {
-    const qq = q.trim().toLowerCase();
-
+    const qq = q.trim().toLocaleLowerCase("tr-TR");
     const minP = minPrice.trim() ? Number(minPrice) : null;
     const maxP = maxPrice.trim() ? Number(maxPrice) : null;
 
@@ -909,9 +1048,12 @@ export default function PazarClient() {
       if (onlyFeatured && !featuredIds.has(String(x.id))) return false;
 
       if (qq) {
-        const hay =
-          `${x.title ?? ""} ${x.description ?? ""} ${x.product_name ?? ""} ${x.product_type ?? ""} ` +
-          `${x.city ?? ""} ${x.district ?? ""} ${x.neighborhood ?? ""} ${x.market_name ?? ""}`.toLowerCase();
+        const hay = `${x.title ?? ""} ${x.description ?? ""} ${
+          x.product_name ?? ""
+        } ${x.product_type ?? ""} ${x.city ?? ""} ${x.district ?? ""} ${
+          x.neighborhood ?? ""
+        } ${x.market_name ?? ""}`.toLocaleLowerCase("tr-TR");
+
         if (!hay.includes(qq)) return false;
       }
 
@@ -925,12 +1067,24 @@ export default function PazarClient() {
       if (neighborhood && String(x.neighborhood ?? "") !== neighborhood) return false;
 
       const base = listingBasePrice(x);
+
       if (minP != null && (base == null || base < minP)) return false;
       if (maxP != null && (base == null || base > maxP)) return false;
 
       return true;
     });
-  }, [rows, q, product, city, district, neighborhood, minPrice, maxPrice, onlyFeatured, featuredIds]);
+  }, [
+    rows,
+    q,
+    product,
+    city,
+    district,
+    neighborhood,
+    minPrice,
+    maxPrice,
+    onlyFeatured,
+    featuredIds,
+  ]);
 
   async function toggleFavorite(listingId: string) {
     if (!me) {
@@ -943,17 +1097,31 @@ export default function PazarClient() {
 
     try {
       const isFav = favSet.has(String(listingId));
+
       if (isFav) {
-        const { error } = await supabase.from("listing_favorites").delete().eq("user_id", me).eq("listing_id", listingId);
+        const { error } = await supabase
+          .from("listing_favorites")
+          .delete()
+          .eq("user_id", me)
+          .eq("listing_id", listingId);
+
         if (error) throw error;
+
         setFavSet((prev) => {
           const n = new Set(prev);
           n.delete(String(listingId));
           return n;
         });
       } else {
-        const { error } = await supabase.from("listing_favorites").insert([{ user_id: me, listing_id: listingId }]);
+        const { error } = await supabase.from("listing_favorites").insert([
+          {
+            user_id: me,
+            listing_id: listingId,
+          },
+        ]);
+
         if (error) throw error;
+
         setFavSet((prev) => {
           const n = new Set(prev);
           n.add(String(listingId));
@@ -990,15 +1158,18 @@ export default function PazarClient() {
         onClose={() => setLbOpen(false)}
       />
 
-      {/* Header */}
       <div className="rounded-[28px] border border-black/10 bg-white p-5 shadow-sm dark:border-white/10 dark:bg-zinc-950 md:p-6">
         <div className="flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
-              <div className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">Pazar</div>
+              <div className="text-2xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
+                Pazar
+              </div>
+
               <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-200">
                 Premium görünüm
               </span>
+
               <button
                 onClick={() => setOnlyFeatured((p) => !p)}
                 className={cn(
@@ -1011,8 +1182,10 @@ export default function PazarClient() {
                 🏆 {onlyFeatured ? "Öne çıkanlar: Açık" : "Öne çıkanlar"}
               </button>
             </div>
+
             <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-              🔍 Gelişmiş filtreler • 🚀 Boost rozetleri • ⭐ Premium satıcı • ⚡ Infinite scroll
+              🔍 Gelişmiş filtreler • 🚀 Boost rozetleri • ⭐ Premium satıcı •
+              ⚡ Infinite scroll
             </div>
           </div>
 
@@ -1036,7 +1209,6 @@ export default function PazarClient() {
           </div>
         </div>
 
-        {/* Filters */}
         <div className="mt-5 grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-12">
           <div className="lg:col-span-4">
             <input
@@ -1054,11 +1226,11 @@ export default function PazarClient() {
               className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm font-semibold text-zinc-900 outline-none dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100"
             >
               <option value="">Ürün (tümü)</option>
-             {PRODUCTS.map((p) => (
-  <option key={p} value={p}>
-    {getProductEmoji(p)} {p}
-  </option>
-))}
+              {PRODUCTS.map((p) => (
+                <option key={p} value={p}>
+                  {getProductEmoji(p)} {p}
+                </option>
+              ))}
             </select>
           </div>
 
@@ -1129,7 +1301,9 @@ export default function PazarClient() {
           <div className="lg:col-span-2">
             <input
               value={minPrice}
-              onChange={(e) => setMinPrice(e.target.value.replace(/[^\d.]/g, ""))}
+              onChange={(e) =>
+                setMinPrice(e.target.value.replace(/[^\d.]/g, ""))
+              }
               inputMode="numeric"
               placeholder="Min fiyat"
               className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-black/25 dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100 dark:focus:border-white/25"
@@ -1139,7 +1313,9 @@ export default function PazarClient() {
           <div className="lg:col-span-2">
             <input
               value={maxPrice}
-              onChange={(e) => setMaxPrice(e.target.value.replace(/[^\d.]/g, ""))}
+              onChange={(e) =>
+                setMaxPrice(e.target.value.replace(/[^\d.]/g, ""))
+              }
               inputMode="numeric"
               placeholder="Max fiyat"
               className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm text-zinc-900 outline-none transition focus:border-black/25 dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100 dark:focus:border-white/25"
@@ -1153,19 +1329,23 @@ export default function PazarClient() {
           </div>
         ) : null}
       </div>
-
-      {/* ✅ Haftanın İlanları — Yatay Slider / Carousel */}
       <div className="mt-6">
         <div className="rounded-[28px] border border-black/10 bg-white p-4 shadow-sm dark:border-white/10 dark:bg-zinc-950 md:p-5">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">🏆 Haftanın İlanları</div>
+                <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">
+                  🏆 Haftanın İlanları
+                </div>
+
                 <span className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1 text-[11px] font-black text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
                   Boost + Son 7 gün + Views
                 </span>
               </div>
-              <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">Yatay kaydır • Snap’li carousel • Premium kartlar</div>
+
+              <div className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                Yatay kaydır • Snap’li carousel • Premium kartlar
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -1176,6 +1356,7 @@ export default function PazarClient() {
               >
                 ‹
               </button>
+
               <button
                 onClick={() => scrollFeatured("right")}
                 className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-black text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-100 dark:hover:bg-white/5"
@@ -1183,6 +1364,7 @@ export default function PazarClient() {
               >
                 ›
               </button>
+
               <button
                 onClick={loadFeatured}
                 className="rounded-2xl bg-zinc-900 px-4 py-2 text-sm font-black text-white hover:opacity-90 dark:bg-white dark:text-zinc-900"
@@ -1235,7 +1417,11 @@ export default function PazarClient() {
                       setLbTitle(title);
                       setLbUrls(urls);
                       setLbTypes(types);
-                      setLbPosters(urls.map((u, idx) => (types[idx] === "video" ? null : u)));
+                      setLbPosters(
+                        urls.map((u, idx) =>
+                          types[idx] === "video" ? null : u
+                        )
+                      );
                       setLbStart(0);
                       setLbOpen(true);
                     }}
@@ -1251,7 +1437,6 @@ export default function PazarClient() {
         </div>
       </div>
 
-      {/* Content */}
       <div className="mt-6">
         {loading ? (
           <div className="rounded-[28px] border border-black/10 bg-white p-6 text-sm font-semibold text-zinc-700 dark:border-white/10 dark:bg-zinc-950 dark:text-zinc-200">
@@ -1263,7 +1448,6 @@ export default function PazarClient() {
           </div>
         ) : (
           <>
-            {/* ✅ Grid layout + mobil optimize */}
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {filtered.map((x) => {
                 const { urls, types } = getMedia(x);
@@ -1273,10 +1457,14 @@ export default function PazarClient() {
                 const seller = sellerId ? sellerMap.get(sellerId) : undefined;
 
                 const sellerName =
-                  seller?.full_name?.trim() || (sellerId ? `Kullanıcı • ${sellerId.slice(0, 6)}…` : "Kullanıcı");
+                  seller?.full_name?.trim() ||
+                  (sellerId
+                    ? `Kullanıcı • ${sellerId.slice(0, 6)}…`
+                    : "Kullanıcı");
 
                 const sellerSub =
-                  [x.city, x.district].filter(Boolean).join(" / ") || (sellerId ? `ID: ${sellerId.slice(0, 6)}…` : "—");
+                  [x.city, x.district].filter(Boolean).join(" / ") ||
+                  (sellerId ? `ID: ${sellerId.slice(0, 6)}…` : "—");
 
                 const isFav = favSet.has(String(x.id));
                 const busy = busyFav === String(x.id);
@@ -1286,6 +1474,8 @@ export default function PazarClient() {
 
                 const stats = sellerId ? sellerStats.get(sellerId) : undefined;
                 const isPremiumSeller = !!seller?.is_premium;
+
+                const productLabel = x.product_name ?? x.product_type ?? "—";
 
                 return (
                   <div
@@ -1314,9 +1504,9 @@ export default function PazarClient() {
                           <div className="truncate text-base font-black text-zinc-900 dark:text-zinc-100">
                             {x.title ?? "İlan"}
                           </div>
+
                           <div className="mt-1 truncate text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                            {getProductEmoji(x.product_name ?? x.product_type)}{" "}
-{x.product_name ?? x.product_type ?? "—"}
+                            {getProductEmoji(productLabel)} {productLabel}
                           </div>
                         </div>
 
@@ -1335,29 +1525,31 @@ export default function PazarClient() {
                       </div>
 
                       <div className="mt-3 grid grid-cols-2 gap-2">
-                        <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
-                          <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Fiyat</div>
-                          <div className="mt-1 flex items-end gap-2">
-                            <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">{priceView.main}</div>
-                            {priceView.sub ? (
-                              <div className="pb-[2px] text-xs font-black text-zinc-500 dark:text-zinc-400">
-                                {priceView.sub}
-                              </div>
-                            ) : null}
-                          </div>
-                        </div>
+                        <InfoBox
+                          label="Fiyat"
+                          value={priceView.main}
+                          sub={priceView.sub}
+                        />
 
                         <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
-                          <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Konum</div>
+                          <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                            Konum
+                          </div>
+
                           <div className="mt-1 line-clamp-2 text-xs font-black text-zinc-900 dark:text-zinc-100">
-                            {[x.city, x.district, x.neighborhood].filter(Boolean).join(" / ") || "—"}
+                            {[x.city, x.district, x.neighborhood]
+                              .filter(Boolean)
+                              .join(" / ") || "—"}
                           </div>
                         </div>
                       </div>
 
                       <div className="mt-3 rounded-3xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Satıcı</div>
+                          <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                            Satıcı
+                          </div>
+
                           {isPremiumSeller ? (
                             <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-900 dark:border-indigo-900/40 dark:bg-indigo-950/40 dark:text-indigo-200">
                               ⭐ Premium satıcı
@@ -1366,16 +1558,22 @@ export default function PazarClient() {
                         </div>
 
                         <div className="mt-2">
-                          <SellerChip name={sellerName} avatarUrl={seller?.avatar_url ?? null} sub={sellerSub} />
+                          <SellerChip
+                            name={sellerName}
+                            avatarUrl={seller?.avatar_url ?? null}
+                            sub={sellerSub}
+                          />
                         </div>
 
                         <div className="mt-2 flex flex-wrap gap-2">
                           <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-950/35 dark:text-zinc-200">
                             📦 {stats ? stats.listings_count : "—"} ilan
                           </span>
+
                           <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-950/35 dark:text-zinc-200">
                             🧾 {stats ? stats.sales_count : "—"} satış
                           </span>
+
                           <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-950/35 dark:text-zinc-200">
                             👁️ {views == null ? "—" : fmtNum(views)}
                           </span>
@@ -1393,7 +1591,11 @@ export default function PazarClient() {
                               : "border-black/10 bg-white text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-950/40 dark:text-zinc-100 dark:hover:bg-white/5"
                           )}
                         >
-                          {busy ? "Bekle..." : isFav ? "❤️ Favoriden Çıkar" : "🤍 Favorile"}
+                          {busy
+                            ? "Bekle..."
+                            : isFav
+                              ? "❤️ Favoriden Çıkar"
+                              : "🤍 Favorile"}
                         </button>
 
                         <div className="grid grid-cols-2 gap-2">
@@ -1420,8 +1622,13 @@ export default function PazarClient() {
                       </div>
 
                       <div className="mt-3 flex items-center justify-between gap-2 text-[11px] font-semibold text-zinc-500 dark:text-zinc-500">
-                        <span className="truncate">Oluşturma: {fmtDate(x.created_at)}</span>
-                        <span className="font-mono font-black">{String(x.id).slice(0, 8)}…</span>
+                        <span className="truncate">
+                          Oluşturma: {fmtDate(x.created_at)}
+                        </span>
+
+                        <span className="font-mono font-black">
+                          {String(x.id).slice(0, 8)}…
+                        </span>
                       </div>
                     </div>
                   </div>
