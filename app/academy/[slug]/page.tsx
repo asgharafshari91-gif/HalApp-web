@@ -439,12 +439,6 @@ export default async function AcademyDetailPage({
                   Destek Talebi Oluştur →
                 </Link>
 
-                <Link
-                  href="/chat"
-                  className="rounded-2xl border border-black/10 bg-white/75 px-5 py-3 text-center text-sm font-black text-zinc-800 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
-                >
-                  Canlı Sohbete Git →
-                </Link>
               </div>
             </div>
 
@@ -470,11 +464,14 @@ export default async function AcademyDetailPage({
 
 function MiniStat({ label, value }: { label: string; value: number | string }) {
   return (
-    <div className="rounded-3xl border border-black/10 bg-white/70 p-4 text-center shadow-[0_14px_50px_rgba(0,0,0,.04)] dark:border-white/10 dark:bg-white/[0.045]">
-      <div className="text-xl font-black text-zinc-950 dark:text-white">
+    <div className="min-w-0 rounded-3xl border border-black/10 bg-white/70 p-3 text-center shadow-[0_14px_50px_rgba(0,0,0,.04)] dark:border-white/10 dark:bg-white/[0.045] sm:p-4">
+      <div className="truncate text-base font-black leading-tight text-zinc-950 dark:text-white sm:text-xl">
         {value}
       </div>
-      <div className="mt-1 text-xs font-black text-zinc-500">{label}</div>
+
+      <div className="mt-1 truncate text-[10px] font-black text-zinc-500 sm:text-xs">
+        {label}
+      </div>
     </div>
   );
 }
