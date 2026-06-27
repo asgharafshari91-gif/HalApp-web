@@ -60,65 +60,145 @@ function cn(...a: Array<string | false | null | undefined>) {
 }
 
 function productEmoji(name: any) {
-  const s = String(name ?? "").toLowerCase().trim();
+  const s = String(name ?? "").toLocaleLowerCase("tr-TR").trim();
   if (!s) return "🧺";
 
-  // 🍉 Fruits
-  if (s.includes("portakal") || s.includes("mandarin")) return "🍊";
+  if (s.includes("elma")) return "🍎";
+  if (s.includes("armut") || s.includes("ayva")) return "🍐";
+
+  if (
+    s.includes("portakal") ||
+    s.includes("mandalina") ||
+    s.includes("mandarin") ||
+    s.includes("greyfurt")
+  ) {
+    return "🍊";
+  }
+
   if (s.includes("limon") || s.includes("lime")) return "🍋";
   if (s.includes("muz")) return "🍌";
-  if (s.includes("elma")) return "🍎";
-  if (s.includes("armut")) return "🍐";
-  if (s.includes("üzüm")) return "🍇";
-  if (s.includes("çilek")) return "🍓";
-  if (s.includes("nar")) return "🍎"; // (nar emojisi her cihazda stabil değil)
+  if (s.includes("karpuz")) return "🍉";
+  if (s.includes("kavun")) return "🍈";
+  if (s.includes("üzüm") || s.includes("uzum")) return "🍇";
+  if (s.includes("çilek") || s.includes("cilek")) return "🍓";
+
+  if (
+    s.includes("ahududu") ||
+    s.includes("böğürtlen") ||
+    s.includes("bogurtlen") ||
+    s.includes("blue berry") ||
+    s.includes("blueberry") ||
+    s.includes("yaban mersini") ||
+    s.includes("dut")
+  ) {
+    return "🫐";
+  }
+
+  if (s.includes("kiraz") || s.includes("vişne") || s.includes("visne")) {
+    return "🍒";
+  }
+
+  if (
+    s.includes("şeftali") ||
+    s.includes("seftali") ||
+    s.includes("kayısı") ||
+    s.includes("kayisi") ||
+    s.includes("nektarin")
+  ) {
+    return "🍑";
+  }
+
+  if (s.includes("erik")) return "🟣";
+  if (s.includes("nar")) return "🔴";
+  if (s.includes("incir") || s.includes("i̇ncir")) return "🟣";
   if (s.includes("kivi")) return "🥝";
   if (s.includes("ananas")) return "🍍";
   if (s.includes("mango")) return "🥭";
   if (s.includes("avokado")) return "🥑";
   if (s.includes("hindistan cevizi")) return "🥥";
-  if (s.includes("kavun")) return "🍈";
-  if (s.includes("greyfurt")) return "🍊";
-  if (s.includes("zencefil")) return "🫚";
-  if (
-    s.includes("blue berry") ||
-    s.includes("blueberry") ||
-    s.includes("ahududu") ||
-    s.includes("böğürtlen") ||
-    s.includes("frenk üzümü")
-  )
-    return "🫐";
-  if (s.includes("altınçilek")) return "🍓";
-  if (s.includes("ayva")) return "🍐";
-  if (s.includes("amme") || s.includes("cennet")) return "🍈";
+  if (s.includes("hurma") || s.includes("amme") || s.includes("cennet")) return "🌴";
 
-  // 🥕 Vegetables
   if (s.includes("domates")) return "🍅";
   if (s.includes("biber")) return "🌶️";
-  if (s.includes("patlıcan")) return "🍆";
-  if (s.includes("havuç")) return "🥕";
-  if (s.includes("hıyar") || s.includes("salatalık")) return "🥒";
-  if (s.includes("patates")) return "🥔";
-  if (s.includes("soğan")) return "🧅";
-  if (s.includes("sarımsak")) return "🧄";
-  if (s.includes("mantar")) return "🍄";
-  if (s.includes("brokoli") || s.includes("karnabahar")) return "🥦";
-  if (s.includes("lahana") || s.includes("marul") || s.includes("ıspanak") || s.includes("pazı")) return "🥬";
-  if (s.includes("kabak")) return "🎃";
-  if (s.includes("kereviz") || s.includes("pırasa")) return "🥬";
-  if (s.includes("turp")) return "🥕";
-  if (s.includes("pancar")) return "🥕";
+  if (s.includes("patlıcan") || s.includes("patlican")) return "🍆";
 
-  // 🌿 Herbs & greens
   if (
-    s.includes("nane") ||
-    s.includes("maydonoz") ||
+    s.includes("salatalık") ||
+    s.includes("salatalik") ||
+    s.includes("hıyar") ||
+    s.includes("hiyar")
+  ) {
+    return "🥒";
+  }
+
+  if (s.includes("kabak")) return "🎃";
+  if (s.includes("patates")) return "🥔";
+  if (s.includes("soğan") || s.includes("sogan")) return "🧅";
+  if (s.includes("sarımsak") || s.includes("sarimsak")) return "🧄";
+
+  if (
+    s.includes("havuç") ||
+    s.includes("havuc") ||
+    s.includes("turp") ||
+    s.includes("pancar")
+  ) {
+    return "🥕";
+  }
+
+  if (s.includes("brokoli") || s.includes("karnabahar")) return "🥦";
+
+  if (
+    s.includes("lahana") ||
+    s.includes("marul") ||
+    s.includes("ıspanak") ||
+    s.includes("ispanak") ||
+    s.includes("pazı") ||
+    s.includes("pazi") ||
+    s.includes("kereviz") ||
+    s.includes("pırasa") ||
+    s.includes("pirasa") ||
+    s.includes("semizotu") ||
+    s.includes("karadeniz yaprağı") ||
+    s.includes("kuzu kulağı")
+  ) {
+    return "🥬";
+  }
+
+  if (s.includes("enginar") || s.includes("bamya")) return "🌿";
+
+  if (s.includes("fasulye") || s.includes("bezelye") || s.includes("bakla")) {
+    return "🫛";
+  }
+
+  if (s.includes("mısır") || s.includes("misir")) return "🌽";
+  if (s.includes("mantar")) return "🍄";
+  if (s.includes("kuşkonmaz") || s.includes("kuskonmaz")) return "🌱";
+
+  if (
     s.includes("roka") ||
+    s.includes("nane") ||
+    s.includes("maydanoz") ||
+    s.includes("maydonoz") ||
     s.includes("dereotu") ||
     s.includes("fesleğen") ||
+    s.includes("feslegen") ||
     s.includes("tere")
-  )
+  ) {
     return "🌿";
+  }
+
+  if (
+    s.includes("ceviz") ||
+    s.includes("badem") ||
+    s.includes("fındık") ||
+    s.includes("findik") ||
+    s.includes("antep fıstığı") ||
+    s.includes("antep fistigi")
+  ) {
+    return "🥜";
+  }
+
+  if (s.includes("zencefil")) return "🫚";
 
   return "🧺";
 }
@@ -130,30 +210,31 @@ function fmtNum(v: any) {
   return n.toLocaleString("tr-TR");
 }
 
-function fmtDate(d: any) {
-  const s = String(d ?? "").trim();
-  if (!s) return "—";
-  const dt = new Date(s);
-  if (Number.isNaN(dt.getTime())) return s;
-  return dt.toLocaleDateString("tr-TR", { year: "numeric", month: "long", day: "numeric" });
-}
-
 function fmtDateTime(d: any) {
   const s = String(d ?? "").trim();
   if (!s) return "—";
+
   const dt = new Date(s);
   if (Number.isNaN(dt.getTime())) return s;
-  return dt.toLocaleString("tr-TR", { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+
+  return dt.toLocaleString("tr-TR", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
 
 function daysLeft(expiresAt: any) {
   const s = String(expiresAt ?? "").trim();
   if (!s) return null;
+
   const dt = new Date(s);
   if (Number.isNaN(dt.getTime())) return null;
+
   const now = new Date();
-  const diff = Math.ceil((dt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
-  return diff;
+  return Math.ceil((dt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
 }
 
 function isVideoType(t: any): t is "video" {
@@ -161,11 +242,24 @@ function isVideoType(t: any): t is "video" {
 }
 
 function getMedia(listing: any): { urls: string[]; types: MediaType[] } {
-  const urls: string[] = Array.isArray(listing?.media_urls) ? listing.media_urls : [];
-  const typesRaw: any[] = Array.isArray(listing?.media_types) ? listing.media_types : [];
-  const types: MediaType[] = typesRaw.map((t) => (isVideoType(t) ? "video" : "image"));
+  const urls: string[] = Array.isArray(listing?.media_urls)
+    ? listing.media_urls
+    : [];
+
+  const typesRaw: any[] = Array.isArray(listing?.media_types)
+    ? listing.media_types
+    : [];
+
+  const types: MediaType[] = typesRaw.map((t) =>
+    isVideoType(t) ? "video" : "image"
+  );
+
   const len = Math.min(urls.length, types.length);
-  return { urls: urls.slice(0, len), types: types.slice(0, len) };
+
+  return {
+    urls: urls.slice(0, len),
+    types: types.slice(0, len),
+  };
 }
 
 function fmtPrice(x: any) {
@@ -183,37 +277,53 @@ function fmtPrice(x: any) {
 
   if (hasPPU) return { main: fmtNum(ppu), sub: unit ? `/ ${unit}` : "" };
   if (hasPrice) return { main: fmtNum(price), sub: "Toplam" };
-  if (hasMin && hasMax) return { main: `${fmtNum(minP)} - ${fmtNum(maxP)}`, sub: "Aralık" };
+  if (hasMin && hasMax) {
+    return {
+      main: `${fmtNum(minP)} - ${fmtNum(maxP)}`,
+      sub: "Aralık",
+    };
+  }
   if (hasMin) return { main: fmtNum(minP), sub: "Min" };
   if (hasMax) return { main: fmtNum(maxP), sub: "Max" };
+
   return { main: "—", sub: "" };
 }
 
-/** listing_media tablosundan medya çek (varsa) */
 async function fetchListingMediaFor(listingId: string) {
   const { data, error } = await supabase
     .from("listing_media")
-    .select("url,type,sort_order")
+    .select("url,type,media_type,sort_order")
     .eq("listing_id", listingId)
     .order("sort_order", { ascending: true });
 
-  if (error || !data) return { urls: [] as string[], types: [] as MediaType[] };
+  if (error || !data) {
+    return { urls: [] as string[], types: [] as MediaType[] };
+  }
 
   const urls: string[] = [];
   const types: MediaType[] = [];
+
   for (const r of data as any[]) {
     urls.push(String(r.url));
-    types.push(String(r.type) === "video" ? "video" : "image");
+    types.push(
+      String(r.type ?? r.media_type) === "video" ? "video" : "image"
+    );
   }
+
   return { urls, types };
 }
 
 async function fetchSellerProfile(sellerId: string) {
   try {
-    const { data, error } = await supabase.rpc("get_public_profiles", { ids: [sellerId] });
+    const { data, error } = await supabase.rpc("get_public_profiles", {
+      ids: [sellerId],
+    });
+
     if (error) return null;
+
     const p = (data ?? [])?.[0];
     if (!p) return null;
+
     return {
       id: String(p.id),
       full_name: p.full_name ?? null,
@@ -227,10 +337,15 @@ async function fetchSellerProfile(sellerId: string) {
 
 async function fetchViews(listingId: string) {
   try {
-    const { data, error } = await supabase.rpc("get_listing_views", { ids: [listingId] });
+    const { data, error } = await supabase.rpc("get_listing_views", {
+      ids: [listingId],
+    });
+
     if (error) return null;
+
     const row = (data ?? [])?.[0];
     const v = Number(row?.views ?? row?.view_count ?? 0);
+
     return Number.isFinite(v) ? v : 0;
   } catch {
     return null;
@@ -244,6 +359,7 @@ async function bumpView(listingId: string) {
     // sessiz
   }
 }
+
 function getGpsLocation(): Promise<{ lat: number; lng: number } | null> {
   return new Promise((resolve) => {
     if (typeof navigator === "undefined" || !navigator.geolocation) {
@@ -283,7 +399,6 @@ async function trackListingView(listingId: string) {
         source: "detail",
         platform: "web",
         device_type: isMobileWeb ? "mobile_web" : "desktop_web",
-
         latitude: gps?.lat ?? null,
         longitude: gps?.lng ?? null,
         location_source: gps ? "gps" : "ip",
@@ -293,6 +408,7 @@ async function trackListingView(listingId: string) {
     console.log("track invoke error:", e);
   }
 }
+
 function trackListingViewPixel(listingId: string) {
   try {
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
@@ -316,32 +432,35 @@ function trackListingViewPixel(listingId: string) {
 
     const img = new Image();
     img.src = `${baseUrl}/functions/v1/track-listing-view?${params.toString()}`;
-  } catch {}
-}
-async function fetchMyFavoriteIds(userId: string) {
-  const { data, error } = await supabase.from("listing_favorites").select("listing_id").eq("user_id", userId);
-  if (error) throw error;
-  return new Set((data ?? []).map((r: any) => String(r.listing_id)));
+  } catch {
+    // sessiz
+  }
 }
 
+async function fetchMyFavoriteIds(userId: string) {
+  const { data, error } = await supabase
+    .from("listing_favorites")
+    .select("listing_id")
+    .eq("user_id", userId);
+
+  if (error) throw error;
+
+  return new Set((data ?? []).map((r: any) => String(r.listing_id)));
+}
 export default function PazarDetailClient({ id }: { id: string }) {
   const router = useRouter();
 
-  // data
   const [row, setRow] = useState<ListingRow | null>(null);
   const [seller, setSeller] = useState<SellerProfile | null>(null);
   const [views, setViews] = useState<number | null>(null);
 
-  // auth + favorite
   const [me, setMe] = useState<string | null>(null);
   const [favSet, setFavSet] = useState<Set<string>>(new Set());
   const [busyFav, setBusyFav] = useState(false);
 
-  // ui
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
 
-  // lightbox
   const [lbOpen, setLbOpen] = useState(false);
   const [lbTitle, setLbTitle] = useState("");
   const [lbUrls, setLbUrls] = useState<string[]>([]);
@@ -349,7 +468,6 @@ export default function PazarDetailClient({ id }: { id: string }) {
   const [lbPosters, setLbPosters] = useState<Array<string | null>>([]);
   const [lbStart, setLbStart] = useState(0);
 
-  // load
   useEffect(() => {
     let cancelled = false;
 
@@ -358,12 +476,10 @@ export default function PazarDetailClient({ id }: { id: string }) {
       setErr(null);
 
       try {
-        // auth
         const { data: auth } = await supabase.auth.getUser();
         const user = auth?.user ?? null;
         if (!cancelled) setMe(user?.id ?? null);
 
-        // listing
         const { data, error } = await supabase
           .from("listings")
           .select(
@@ -403,10 +519,8 @@ export default function PazarDetailClient({ id }: { id: string }) {
 
         const listing = (data ?? null) as ListingRow | null;
         if (!listing) throw new Error("İlan bulunamadı");
-
         if (cancelled) return;
 
-        // listing_media override (varsa)
         const cur = getMedia(listing);
         if (cur.urls.length === 0) {
           const m = await fetchListingMediaFor(String(listing.id));
@@ -418,7 +532,6 @@ export default function PazarDetailClient({ id }: { id: string }) {
 
         setRow(listing);
 
-        // seller
         const sid = String(listing.seller_id ?? "").trim();
         if (sid) {
           const prof = await fetchSellerProfile(sid);
@@ -427,34 +540,32 @@ export default function PazarDetailClient({ id }: { id: string }) {
           setSeller(null);
         }
 
-        // views
-// views
-const v = await fetchViews(String(listing.id));
-if (!cancelled) setViews(v);
+        const v = await fetchViews(String(listing.id));
+        if (!cancelled) setViews(v);
 
-bumpView(String(listing.id));
-trackListingView(String(listing.id));
-trackListingViewPixel(String(listing.id));
+        bumpView(String(listing.id));
+        trackListingView(String(listing.id));
+        trackListingViewPixel(String(listing.id));
 
-        // favorites
         if (user?.id) {
           try {
             const set = await fetchMyFavoriteIds(user.id);
             if (!cancelled) setFavSet(set);
-          } catch {
-            // sessiz
-          }
+          } catch {}
         } else {
           setFavSet(new Set());
         }
       } catch (e: any) {
-        if (!cancelled) setErr(e?.message ? String(e.message) : "Detay yüklenemedi");
+        if (!cancelled) {
+          setErr(e?.message ? String(e.message) : "Detay yüklenemedi");
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     }
 
     run();
+
     return () => {
       cancelled = true;
     };
@@ -465,23 +576,35 @@ trackListingViewPixel(String(listing.id));
       setErr("Favorilemek için giriş yapmalısın.");
       return;
     }
+
     setBusyFav(true);
     setErr(null);
+
     try {
       const listingId = String(row.id);
       const isFav = favSet.has(listingId);
 
       if (isFav) {
-        const { error } = await supabase.from("listing_favorites").delete().eq("user_id", me).eq("listing_id", listingId);
+        const { error } = await supabase
+          .from("listing_favorites")
+          .delete()
+          .eq("user_id", me)
+          .eq("listing_id", listingId);
+
         if (error) throw error;
+
         setFavSet((prev) => {
           const n = new Set(prev);
           n.delete(listingId);
           return n;
         });
       } else {
-        const { error } = await supabase.from("listing_favorites").insert([{ user_id: me, listing_id: listingId }]);
+        const { error } = await supabase
+          .from("listing_favorites")
+          .insert([{ user_id: me, listing_id: listingId }]);
+
         if (error) throw error;
+
         setFavSet((prev) => {
           const n = new Set(prev);
           n.add(listingId);
@@ -499,7 +622,6 @@ trackListingViewPixel(String(listing.id));
     try {
       await navigator.clipboard.writeText(window.location.href);
     } catch {
-      // fallback
       const ta = document.createElement("textarea");
       ta.value = window.location.href;
       document.body.appendChild(ta);
@@ -514,11 +636,17 @@ trackListingViewPixel(String(listing.id));
   const isFav = row?.id ? favSet.has(String(row.id)) : false;
 
   const { urls, types } = useMemo(() => getMedia(row), [row]);
-  const posters = useMemo(() => urls.map((u, idx) => (types[idx] === "video" ? null : u)), [urls, types]);
+  const posters = useMemo(
+    () => urls.map((u, idx) => (types[idx] === "video" ? null : u)),
+    [urls, types]
+  );
 
   const sellerName = useMemo(() => {
     const sid = String(row?.seller_id ?? "");
-    return seller?.full_name?.trim() || (sid ? `Kullanıcı • ${sid.slice(0, 6)}…` : "Kullanıcı");
+    return (
+      seller?.full_name?.trim() ||
+      (sid ? `Kullanıcı • ${sid.slice(0, 6)}…` : "Kullanıcı")
+    );
   }, [seller, row?.seller_id]);
 
   const sellerSub = useMemo(() => {
@@ -530,23 +658,40 @@ trackListingViewPixel(String(listing.id));
   const isBoosted = !!row?.is_boosted;
   const score = Number(row?.boost_score ?? 0) || 0;
 
+  const productLabel = row?.product_name ?? row?.product_type ?? "—";
+  const productIcon = productEmoji(productLabel);
+
   const locStr = useMemo(() => {
-    const parts = [row?.city, row?.district, row?.neighborhood].filter(Boolean).map(String);
+    const parts = [row?.city, row?.district, row?.neighborhood]
+      .filter(Boolean)
+      .map(String);
+
     return parts.join(" / ") || "—";
   }, [row?.city, row?.district, row?.neighborhood]);
 
   const mapHref = useMemo(() => {
-    const q = encodeURIComponent([row?.market_name, row?.neighborhood, row?.district, row?.city].filter(Boolean).join(" "));
+    const q = encodeURIComponent(
+      [row?.market_name, row?.neighborhood, row?.district, row?.city]
+        .filter(Boolean)
+        .join(" ")
+    );
+
     if (!q) return null;
+
     return `https://www.google.com/maps/search/?api=1&query=${q}`;
   }, [row?.market_name, row?.neighborhood, row?.district, row?.city]);
 
   const stateBadge = useMemo(() => {
     if (!row) return null;
+
     const expired = left != null && left <= 0;
+
     if (expired) return { text: "Süresi doldu", tone: "rose" as const };
-    if (left != null && left <= 3) return { text: `${left} gün kaldı`, tone: "rose" as const };
+    if (left != null && left <= 3) {
+      return { text: `${left} gün kaldı`, tone: "rose" as const };
+    }
     if (left != null) return { text: `${left} gün`, tone: "neutral" as const };
+
     return null;
   }, [row, left]);
 
@@ -585,6 +730,7 @@ trackListingViewPixel(String(listing.id));
           >
             Pazara dön
           </button>
+
           <button
             onClick={() => router.back()}
             className="rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm font-black text-zinc-900 hover:bg-black/5 dark:border-white/10 dark:bg-zinc-950/40 dark:text-zinc-100 dark:hover:bg-white/5"
@@ -608,7 +754,6 @@ trackListingViewPixel(String(listing.id));
         onClose={() => setLbOpen(false)}
       />
 
-      {/* Top Bar */}
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <button
@@ -651,9 +796,7 @@ trackListingViewPixel(String(listing.id));
         </div>
       </div>
 
-      {/* Hero Card */}
       <div className="overflow-hidden rounded-[30px] border border-black/10 bg-white shadow-sm dark:border-white/10 dark:bg-zinc-950">
-        {/* Header */}
         <div className="p-5 md:p-7">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div className="min-w-0">
@@ -696,7 +839,7 @@ trackListingViewPixel(String(listing.id));
 
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm font-semibold text-zinc-600 dark:text-zinc-400">
                 <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[12px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-200">
-                  🥬 {row.product_name ?? row.product_type ?? "—"}
+                  {productIcon} {productLabel}
                 </span>
 
                 <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[12px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-200">
@@ -709,7 +852,6 @@ trackListingViewPixel(String(listing.id));
               </div>
             </div>
 
-            {/* Quick Actions */}
             <div className="flex flex-wrap gap-2">
               <Link
                 prefetch={false}
@@ -744,9 +886,7 @@ trackListingViewPixel(String(listing.id));
           ) : null}
         </div>
 
-        {/* Body */}
         <div className="grid gap-0 border-t border-black/10 dark:border-white/10 lg:grid-cols-12">
-          {/* Media */}
           <div className="p-5 md:p-7 lg:col-span-7 lg:border-r lg:border-black/10 dark:lg:border-white/10">
             <SquareMedia
               title={row.title ?? "İlan"}
@@ -764,41 +904,51 @@ trackListingViewPixel(String(listing.id));
               }}
             />
 
-            {/* Small meta strip */}
             <div className="mt-4 grid grid-cols-2 gap-2">
               <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
-                <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">İlan No</div>
+                <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                  İlan No
+                </div>
                 <div className="mt-1 font-mono text-sm font-black text-zinc-900 dark:text-zinc-100">
                   {String(row.id).slice(0, 8)}…
                 </div>
               </div>
 
               <div className="rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-zinc-900/35">
-                <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Oluşturma</div>
-                <div className="mt-1 text-sm font-black text-zinc-900 dark:text-zinc-100">{fmtDateTime(row.created_at)}</div>
+                <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                  Oluşturma
+                </div>
+                <div className="mt-1 text-sm font-black text-zinc-900 dark:text-zinc-100">
+                  {fmtDateTime(row.created_at)}
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Info */}
           <div className="p-5 md:p-7 lg:col-span-5">
-            {/* Price */}
             <div className="rounded-[26px] border border-black/10 bg-white/70 p-5 dark:border-white/10 dark:bg-zinc-900/35">
               <div className="flex items-end justify-between gap-3">
                 <div>
-                  <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Fiyat</div>
+                  <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                    Fiyat
+                  </div>
                   <div className="mt-2 flex items-end gap-2">
                     <div className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
                       {priceView.main}
                     </div>
+
                     {priceView.sub ? (
-                      <div className="pb-1 text-sm font-black text-zinc-500 dark:text-zinc-400">{priceView.sub}</div>
+                      <div className="pb-1 text-sm font-black text-zinc-500 dark:text-zinc-400">
+                        {priceView.sub}
+                      </div>
                     ) : null}
                   </div>
                 </div>
 
                 <div className="text-right">
-                  <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Birim</div>
+                  <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                    Birim
+                  </div>
                   <div className="mt-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-black text-zinc-900 dark:border-white/10 dark:bg-zinc-950/35 dark:text-zinc-100">
                     {row.unit ?? "—"}
                   </div>
@@ -807,26 +957,38 @@ trackListingViewPixel(String(listing.id));
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <div className="rounded-2xl border border-black/10 bg-white p-3 dark:border-white/10 dark:bg-zinc-950/35">
-                  <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Min. Miktar</div>
-                  <div className="mt-1 text-lg font-black text-zinc-900 dark:text-zinc-100">{fmtNum(row.min_quantity)}</div>
+                  <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                    Min. Miktar
+                  </div>
+                  <div className="mt-1 text-lg font-black text-zinc-900 dark:text-zinc-100">
+                    {fmtNum(row.min_quantity)}
+                  </div>
                 </div>
+
                 <div className="rounded-2xl border border-black/10 bg-white p-3 dark:border-white/10 dark:bg-zinc-950/35">
-                  <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Stok / Miktar</div>
-                  <div className="mt-1 text-lg font-black text-zinc-900 dark:text-zinc-100">{fmtNum(row.quantity)}</div>
+                  <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                    Stok / Miktar
+                  </div>
+                  <div className="mt-1 text-lg font-black text-zinc-900 dark:text-zinc-100">
+                    {fmtNum(row.quantity)}
+                  </div>
                 </div>
               </div>
 
               {row.boost_until ? (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
-                  🚀 Boost bitiş: <span className="font-black">{fmtDateTime(row.boost_until)}</span>
+                  🚀 Boost bitiş:{" "}
+                  <span className="font-black">{fmtDateTime(row.boost_until)}</span>
                 </div>
               ) : null}
             </div>
 
-            {/* Seller */}
             <div className="mt-4 rounded-[26px] border border-black/10 bg-white/70 p-5 dark:border-white/10 dark:bg-zinc-900/35">
               <div className="flex items-center justify-between gap-2">
-                <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Satıcı</div>
+                <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                  Satıcı
+                </div>
+
                 {isPremiumSeller ? (
                   <span className="rounded-full border border-indigo-200 bg-indigo-50 px-2 py-1 text-[10px] font-black text-indigo-900 dark:border-indigo-900/40 dark:bg-indigo-950/40 dark:text-indigo-200">
                     ⭐ Premium
@@ -835,7 +997,11 @@ trackListingViewPixel(String(listing.id));
               </div>
 
               <div className="mt-3">
-                <SellerChip name={sellerName} avatarUrl={seller?.avatar_url ?? null} sub={sellerSub} />
+                <SellerChip
+                  name={sellerName}
+                  avatarUrl={seller?.avatar_url ?? null}
+                  sub={sellerSub}
+                />
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
@@ -867,13 +1033,20 @@ trackListingViewPixel(String(listing.id));
               </div>
             </div>
 
-            {/* Location / Market */}
             <div className="mt-4 rounded-[26px] border border-black/10 bg-white/70 p-5 dark:border-white/10 dark:bg-zinc-900/35">
-              <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">Konum</div>
-              <div className="mt-2 text-sm font-black text-zinc-900 dark:text-zinc-100">{locStr}</div>
+              <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                Konum
+              </div>
+              <div className="mt-2 text-sm font-black text-zinc-900 dark:text-zinc-100">
+                {locStr}
+              </div>
 
-              <div className="mt-4 text-[11px] font-black text-zinc-600 dark:text-zinc-400">Pazar</div>
-              <div className="mt-2 text-sm font-black text-zinc-900 dark:text-zinc-100">{row.market_name ?? "—"}</div>
+              <div className="mt-4 text-[11px] font-black text-zinc-600 dark:text-zinc-400">
+                Pazar
+              </div>
+              <div className="mt-2 text-sm font-black text-zinc-900 dark:text-zinc-100">
+                {row.market_name ?? "—"}
+              </div>
 
               <div className="mt-4 flex flex-wrap gap-2">
                 {mapHref ? (
@@ -898,10 +1071,12 @@ trackListingViewPixel(String(listing.id));
           </div>
         </div>
 
-        {/* Description */}
         <div className="border-t border-black/10 p-5 dark:border-white/10 dark:bg-zinc-950 md:p-7">
           <div className="flex items-center justify-between gap-2">
-            <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">Açıklama</div>
+            <div className="text-lg font-black text-zinc-900 dark:text-zinc-100">
+              Açıklama
+            </div>
+
             <span className="rounded-full border border-black/10 bg-white px-3 py-1 text-[11px] font-black text-zinc-700 dark:border-white/10 dark:bg-zinc-900/40 dark:text-zinc-200">
               🛡️ Güvenli alışveriş: Detayları mesajda netleştir
             </span>
@@ -917,7 +1092,6 @@ trackListingViewPixel(String(listing.id));
             </div>
           )}
 
-          {/* Bottom actions */}
           <div className="mt-5 flex flex-wrap gap-2">
             <Link
               prefetch={false}
@@ -943,9 +1117,9 @@ trackListingViewPixel(String(listing.id));
         </div>
       </div>
 
-      {/* Footer tiny */}
       <div className="mt-4 text-center text-xs font-semibold text-zinc-500 dark:text-zinc-500">
-        İlan ID: <span className="font-mono font-black">{String(row.id)}</span> • Güncellendi:{" "}
+        İlan ID: <span className="font-mono font-black">{String(row.id)}</span>{" "}
+        • Güncellendi:{" "}
         <span className="font-black">{fmtDateTime(row.created_at)}</span>
       </div>
     </div>
