@@ -91,7 +91,66 @@ const PRODUCTS = [
   "Üzüm (Siyah)",
   "Zencefil",
 ];
+const productEmojiMap: [string[], string][] = [
+  [["elma"], "🍎"],
+  [["armut", "ayva"], "🍐"],
+  [["portakal", "mandalina", "mandarin", "greyfurt"], "🍊"],
+  [["limon", "lime"], "🍋"],
+  [["muz", "banana"], "🍌"],
+  [["karpuz"], "🍉"],
+  [["kavun"], "🍈"],
+  [["uzum", "üzüm"], "🍇"],
+  [["cilek", "çilek", "altin cilek", "altın çilek"], "🍓"],
+  [["ahududu", "bogurtlen", "böğürtlen", "blue berry", "blueberry", "yaban mersini", "dut"], "🫐"],
+  [["kiraz", "visne", "vişne"], "🍒"],
+  [["seftali", "şeftali", "kayisi", "kayısı", "nektarin"], "🍑"],
+  [["erik"], "🟣"],
+  [["nar"], "🔴"],
+  [["incir", "i̇ncir"], "🟣"],
+  [["kivi"], "🥝"],
+  [["ananas"], "🍍"],
+  [["mango"], "🥭"],
+  [["avokado"], "🥑"],
+  [["hindistan cevizi"], "🥥"],
+  [["hurma", "amme", "cennet"], "🌴"],
 
+  [["domates"], "🍅"],
+  [["biber"], "🌶️"],
+  [["patlican", "patlıcan"], "🍆"],
+  [["salatalik", "salatalık", "hiyar", "hıyar"], "🥒"],
+  [["kabak"], "🎃"],
+  [["patates"], "🥔"],
+  [["sogan", "soğan"], "🧅"],
+  [["sarimsak", "sarımsak"], "🧄"],
+  [["havuc", "havuç", "turp", "pancar"], "🥕"],
+  [["brokoli", "karnabahar"], "🥦"],
+  [["lahana", "marul", "ispanak", "ıspanak", "pazi", "pazı", "kereviz", "pirasa", "pırasa", "semizotu", "karadeniz yaprağı", "kuzu kulağı"], "🥬"],
+  [["enginar", "bamya"], "🌿"],
+  [["fasulye", "bezelye", "bakla"], "🫛"],
+  [["misir", "mısır"], "🌽"],
+  [["mantar"], "🍄"],
+  [["kuskonmaz", "kuşkonmaz"], "🌱"],
+  [["roka", "nane", "maydanoz", "maydonoz", "dereotu", "feslegen", "fesleğen", "tere"], "🌿"],
+  [["ceviz", "badem", "findik", "fındık", "antep fistigi", "antep fıstığı"], "🥜"],
+  [["zencefil"], "🫚"],
+];
+
+function normalizeProductName(value?: string | null) {
+  return String(value ?? "").toLocaleLowerCase("tr-TR").trim();
+}
+
+function getProductEmoji(value?: string | null) {
+  const name = normalizeProductName(value);
+  if (!name) return "🥬";
+
+  for (const [keys, emoji] of productEmojiMap) {
+    if (keys.some((k) => name.includes(k.toLocaleLowerCase("tr-TR")))) {
+      return emoji;
+    }
+  }
+
+  return "🥬";
+}
 function cn(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
@@ -995,11 +1054,11 @@ export default function PazarClient() {
               className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm font-semibold text-zinc-900 outline-none dark:border-white/10 dark:bg-zinc-900/45 dark:text-zinc-100"
             >
               <option value="">Ürün (tümü)</option>
-              {PRODUCTS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
+             {PRODUCTS.map((p) => (
+  <option key={p} value={p}>
+    {getProductEmoji(p)} {p}
+  </option>
+))}
             </select>
           </div>
 
@@ -1256,7 +1315,8 @@ export default function PazarClient() {
                             {x.title ?? "İlan"}
                           </div>
                           <div className="mt-1 truncate text-xs font-semibold text-zinc-600 dark:text-zinc-400">
-                            {x.product_name ?? x.product_type ?? "—"}
+                            {getProductEmoji(x.product_name ?? x.product_type)}{" "}
+{x.product_name ?? x.product_type ?? "—"}
                           </div>
                         </div>
 
