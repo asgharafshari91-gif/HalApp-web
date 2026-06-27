@@ -91,8 +91,7 @@ const academyDetails: AcademyDetail[] = [
     slug: "premium-vitrin",
     icon: "⭐",
     title: "Premium ve Vitrin Kullanımı",
-    subtitle:
-      "İlanlarını öne çıkar, vitrine taşı ve daha fazla alıcıya ulaş.",
+    subtitle: "İlanlarını öne çıkar, vitrine taşı ve daha fazla alıcıya ulaş.",
     category: "Premium Akademi",
     duration: "3 dk",
     level: "Gelir Artırma",
@@ -125,8 +124,7 @@ const academyDetails: AcademyDetail[] = [
     slug: "alici-talebi",
     icon: "🛒",
     title: "Alıcı Talebi Nasıl Açılır?",
-    subtitle:
-      "Aradığın ürün için talep oluştur, satıcılardan hızlı teklif al.",
+    subtitle: "Aradığın ürün için talep oluştur, satıcılardan hızlı teklif al.",
     category: "Alıcı Akademisi",
     duration: "2 dk",
     level: "Başlangıç",
@@ -158,8 +156,7 @@ const academyDetails: AcademyDetail[] = [
     slug: "market-intelligence",
     icon: "📡",
     title: "Market Intelligence Nasıl Okunur?",
-    subtitle:
-      "Şehir, ürün, talep sinyali ve sıcak bölgeleri doğru yorumla.",
+    subtitle: "Şehir, ürün, talep sinyali ve sıcak bölgeleri doğru yorumla.",
     category: "Veri Akademisi",
     duration: "4 dk",
     level: "Profesyonel",
@@ -191,8 +188,7 @@ const academyDetails: AcademyDetail[] = [
     slug: "guvenli-ticaret",
     icon: "🤝",
     title: "Güvenli Ticaret İpuçları",
-    subtitle:
-      "Satıcı, alıcı, ödeme ve teslimat süreçlerinde güvenliği artır.",
+    subtitle: "Satıcı, alıcı, ödeme ve teslimat süreçlerinde güvenliği artır.",
     category: "Güvenli Ticaret",
     duration: "3 dk",
     level: "Önemli",
@@ -236,15 +232,9 @@ export async function generateMetadata({
   const { slug } = await params;
   const item = academyDetails.find((x) => x.slug === slug);
 
-  if (!item) {
-    return {
-      title: "HalApp Akademi",
-    };
-  }
-
   return {
-    title: `${item.title} | HalApp Akademi`,
-    description: item.subtitle,
+    title: item ? `${item.title} | HalApp Akademi` : "HalApp Akademi",
+    description: item?.subtitle ?? "HalApp Akademi kullanım rehberleri.",
   };
 }
 
@@ -258,11 +248,15 @@ export default async function AcademyDetailPage({
 
   if (!item) notFound();
 
+  const supportHref = `/support?topic=${encodeURIComponent(
+    item.slug
+  )}#ticket-form`;
+
   return (
     <main className="mx-auto w-full max-w-7xl px-4 py-8">
-      <section className="relative overflow-hidden rounded-[44px] border border-black/10 bg-white/80 p-6 shadow-[0_30px_120px_rgba(0,0,0,.08)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] sm:p-10">
-        <div className="pointer-events-none absolute -right-40 -top-40 h-96 w-96 rounded-full bg-emerald-500/20 blur-3xl" />
-        <div className="pointer-events-none absolute -bottom-40 left-10 h-96 w-96 rounded-full bg-cyan-500/10 blur-3xl" />
+      <section className="relative overflow-hidden rounded-[46px] border border-black/10 bg-white/85 p-6 shadow-[0_35px_130px_rgba(0,0,0,.09)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045] sm:p-10">
+        <div className="pointer-events-none absolute -right-40 -top-40 h-[460px] w-[460px] rounded-full bg-emerald-500/20 blur-3xl" />
+        <div className="pointer-events-none absolute -bottom-44 left-10 h-[420px] w-[420px] rounded-full bg-cyan-500/12 blur-3xl" />
 
         <div className="relative grid gap-8 lg:grid-cols-12 lg:items-end">
           <div className="lg:col-span-8">
@@ -284,6 +278,22 @@ export default async function AcademyDetailPage({
             <p className="mt-4 max-w-3xl text-sm font-semibold leading-relaxed text-zinc-600 dark:text-white/60 sm:text-lg">
               {item.subtitle}
             </p>
+
+            <div className="mt-6 flex flex-wrap gap-3">
+              <Link
+                href="#video"
+                className="rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-black shadow-[0_20px_60px_rgba(34,197,94,.22)] transition hover:bg-emerald-400"
+              >
+                Eğitime Başla
+              </Link>
+
+              <Link
+                href={supportHref}
+                className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-6 py-3 text-sm font-black text-emerald-800 transition hover:bg-emerald-500 hover:text-black dark:text-emerald-200"
+              >
+                Destek Talebi Oluştur →
+              </Link>
+            </div>
           </div>
 
           <div className="lg:col-span-4">
@@ -298,34 +308,58 @@ export default async function AcademyDetailPage({
 
       <section className="mt-8 grid gap-6 lg:grid-cols-12">
         <div className="lg:col-span-7">
-          <div className="overflow-hidden rounded-[40px] border border-black/10 bg-black shadow-[0_24px_90px_rgba(0,0,0,.14)] dark:border-white/10">
-            <div className="flex aspect-video items-center justify-center bg-gradient-to-br from-zinc-950 via-zinc-900 to-emerald-950 p-8 text-center">
-              <div>
-                <div className="text-7xl">{item.icon}</div>
-                <div className="mt-5 text-3xl font-black text-white">
-                  Video alanı hazırlanıyor
+          <div
+            id="video"
+            className="overflow-hidden rounded-[42px] border border-black/10 bg-black shadow-[0_30px_110px_rgba(0,0,0,.16)] dark:border-white/10"
+          >
+            <div className="relative flex aspect-video items-center justify-center overflow-hidden bg-gradient-to-br from-zinc-950 via-emerald-950 to-black p-8 text-center">
+              <div className="absolute left-6 top-6 rounded-full border border-white/10 bg-white/10 px-4 py-2 text-xs font-black text-white/70 backdrop-blur-xl">
+                HALAPP AKADEMİ VIDEO
+              </div>
+
+              <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-emerald-500/20 blur-3xl" />
+              <div className="absolute -bottom-24 -right-24 h-72 w-72 rounded-full bg-cyan-500/20 blur-3xl" />
+
+              <div className="relative">
+                <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-[32px] border border-white/10 bg-white/10 text-6xl shadow-[0_30px_100px_rgba(34,197,94,.22)] backdrop-blur-xl">
+                  {item.icon}
                 </div>
-                <p className="mt-3 max-w-xl text-sm font-semibold leading-relaxed text-white/55">
-                  Buraya YouTube embed, kendi MP4 videon veya kısa eğitim animasyonu
-                  eklenebilir.
+
+                <div className="mt-6 text-3xl font-black text-white">
+                  {item.title}
+                </div>
+
+                <p className="mx-auto mt-3 max-w-xl text-sm font-semibold leading-relaxed text-white/55">
+                  Kısa eğitim videosu hazırlanıyor. Bu alana YouTube, MP4 veya
+                  HalApp içi video player bağlanacak.
                 </p>
+
+                <div className="mt-6 inline-flex rounded-2xl bg-emerald-500 px-6 py-3 text-sm font-black text-black">
+                  Yakında Video Aktif
+                </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-6 rounded-[36px] border border-black/10 bg-white/80 p-6 shadow-[0_24px_90px_rgba(0,0,0,.055)] dark:border-white/10 dark:bg-white/[0.045]">
-            <h2 className="text-2xl font-black text-zinc-950 dark:text-white">
-              Eğitim İçeriği
-            </h2>
+          <div className="mt-6 rounded-[38px] border border-black/10 bg-white/85 p-6 shadow-[0_24px_90px_rgba(0,0,0,.055)] dark:border-white/10 dark:bg-white/[0.045]">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-2xl font-black text-zinc-950 dark:text-white">
+                Eğitim İçeriği
+              </h2>
+
+              <span className="rounded-full bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-700 dark:text-emerald-200">
+                {item.lessons.length} ders
+              </span>
+            </div>
 
             <div className="mt-5 space-y-3">
               {item.lessons.map((lesson, index) => (
                 <div
                   key={lesson.title}
-                  className="rounded-[24px] border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+                  className="group rounded-[26px] border border-black/10 bg-white/75 p-4 transition hover:-translate-y-0.5 hover:bg-emerald-500/5 dark:border-white/10 dark:bg-white/[0.04]"
                 >
                   <div className="flex gap-4">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-sm font-black text-black">
+                    <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-emerald-500 text-sm font-black text-black shadow-[0_14px_40px_rgba(34,197,94,.20)]">
                       {index + 1}
                     </div>
 
@@ -343,7 +377,7 @@ export default async function AcademyDetailPage({
             </div>
           </div>
 
-          <div className="mt-6 rounded-[36px] border border-black/10 bg-white/80 p-6 shadow-[0_24px_90px_rgba(0,0,0,.055)] dark:border-white/10 dark:bg-white/[0.045]">
+          <div className="mt-6 rounded-[38px] border border-black/10 bg-white/85 p-6 shadow-[0_24px_90px_rgba(0,0,0,.055)] dark:border-white/10 dark:bg-white/[0.045]">
             <h2 className="text-2xl font-black text-zinc-950 dark:text-white">
               Sık Sorulan Sorular
             </h2>
@@ -352,7 +386,7 @@ export default async function AcademyDetailPage({
               {item.faq.map((f) => (
                 <div
                   key={f.q}
-                  className="rounded-[24px] border border-black/10 bg-white/70 p-5 dark:border-white/10 dark:bg-white/[0.04]"
+                  className="rounded-[26px] border border-black/10 bg-white/75 p-5 dark:border-white/10 dark:bg-white/[0.04]"
                 >
                   <h3 className="font-black text-zinc-950 dark:text-white">
                     {f.q}
@@ -368,7 +402,7 @@ export default async function AcademyDetailPage({
 
         <aside className="lg:col-span-5">
           <div className="sticky top-24 space-y-6">
-            <div className="rounded-[36px] border border-black/10 bg-white/80 p-6 shadow-[0_24px_90px_rgba(0,0,0,.055)] dark:border-white/10 dark:bg-white/[0.045]">
+            <div className="rounded-[38px] border border-black/10 bg-white/85 p-6 shadow-[0_24px_90px_rgba(0,0,0,.055)] dark:border-white/10 dark:bg-white/[0.045]">
               <h2 className="text-2xl font-black text-zinc-950 dark:text-white">
                 Adım Adım Uygula
               </h2>
@@ -377,9 +411,9 @@ export default async function AcademyDetailPage({
                 {item.steps.map((step, index) => (
                   <div
                     key={step}
-                    className="flex gap-3 rounded-2xl border border-black/10 bg-white/70 p-3 dark:border-white/10 dark:bg-white/[0.04]"
+                    className="flex gap-3 rounded-2xl border border-black/10 bg-white/75 p-3 dark:border-white/10 dark:bg-white/[0.04]"
                   >
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs font-black text-black">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-emerald-500 text-xs font-black text-black">
                       {index + 1}
                     </div>
 
@@ -399,23 +433,33 @@ export default async function AcademyDetailPage({
                 </Link>
 
                 <Link
-                  href="/support"
-                  className="rounded-2xl border border-black/10 bg-white/70 px-5 py-3 text-center text-sm font-black text-zinc-800 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
+                  href={supportHref}
+                  className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-5 py-3 text-center text-sm font-black text-emerald-800 transition hover:bg-emerald-500 hover:text-black dark:text-emerald-200"
                 >
-                  Destek Al
+                  Destek Talebi Oluştur →
+                </Link>
+
+                <Link
+                  href="/chat"
+                  className="rounded-2xl border border-black/10 bg-white/75 px-5 py-3 text-center text-sm font-black text-zinc-800 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.06] dark:text-white"
+                >
+                  Canlı Sohbete Git →
                 </Link>
               </div>
             </div>
 
-            <div className="rounded-[36px] border border-emerald-500/20 bg-emerald-500/10 p-6">
-              <div className="text-3xl">🏆</div>
-              <h3 className="mt-4 text-xl font-black text-zinc-950 dark:text-white">
-                HalApp Başarı Merkezi
-              </h3>
-              <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-600 dark:text-white/60">
-                Doğru ilan, güvenli hesap ve veri kullanımı ile daha fazla alıcıya
-                ulaşabilirsin.
-              </p>
+            <div className="relative overflow-hidden rounded-[38px] border border-emerald-500/20 bg-emerald-500/10 p-6">
+              <div className="absolute -right-16 -top-16 h-40 w-40 rounded-full bg-emerald-500/20 blur-3xl" />
+              <div className="relative">
+                <div className="text-4xl">🏆</div>
+                <h3 className="mt-4 text-xl font-black text-zinc-950 dark:text-white">
+                  HalApp Başarı Merkezi
+                </h3>
+                <p className="mt-2 text-sm font-semibold leading-relaxed text-zinc-600 dark:text-white/60">
+                  Doğru ilan, güvenli hesap ve veri kullanımı ile daha fazla
+                  alıcıya ulaşabilirsin.
+                </p>
+              </div>
             </div>
           </div>
         </aside>
