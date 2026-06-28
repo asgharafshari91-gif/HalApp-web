@@ -8,12 +8,63 @@ export const dynamic = "force-dynamic";
 
 type Params = Promise<{ id: string }>;
 
+const KYC_BUCKET = "kyc";
+const SIGNED_URL_SECONDS = 60 * 10;
+
 function safeId(v: any) {
   return String(v ?? "").trim();
 }
 
 function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
+}
+
+function storagePathFromValue(v: any) {
+  const raw = String(v ?? "").trim();
+  if (!raw) return null;
+
+  if (!/^https?:\/\//i.test(raw)) {
+    return raw.replace(/^\/+/, "");
+  }
+
+  try {
+    const u = new URL(raw);
+    const marker = `/storage/v1/object/public/${KYC_BUCKET}/`;
+    const idx = u.pathname.indexOf(marker);
+
+    if (idx >= 0) {
+      return decodeURIComponent(u.pathname.slice(idx + marker.length));
+    }
+
+    const signedMarker = `/storage/v1/object/sign/${KYC_BUCKET}/`;
+    const signedIdx = u.pathname.indexOf(signedMarker);
+
+    if (signedIdx >= 0) {
+      return decodeURIComponent(u.pathname.slice(signedIdx + signedMarker.length));
+    }
+
+    return raw;
+  } catch {
+    return raw;
+  }
+}
+
+async function signedUrl(sb: any, v: any) {
+  const path = storagePathFromValue(v);
+  if (!path) return null;
+
+  if (/^https?:\/\//i.test(path)) return path;
+
+  const { data, error } = await sb.storage
+    .from(KYC_BUCKET)
+    .createSignedUrl(path, SIGNED_URL_SECONDS);
+
+  if (error) {
+    console.error("KYC signed url error:", error.message, path);
+    return null;
+  }
+
+  return data?.signedUrl ?? null;
 }
 
 function ErrorBox({
@@ -110,7 +161,6 @@ export default async function AdminKycDetailPage({ params }: { params: Params })
       kyc_approved_at,
       kyc_rejected_at,
       kyc_last_updated,
-      kyc_reviewed_by,
       kyc_comment,
       kyc_note,
       kyc_id_front_url,
@@ -141,6 +191,33 @@ export default async function AdminKycDetailPage({ params }: { params: Params })
     return <EmptyBox />;
   }
 
+  const idFrontRaw = profile.kyc_id_front_url ?? profile.id_card_front_url ?? null;
+  const idBackRaw = profile.kyc_id_back_url ?? profile.id_card_back_url ?? null;
+  const selfieRaw = profile.kyc_selfie_url ?? profile.selfie_url ?? null;
+
+  const tradeRegistryRaw = profile.kyc_trade_registry_url ?? null;
+  const taxPlateRaw = profile.kyc_tax_plate_url ?? null;
+  const activityCertRaw = profile.kyc_activity_cert_url ?? null;
+  const signatureCircRaw = profile.kyc_signature_circ_url ?? null;
+
+  const [
+    idFrontSigned,
+    idBackSigned,
+    selfieSigned,
+    tradeRegistrySigned,
+    taxPlateSigned,
+    activityCertSigned,
+    signatureCircSigned,
+  ] = await Promise.all([
+    signedUrl(sb, idFrontRaw),
+    signedUrl(sb, idBackRaw),
+    signedUrl(sb, selfieRaw),
+    signedUrl(sb, tradeRegistryRaw),
+    signedUrl(sb, taxPlateRaw),
+    signedUrl(sb, activityCertRaw),
+    signedUrl(sb, signatureCircRaw),
+  ]);
+
   const merged = {
     id: profile.id,
     user_id: profile.id,
@@ -153,20 +230,38 @@ export default async function AdminKycDetailPage({ params }: { params: Params })
     submitted_at: profile.kyc_submitted_at ?? null,
     created_at: profile.created_at ?? null,
     reviewed_at: profile.kyc_approved_at ?? profile.kyc_rejected_at ?? null,
-    reviewed_by: profile.kyc_reviewed_by ?? null,
     reject_reason: profile.kyc_comment ?? null,
 
-    id_front_path: profile.kyc_id_front_url ?? profile.id_card_front_url ?? null,
-    id_back_path: profile.kyc_id_back_url ?? profile.id_card_back_url ?? null,
-    selfie_path: profile.kyc_selfie_url ?? profile.selfie_url ?? null,
+    id_front_path: idFrontSigned,
+    id_back_path: idBackSigned,
+    selfie_path: selfieSigned,
 
-    trade_registry_path: profile.kyc_trade_registry_url ?? null,
-    tax_plate_path: profile.kyc_tax_plate_url ?? null,
-    activity_cert_path: profile.kyc_activity_cert_url ?? null,
-    signature_circ_path: profile.kyc_signature_circ_url ?? null,
+    trade_registry_path: tradeRegistrySigned,
+    tax_plate_path: taxPlateSigned,
+    activity_cert_path: activityCertSigned,
+    signature_circ_path: signatureCircSigned,
+
+    kyc_id_front_url: idFrontSigned,
+    kyc_id_back_url: idBackSigned,
+    kyc_selfie_url: selfieSigned,
+
+    kyc_trade_registry_url: tradeRegistrySigned,
+    kyc_tax_plate_url: taxPlateSigned,
+    kyc_activity_cert_url: activityCertSigned,
+    kyc_signature_circ_url: signatureCircSigned,
 
     kyc_comment: profile.kyc_comment ?? null,
     kyc_note: profile.kyc_note ?? null,
+
+    raw_paths: {
+      id_front: storagePathFromValue(idFrontRaw),
+      id_back: storagePathFromValue(idBackRaw),
+      selfie: storagePathFromValue(selfieRaw),
+      trade_registry: storagePathFromValue(tradeRegistryRaw),
+      tax_plate: storagePathFromValue(taxPlateRaw),
+      activity_cert: storagePathFromValue(activityCertRaw),
+      signature_circ: storagePathFromValue(signatureCircRaw),
+    },
 
     profiles: {
       id: profile.id,

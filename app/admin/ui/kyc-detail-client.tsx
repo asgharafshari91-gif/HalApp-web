@@ -181,7 +181,17 @@ async function apiPatchKyc(id: string, body: any) {
   });
 
   const j = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(j?.error ?? "request_failed");
+
+  if (!res.ok) {
+    throw new Error(
+      j?.error ||
+        j?.message ||
+        j?.details?.message ||
+        JSON.stringify(j) ||
+        `KYC güncelleme başarısız. HTTP ${res.status}`
+    );
+  }
+
   return j;
 }
 

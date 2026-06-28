@@ -8,29 +8,51 @@ function clsx(...a: (string | false | null | undefined)[]) {
   return a.filter(Boolean).join(" ");
 }
 
+type KycStatus = "none" | "pending" | "approved" | "rejected" | "verified";
+
 type KycRow = {
   id: string;
-  user_id: string | null;
-  status: string | null;
-  reject_reason?: string | null;
+  full_name: string | null;
+  company_name: string | null;
+  phone: string | null;
+  email: string | null;
 
-  submitted_at?: string | null;
-  created_at?: string | null;
-  updated_at?: string | null;
+  account_type: "individual" | "corporate" | null;
+  user_role: "buyer" | "seller" | "both" | null;
+  role?: string | null;
 
-  reviewed_at?: string | null;
-  reviewed_by?: string | null;
+  kyc_status: KycStatus | null;
+  verified: boolean | null;
 
-  profiles?: {
-    id: string;
-    full_name: string | null;
-    company_name: string | null;
-    phone: string | null;
-    email: string | null;
-  } | null;
+  kyc_submitted_at: string | null;
+  kyc_approved_at?: string | null;
+  kyc_rejected_at?: string | null;
+  kyc_last_updated?: string | null;
 
-  // doc url alanları farklı isimlerde olabilir
+  kyc_comment?: string | null;
+  kyc_note?: string | null;
+
+  kyc_id_front_url?: string | null;
+  kyc_id_back_url?: string | null;
+  kyc_selfie_url?: string | null;
+
+  id_card_front_url?: string | null;
+  id_card_back_url?: string | null;
+  selfie_url?: string | null;
+
+  kyc_trade_registry_url?: string | null;
+  kyc_tax_plate_url?: string | null;
+  kyc_activity_cert_url?: string | null;
+  kyc_signature_circ_url?: string | null;
+
   [k: string]: any;
+};
+
+type DocItem = {
+  key: string;
+  label: string;
+  url: string;
+  kind: "image" | "link";
 };
 
 function pill(variant: "sky" | "emerald" | "rose" | "amber") {
@@ -40,7 +62,13 @@ function pill(variant: "sky" | "emerald" | "rose" | "amber") {
   return "border-sky-500/25 bg-sky-500/10 text-sky-800 dark:text-sky-200";
 }
 
-function Badge({ children, variant }: { children: React.ReactNode; variant: "sky" | "emerald" | "rose" | "amber" }) {
+function Badge({
+  children,
+  variant,
+}: {
+  children: React.ReactNode;
+  variant: "sky" | "emerald" | "rose" | "amber";
+}) {
   return (
     <span className={clsx("inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-extrabold", pill(variant))}>
       {children}
@@ -51,65 +79,92 @@ function Badge({ children, variant }: { children: React.ReactNode; variant: "sky
 function fmt(dt?: string | null) {
   if (!dt) return "—";
   try {
-    return new Date(dt).toLocaleString("tr-TR", { dateStyle: "medium", timeStyle: "short" });
+    return new Date(dt).toLocaleString("tr-TR", {
+      dateStyle: "medium",
+      timeStyle: "short",
+    });
   } catch {
     return String(dt);
   }
 }
 
-function normStatus(v: string | null) {
-  const s = String(v ?? "pending").toLowerCase();
-  if (s === "approved") return "approved";
+function normStatus(v: string | null | undefined, verified?: boolean | null) {
+  if (verified) return "approved";
+  const s = String(v ?? "none").toLowerCase();
+  if (s === "approved" || s === "verified") return "approved";
   if (s === "rejected") return "rejected";
-  return "pending";
+  if (s === "pending") return "pending";
+  return "none";
 }
 
-function statusBadge(s: string | null) {
-  const v = normStatus(s);
+function statusBadge(s: string | null | undefined, verified?: boolean | null) {
+  const v = normStatus(s, verified);
   if (v === "approved") return <Badge variant="emerald">APPROVED</Badge>;
   if (v === "rejected") return <Badge variant="rose">REJECTED</Badge>;
-  return <Badge variant="amber">PENDING</Badge>;
+  if (v === "pending") return <Badge variant="amber">PENDING</Badge>;
+  return <Badge variant="sky">NONE</Badge>;
 }
 
-function safeUrl(v: any): string | null {
-  if (!v) return null;
-  const s = String(v).trim();
-  if (!s) return null;
-  // http(s) veya supabase storage public URL vb.
-  if (s.startsWith("http://") || s.startsWith("https://")) return s;
-  return s; // bazı projelerde relative saklanıyor olabilir, yine link açsın
+function safeUrl(...vals: any[]): string | null {
+  for (const v of vals) {
+    if (!v) continue;
+    const s = String(v).trim();
+    if (s) return s;
+  }
+  return null;
 }
 
 function isImageUrl(u: string) {
   const x = u.toLowerCase();
-  return x.includes(".png") || x.includes(".jpg") || x.includes(".jpeg") || x.includes(".webp") || x.includes(".gif");
+  return (
+    x.includes(".png") ||
+    x.includes(".jpg") ||
+    x.includes(".jpeg") ||
+    x.includes(".webp") ||
+    x.includes(".gif")
+  );
 }
 
-type DocItem = { key: string; label: string; url: string; kind: "image" | "link" };
-
 function pickDocs(r: KycRow): DocItem[] {
-  // ✅ r null olamaz, ama yine de sağlam
-  if (!r || typeof r !== "object") return [];
-
-  const candidates: Array<[string, string]> = [
-    ["id_card_url", "Kimlik (Ön/Arka)"],
-    ["id_front_url", "Kimlik Ön"],
-    ["id_back_url", "Kimlik Arka"],
-    ["selfie_url", "Selfie"],
-    ["passport_url", "Pasaport"],
-    ["proof_of_address_url", "Adres Belgesi"],
-    ["doc_url", "Doküman"],
-    ["document_url", "Doküman"],
+  const docs: Array<[string, string, string | null]> = [
+    ["id_front", "Kimlik Ön", safeUrl(r.kyc_id_front_url, r.id_card_front_url)],
+    ["id_back", "Kimlik Arka", safeUrl(r.kyc_id_back_url, r.id_card_back_url)],
+    ["selfie", "Selfie", safeUrl(r.kyc_selfie_url, r.selfie_url)],
+    ["trade_registry", "Ticaret Sicil", safeUrl(r.kyc_trade_registry_url)],
+    ["tax_plate", "Vergi Levhası", safeUrl(r.kyc_tax_plate_url)],
+    ["activity_cert", "Faaliyet Belgesi", safeUrl(r.kyc_activity_cert_url)],
+    ["signature_circ", "İmza Sirküleri", safeUrl(r.kyc_signature_circ_url)],
   ];
 
-  const out: DocItem[] = [];
-  for (const [k, label] of candidates) {
-    if (!(k in r)) continue; // ✅ burada artık r[k] patlamaz
-    const u = safeUrl((r as any)[k]);
-    if (!u) continue;
-    out.push({ key: k, label, url: u, kind: isImageUrl(u) ? "image" : "link" });
+  return docs
+    .filter((x) => Boolean(x[2]))
+    .map(([key, label, url]) => ({
+      key,
+      label,
+      url: String(url),
+      kind: isImageUrl(String(url)) ? "image" : "link",
+    }));
+}
+
+async function apiPatchKyc(id: string, body: any) {
+  const res = await fetch(`/api/admin/kyc/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+
+  const j = await res.json().catch(() => ({}));
+
+  if (!res.ok) {
+    throw new Error(
+      j?.error ||
+        j?.message ||
+        j?.details?.message ||
+        `KYC güncelleme başarısız. HTTP ${res.status}`
+    );
   }
-  return out;
+
+  return j;
 }
 
 export default function KycClient({
@@ -130,17 +185,84 @@ export default function KycClient({
   limit: number;
 }) {
   const router = useRouter();
-  const [items] = useState<KycRow[]>(initialItems as any);
+
+  const [items, setItems] = useState<KycRow[]>(initialItems as KycRow[]);
+  const [busyId, setBusyId] = useState<string | null>(null);
 
   const title = useMemo(() => `🪪 KYC Talepleri (${total})`, [total]);
 
   function pushParams(next: { q?: string; status?: string; page?: number; limit?: number }) {
     const sp = new URLSearchParams();
+
     if (next.q) sp.set("q", next.q);
     if (next.status) sp.set("status", next.status);
     if (next.limit && next.limit !== 25) sp.set("limit", String(next.limit));
     if (next.page && next.page > 1) sp.set("page", String(next.page));
+
     router.push(`/admin/kyc?${sp.toString()}`);
+  }
+
+  async function approve(row: KycRow) {
+    if (busyId) return;
+
+    setBusyId(row.id);
+
+    try {
+      await apiPatchKyc(row.id, { status: "approved" });
+
+      setItems((prev) =>
+        prev.map((x) =>
+          x.id === row.id
+            ? {
+                ...x,
+                kyc_status: "approved",
+                verified: true,
+              }
+            : x
+        )
+      );
+
+      router.refresh();
+    } catch (e: any) {
+      alert(e?.message ?? "approve_failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function reject(row: KycRow) {
+    if (busyId) return;
+
+    const reason = prompt("Red sebebi:", row.kyc_comment || "Kimlik bilgileri okunamıyor.") ?? "";
+    const finalReason = reason.trim() || "KYC belgeleri uygun bulunmadı.";
+
+    setBusyId(row.id);
+
+    try {
+      await apiPatchKyc(row.id, {
+        status: "rejected",
+        reject_reason: finalReason,
+      });
+
+      setItems((prev) =>
+        prev.map((x) =>
+          x.id === row.id
+            ? {
+                ...x,
+                kyc_status: "rejected",
+                verified: false,
+                kyc_comment: finalReason,
+              }
+            : x
+        )
+      );
+
+      router.refresh();
+    } catch (e: any) {
+      alert(e?.message ?? "reject_failed");
+    } finally {
+      setBusyId(null);
+    }
   }
 
   return (
@@ -151,7 +273,7 @@ export default function KycClient({
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_200px_120px]">
           <input
             defaultValue={q}
-            placeholder="İsim / mail / telefon / user_id / kyc_id ara…"
+            placeholder="İsim / mail / telefon / kullanıcı id ara…"
             className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm font-semibold outline-none dark:border-white/10 dark:bg-black/30"
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -184,38 +306,53 @@ export default function KycClient({
       <div className="rounded-[22px] border border-black/10 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="grid gap-2">
           {items.map((r) => {
-            const p = r.profiles ?? null;
-            const name = (p?.company_name?.trim() || p?.full_name?.trim() || r.user_id || "Kullanıcı") ?? "Kullanıcı";
+            const name = r.company_name?.trim() || r.full_name?.trim() || r.id || "Kullanıcı";
             const docs = pickDocs(r);
+            const currentStatus = normStatus(r.kyc_status, r.verified);
+            const isBusy = busyId === r.id;
 
             return (
-              <div key={r.id} className="rounded-2xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.04]">
+              <div
+                key={r.id}
+                className="rounded-2xl border border-black/10 bg-white/70 p-4 dark:border-white/10 dark:bg-white/[0.04]"
+              >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="truncate text-sm font-black">{name}</div>
-                      {statusBadge(r.status)}
-                      <Badge variant="sky">kyc: {r.id}</Badge>
-                      {r.user_id ? <Badge variant="sky">user: {r.user_id}</Badge> : <Badge variant="rose">user_id yok</Badge>}
+
+                      {statusBadge(r.kyc_status, r.verified)}
+
+                      <Badge variant="sky">
+                        {r.account_type === "corporate" ? "Kurumsal" : "Bireysel"}
+                      </Badge>
+
+                      <Badge variant="sky">user: {r.id}</Badge>
+
+                      {r.verified ? <Badge variant="emerald">✓ Onaylı</Badge> : null}
                     </div>
 
-                    <div className="mt-1 text-xs text-black/60 dark:text-white/60 space-y-1">
-                      <div>submitted: {fmt(r.submitted_at)}</div>
-                      <div>created: {fmt(r.created_at)}</div>
-                      {p?.phone || p?.email ? (
+                    <div className="mt-1 space-y-1 text-xs text-black/60 dark:text-white/60">
+                      <div>submitted: {fmt(r.kyc_submitted_at)}</div>
+                      <div>updated: {fmt(r.kyc_last_updated)}</div>
+
+                      {r.phone || r.email ? (
                         <div>
-                          {p?.phone ? `tel: ${p.phone}` : ""} {p?.email ? ` • mail: ${p.email}` : ""}
+                          {r.phone ? `tel: ${r.phone}` : ""} {r.email ? ` • mail: ${r.email}` : ""}
                         </div>
                       ) : null}
-                      {normStatus(r.status) === "rejected" ? (
-                        <div className="text-rose-600 dark:text-rose-400">reason: {r.reject_reason || "—"}</div>
+
+                      {currentStatus === "rejected" ? (
+                        <div className="text-rose-600 dark:text-rose-400">
+                          reason: {r.kyc_comment || r.kyc_note || "—"}
+                        </div>
                       ) : null}
                     </div>
 
-                    {/* ✅ Doküman önizleme */}
                     {docs.length ? (
                       <div className="mt-3">
                         <div className="text-xs font-extrabold text-black/55 dark:text-white/55">Dokümanlar</div>
+
                         <div className="mt-2 flex flex-wrap gap-2">
                           {docs.slice(0, 4).map((d) =>
                             d.kind === "image" ? (
@@ -227,9 +364,9 @@ export default function KycClient({
                                 className="group relative h-16 w-16 overflow-hidden rounded-2xl border border-black/10 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]"
                                 title={d.label}
                               >
-                                {/* img tag (next/image şart değil) */}
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img src={d.url} alt={d.label} className="h-full w-full object-cover" />
-                                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition" />
+                                <div className="absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
                               </a>
                             ) : (
                               <a
@@ -244,6 +381,7 @@ export default function KycClient({
                               </a>
                             )
                           )}
+
                           {docs.length > 4 ? (
                             <span className="inline-flex items-center rounded-2xl border border-black/10 bg-black/5 px-3 py-2 text-xs font-black text-black/70 dark:border-white/10 dark:bg-white/5 dark:text-white/70">
                               +{docs.length - 4}
@@ -251,7 +389,11 @@ export default function KycClient({
                           ) : null}
                         </div>
                       </div>
-                    ) : null}
+                    ) : (
+                      <div className="mt-3 text-xs font-semibold text-black/50 dark:text-white/50">
+                        Doküman linki yok.
+                      </div>
+                    )}
 
                     <div className="mt-3 flex flex-wrap gap-2">
                       <Link
@@ -261,15 +403,37 @@ export default function KycClient({
                         Detay →
                       </Link>
 
-                      {r.user_id ? (
-                        <Link
-                          href={`/admin/users/${encodeURIComponent(r.user_id)}`}
-                          className="inline-flex rounded-2xl border border-black/10 bg-white/70 px-4 py-2 text-xs font-black hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
-                        >
-                          Kullanıcı →
-                        </Link>
-                      ) : null}
+                      <Link
+                        href={`/admin/users/${encodeURIComponent(r.id)}`}
+                        className="inline-flex rounded-2xl border border-black/10 bg-white/70 px-4 py-2 text-xs font-black hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
+                      >
+                        Kullanıcı →
+                      </Link>
                     </div>
+                  </div>
+
+                  <div className="flex shrink-0 flex-col gap-2">
+                    <button
+                      disabled={isBusy || currentStatus === "approved"}
+                      onClick={() => approve(r)}
+                      className={clsx(
+                        "rounded-2xl bg-emerald-500 px-4 py-2 text-xs font-black text-black transition hover:bg-emerald-400",
+                        (isBusy || currentStatus === "approved") && "cursor-not-allowed opacity-60"
+                      )}
+                    >
+                      {isBusy ? "…" : "Onayla"}
+                    </button>
+
+                    <button
+                      disabled={isBusy || currentStatus === "rejected"}
+                      onClick={() => reject(r)}
+                      className={clsx(
+                        "rounded-2xl bg-rose-500 px-4 py-2 text-xs font-black text-white transition hover:bg-rose-400",
+                        (isBusy || currentStatus === "rejected") && "cursor-not-allowed opacity-60"
+                      )}
+                    >
+                      {isBusy ? "…" : "Reddet"}
+                    </button>
                   </div>
                 </div>
               </div>
@@ -287,6 +451,7 @@ export default function KycClient({
           <div className="text-black/60 dark:text-white/60">
             Sayfa {page}/{pages} • toplam {total}
           </div>
+
           <div className="flex gap-2">
             <button
               className="rounded-xl bg-black/10 px-3 py-2 font-black hover:bg-black/15 disabled:opacity-50 dark:bg-white/10 dark:hover:bg-white/15"
@@ -295,6 +460,7 @@ export default function KycClient({
             >
               ←
             </button>
+
             <button
               className="rounded-xl bg-black/10 px-3 py-2 font-black hover:bg-black/15 disabled:opacity-50 dark:bg-white/10 dark:hover:bg-white/15"
               onClick={() => pushParams({ q, status, page: Math.min(pages, page + 1), limit })}
