@@ -11,13 +11,43 @@ function clsx(...a: (string | false | null | undefined)[]) {
 type KycRow = {
   id: string;
   user_id: string | null;
+
   status: string | null;
+  kyc_status?: string | null;
+  verified?: boolean | null;
+
   reject_reason?: string | null;
+  kyc_comment?: string | null;
+  kyc_note?: string | null;
+
   submitted_at?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   reviewed_at?: string | null;
   reviewed_by?: string | null;
+
+  id_front_path?: string | null;
+  id_back_path?: string | null;
+  selfie_path?: string | null;
+
+  trade_registry_path?: string | null;
+  tax_plate_path?: string | null;
+  activity_cert_path?: string | null;
+  signature_circ_path?: string | null;
+
+  kyc_id_front_url?: string | null;
+  kyc_id_back_url?: string | null;
+  kyc_selfie_url?: string | null;
+
+  id_card_front_url?: string | null;
+  id_card_back_url?: string | null;
+  selfie_url?: string | null;
+
+  kyc_trade_registry_url?: string | null;
+  kyc_tax_plate_url?: string | null;
+  kyc_activity_cert_url?: string | null;
+  kyc_signature_circ_url?: string | null;
+
   profiles?: {
     id: string;
     full_name: string | null;
@@ -25,7 +55,14 @@ type KycRow = {
     phone: string | null;
     email: string | null;
     avatar_url?: string | null;
+    city?: string | null;
+    district?: string | null;
+    role?: string | null;
+    kyc_status?: string | null;
+    verified?: boolean | null;
+    is_premium?: boolean | null;
   } | null;
+
   [k: string]: any;
 };
 
@@ -71,24 +108,30 @@ function fmt(dt?: string | null) {
   }
 }
 
-function normStatus(v: string | null) {
+function normStatus(v: string | null | undefined, verified?: boolean | null) {
+  if (verified) return "approved";
   const s = String(v ?? "pending").toLowerCase();
-  if (s === "approved") return "approved";
+  if (s === "approved" || s === "verified") return "approved";
   if (s === "rejected") return "rejected";
+  if (s === "none") return "none";
   return "pending";
 }
 
-function statusBadge(s: string | null) {
-  const v = normStatus(s);
+function statusBadge(s: string | null | undefined, verified?: boolean | null) {
+  const v = normStatus(s, verified);
   if (v === "approved") return <Badge variant="emerald">APPROVED</Badge>;
   if (v === "rejected") return <Badge variant="rose">REJECTED</Badge>;
+  if (v === "none") return <Badge variant="sky">NONE</Badge>;
   return <Badge variant="amber">PENDING</Badge>;
 }
 
-function safeUrl(v: any): string | null {
-  if (!v) return null;
-  const s = String(v).trim();
-  return s ? s : null;
+function safeUrl(...vals: any[]): string | null {
+  for (const v of vals) {
+    if (!v) continue;
+    const s = String(v).trim();
+    if (s) return s;
+  }
+  return null;
 }
 
 function isImageUrl(u: string) {
@@ -103,31 +146,24 @@ function isImageUrl(u: string) {
 }
 
 function pickDocs(r: KycRow): DocItem[] {
-  const candidates: Array<[string, string]> = [
-    ["id_card_url", "Kimlik"],
-    ["id_front_url", "Kimlik Ön"],
-    ["id_back_url", "Kimlik Arka"],
-    ["selfie_url", "Selfie"],
-    ["passport_url", "Pasaport"],
-    ["proof_of_address_url", "Adres Belgesi"],
-    ["doc_url", "Doküman"],
-    ["document_url", "Doküman"],
+  const docs: Array<[string, string, string | null]> = [
+    ["id_front", "Kimlik Ön", safeUrl(r.id_front_path, r.kyc_id_front_url, r.id_card_front_url)],
+    ["id_back", "Kimlik Arka", safeUrl(r.id_back_path, r.kyc_id_back_url, r.id_card_back_url)],
+    ["selfie", "Selfie", safeUrl(r.selfie_path, r.kyc_selfie_url, r.selfie_url)],
+    ["trade_registry", "Ticaret Sicil", safeUrl(r.trade_registry_path, r.kyc_trade_registry_url)],
+    ["tax_plate", "Vergi Levhası", safeUrl(r.tax_plate_path, r.kyc_tax_plate_url)],
+    ["activity_cert", "Faaliyet Belgesi", safeUrl(r.activity_cert_path, r.kyc_activity_cert_url)],
+    ["signature_circ", "İmza Sirküleri", safeUrl(r.signature_circ_path, r.kyc_signature_circ_url)],
   ];
 
-  const out: DocItem[] = [];
-
-  for (const [k, label] of candidates) {
-    const u = safeUrl(r[k]);
-    if (!u) continue;
-    out.push({
-      key: k,
+  return docs
+    .filter((x) => Boolean(x[2]))
+    .map(([key, label, url]) => ({
+      key,
       label,
-      url: u,
-      kind: isImageUrl(u) ? "image" : "link",
-    });
-  }
-
-  return out;
+      url: String(url),
+      kind: isImageUrl(String(url)) ? "image" : "link",
+    }));
 }
 
 function initials(name: string) {
@@ -176,9 +212,11 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
 
   const k = kyc;
   const p = k.profiles ?? null;
-  const status = normStatus(k.status);
-  const name = (p?.company_name?.trim() || p?.full_name?.trim() || k.user_id || "Kullanıcı") ?? "Kullanıcı";
+  const currentStatus = normStatus(k.kyc_status ?? k.status, k.verified ?? p?.verified);
+  const name = (p?.company_name?.trim() || p?.full_name?.trim() || k.user_id || k.id || "Kullanıcı") ?? "Kullanıcı";
   const docs = pickDocs(k);
+  const userId = k.user_id || p?.id || k.id;
+  const rejectText = k.kyc_comment || k.reject_reason || k.kyc_note || null;
 
   async function setStatus(next: "approved" | "rejected" | "pending") {
     if (busy) return;
@@ -186,20 +224,28 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
     let reject_reason: string | null | undefined = undefined;
 
     if (next === "rejected") {
-      const r = prompt("Red sebebi:", k.reject_reason ?? "Kimlik bilgileri okunamıyor.") ?? "";
-      reject_reason = r.trim() || null;
+      const r = prompt("Red sebebi:", rejectText ?? "Kimlik bilgileri okunamıyor.") ?? "";
+      reject_reason = r.trim() || "KYC belgeleri uygun bulunmadı.";
     }
 
     setBusy(true);
 
     try {
-      const j = await apiPatchKyc(k.id, {
+      const j = await apiPatchKyc(userId, {
         status: next,
         ...(reject_reason !== undefined ? { reject_reason } : {}),
       });
 
       const nextRow = (j.kyc ?? null) as KycRow | null;
-      if (nextRow) setKyc((prev) => (prev ? { ...prev, ...nextRow } : prev));
+
+      if (nextRow) {
+        setKyc((prev) => ({
+          ...(prev ?? {}),
+          ...nextRow,
+          user_id: nextRow.user_id ?? nextRow.id ?? userId,
+          status: nextRow.kyc_status ?? nextRow.status ?? next,
+        }) as KycRow);
+      }
 
       router.refresh();
     } catch (e: any) {
@@ -225,6 +271,7 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
               <div className="mt-4 flex items-center gap-4">
                 <div className="grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-black/10 bg-black text-lg font-black text-white dark:border-white/10 dark:bg-white dark:text-black">
                   {p?.avatar_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
                     <img src={p.avatar_url} alt={name} className="h-full w-full object-cover" />
                   ) : (
                     initials(name)
@@ -235,9 +282,10 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
                   <h1 className="truncate text-2xl font-black tracking-tight md:text-3xl">{name}</h1>
 
                   <div className="mt-2 flex flex-wrap gap-2">
-                    {statusBadge(k.status)}
+                    {statusBadge(k.kyc_status ?? k.status, k.verified ?? p?.verified)}
                     <Badge variant="sky">kyc: {k.id}</Badge>
-                    {k.user_id ? <Badge variant="sky">user: {k.user_id}</Badge> : <Badge variant="rose">user_id yok</Badge>}
+                    <Badge variant="sky">user: {userId}</Badge>
+                    {k.verified || p?.verified ? <Badge variant="emerald">✓ Onaylı</Badge> : null}
                   </div>
                 </div>
               </div>
@@ -254,9 +302,9 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
                 </div>
               </div>
 
-              {status === "rejected" ? (
+              {currentStatus === "rejected" ? (
                 <div className="mt-4 rounded-2xl border border-rose-500/20 bg-rose-500/10 p-4 text-sm font-semibold text-rose-700 dark:text-rose-200">
-                  Red sebebi: {k.reject_reason || "—"}
+                  Red sebebi: {rejectText || "—"}
                 </div>
               ) : null}
             </div>
@@ -269,17 +317,15 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
                 ← Liste
               </Link>
 
-              {k.user_id ? (
-                <Link
-                  href={`/admin/users/${encodeURIComponent(k.user_id)}`}
-                  className="rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-center text-xs font-black hover:bg-white dark:border-white/10 dark:bg-white/[0.04]"
-                >
-                  Kullanıcı →
-                </Link>
-              ) : null}
+              <Link
+                href={`/admin/users/${encodeURIComponent(userId)}`}
+                className="rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-center text-xs font-black hover:bg-white dark:border-white/10 dark:bg-white/[0.04]"
+              >
+                Kullanıcı →
+              </Link>
 
               <button
-                disabled={busy}
+                disabled={busy || currentStatus === "approved"}
                 onClick={() => setStatus("approved")}
                 className="rounded-2xl bg-emerald-500 px-4 py-3 text-xs font-black text-black transition hover:bg-emerald-400 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -287,7 +333,7 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
               </button>
 
               <button
-                disabled={busy}
+                disabled={busy || currentStatus === "rejected"}
                 onClick={() => setStatus("rejected")}
                 className="rounded-2xl bg-rose-600 px-4 py-3 text-xs font-black text-white transition hover:bg-rose-500 disabled:cursor-not-allowed disabled:opacity-60"
               >
@@ -319,9 +365,10 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
           <div>
             <div className="text-lg font-black">📎 Kimlik Dokümanları</div>
             <div className="mt-1 text-sm text-black/60 dark:text-white/60">
-              Kimlik, selfie, pasaport ve adres belgelerini kontrol et.
+              Kimlik, selfie ve kurumsal belgeleri kontrol et.
             </div>
           </div>
+
           <Badge variant={docs.length ? "emerald" : "amber"}>{docs.length} doküman</Badge>
         </div>
 
@@ -335,6 +382,7 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
               <div key={d.key} className="overflow-hidden rounded-2xl border border-black/10 bg-white/70 dark:border-white/10 dark:bg-white/[0.04]">
                 <div className="flex items-center justify-between gap-2 border-b border-black/10 p-3 dark:border-white/10">
                   <div className="text-xs font-black text-black/65 dark:text-white/65">{d.label}</div>
+
                   <a
                     href={d.url}
                     target="_blank"
@@ -352,6 +400,7 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
                     className="block h-64 w-full bg-black/5 dark:bg-white/5"
                     title="Büyüt"
                   >
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={d.url} alt={d.label} className="h-full w-full object-contain" />
                   </button>
                 ) : (
@@ -367,7 +416,7 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
                   </div>
                 )}
 
-                <div className="border-t border-black/10 p-3 text-[11px] text-black/45 break-all dark:border-white/10 dark:text-white/45">
+                <div className="break-all border-t border-black/10 p-3 text-[11px] text-black/45 dark:border-white/10 dark:text-white/45">
                   {d.url}
                 </div>
               </div>
@@ -393,6 +442,7 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
           <div className="w-full max-w-6xl" onClick={(e) => e.stopPropagation()}>
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="text-sm font-black text-white">{lightbox.label}</div>
+
               <button
                 className="rounded-2xl bg-white/15 px-4 py-2 text-xs font-black text-white hover:bg-white/25"
                 onClick={() => setLightbox(null)}
@@ -402,6 +452,7 @@ export default function KycDetailClient({ initialKyc }: { initialKyc: KycRow | n
             </div>
 
             <div className="overflow-hidden rounded-3xl border border-white/15 bg-black">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={lightbox.url} alt={lightbox.label} className="max-h-[82vh] w-full object-contain" />
             </div>
 
