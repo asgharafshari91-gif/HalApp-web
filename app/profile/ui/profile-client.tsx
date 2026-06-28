@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { useToast } from "@/components/ui/toast";
 import PremiumSelect from "@/components/ui/PremiumSelect";
-import BlockButton from "@/components/BlockButton"; // path farklıysa düzelt
+import BlockButton from "@/components/BlockButton";
 
 type AccountType = "individual" | "corporate";
 type UserRole = "buyer" | "seller" | "both";
-type KycStatus = "none" | "pending" | "approved" | "rejected";
+type KycStatus = "none" | "pending" | "approved" | "rejected" | "verified";
 
 type LocationsIL = {
   il: string;
@@ -43,26 +43,22 @@ type ProfileRow = {
 
   kyc_status: KycStatus | null;
   kyc_submitted_at: string | null;
+  kyc_approved_at: string | null;
+  kyc_rejected_at: string | null;
+  kyc_last_updated: string | null;
+  kyc_note: string | null;
+
+  verified: boolean | null;
+
+  kyc_id_front_url: string | null;
+  kyc_id_back_url: string | null;
+  kyc_selfie_url: string | null;
+
+  id_card_front_url: string | null;
+  id_card_back_url: string | null;
+  selfie_url: string | null;
 
   profile_locked: boolean | null;
-};
-
-type KycReq = {
-  id: string;
-  user_id: string;
-  account_type: AccountType;
-  status: "draft" | "pending" | "approved" | "rejected";
-
-  id_front_path: string | null;
-  id_back_path: string | null;
-  selfie_path: string | null;
-
-  trade_registry_path: string | null;
-  tax_plate_path: string | null;
-  activity_cert_path: string | null;
-  signature_circ_path: string | null;
-
-  submitted_at: string | null;
 };
 
 function clsx(...a: (string | false | null | undefined)[]) {
@@ -105,7 +101,12 @@ function Badge({
       : "border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200";
 
   return (
-    <span className={clsx("inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-extrabold", cls)}>
+    <span
+      className={clsx(
+        "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-extrabold",
+        cls
+      )}
+    >
       {children}
     </span>
   );
@@ -122,9 +123,15 @@ function Field({
 }) {
   return (
     <div className="rounded-2xl border border-black/10 bg-black/5 p-4 dark:border-white/10 dark:bg-white/5">
-      <div className="text-xs font-extrabold text-black/55 dark:text-white/55">{label}</div>
+      <div className="text-xs font-extrabold text-black/55 dark:text-white/55">
+        {label}
+      </div>
       <div className="mt-2">{children}</div>
-      {hint ? <div className="mt-2 text-[11px] text-black/50 dark:text-white/50">{hint}</div> : null}
+      {hint ? (
+        <div className="mt-2 text-[11px] text-black/50 dark:text-white/50">
+          {hint}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -153,7 +160,7 @@ function Input({
         "w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm font-extrabold text-black/80 outline-none",
         "focus:ring-2 focus:ring-emerald-500/40",
         "dark:border-white/10 dark:bg-black/30 dark:text-white/85",
-        disabled && "opacity-60 cursor-not-allowed"
+        disabled && "cursor-not-allowed opacity-60"
       )}
     />
   );
@@ -162,56 +169,80 @@ function Input({
 function normStr(x: any) {
   return String(x ?? "").trim().replace(/\s+/g, " ");
 }
+
 function normKeyTR(x: any) {
   return normStr(x).toLocaleUpperCase("tr-TR");
 }
 
-/**
- * ✅ locations.json normalize (HATASIZ)
- */
 function normalizeLocationsAny(raw: any): LocationsIL[] {
   if (!raw) return [];
-  const unwrap =
-    raw?.iller ?? raw?.cities ?? raw?.data ?? raw?.locations ?? raw?.Turkey ?? raw?.turkey ?? raw;
 
-  // format: [{ il, ilceler:[{ilce, mahalleler:[]}] }]
-  if (Array.isArray(unwrap) && unwrap.length && unwrap[0]?.il && Array.isArray(unwrap[0]?.ilceler)) {
+  const unwrap =
+    raw?.iller ??
+    raw?.cities ??
+    raw?.data ??
+    raw?.locations ??
+    raw?.Turkey ??
+    raw?.turkey ??
+    raw;
+
+  if (
+    Array.isArray(unwrap) &&
+    unwrap.length &&
+    unwrap[0]?.il &&
+    Array.isArray(unwrap[0]?.ilceler)
+  ) {
     return unwrap.map((c: any) => ({
       il: normStr(c.il),
       ilceler: (c.ilceler ?? []).map((d: any) => ({
         ilce: normStr(d.ilce),
-        mahalleler: Array.isArray(d.mahalleler) ? d.mahalleler.map(normStr) : [],
+        mahalleler: Array.isArray(d.mahalleler)
+          ? d.mahalleler.map(normStr)
+          : [],
       })),
     }));
   }
 
-  // format: [{ city, districts:[{name, neighborhoods:[]}] }]
   if (Array.isArray(unwrap)) {
     const out: LocationsIL[] = [];
+
     for (const c of unwrap) {
       const il = normStr(c.il ?? c.city ?? c.name);
       if (!il) continue;
 
       const districts = c.ilceler ?? c.districts ?? c.counties ?? c.towns ?? [];
+
       const ilceler = Array.isArray(districts)
         ? districts
             .map((d: any) => {
               const ilce = normStr(d.ilce ?? d.district ?? d.name);
               const mahalleler =
-                d.mahalleler ?? d.neighborhoods ?? d.quarters ?? d.list ?? d.items ?? [];
-              return { ilce, mahalleler: Array.isArray(mahalleler) ? mahalleler.map(normStr) : [] };
+                d.mahalleler ??
+                d.neighborhoods ??
+                d.quarters ??
+                d.list ??
+                d.items ??
+                [];
+
+              return {
+                ilce,
+                mahalleler: Array.isArray(mahalleler)
+                  ? mahalleler.map(normStr)
+                  : [],
+              };
             })
             .filter((x: any) => x.ilce)
         : [];
 
       out.push({ il, ilceler });
     }
+
     if (out.length) return out;
   }
 
-  // format: { "Antalya": { "Muratpaşa": ["Lara", ...] } }
   if (unwrap && typeof unwrap === "object" && !Array.isArray(unwrap)) {
     const out: LocationsIL[] = [];
+
     for (const cityKey of Object.keys(unwrap)) {
       const il = normStr(cityKey);
       const v = unwrap[cityKey];
@@ -232,11 +263,16 @@ function normalizeLocationsAny(raw: any): LocationsIL[] {
             const ilce = normStr(distKey);
             const n = v[distKey];
 
-            if (Array.isArray(n)) return { ilce, mahalleler: n.map(normStr) };
+            if (Array.isArray(n)) {
+              return { ilce, mahalleler: n.map(normStr) };
+            }
 
             if (n && typeof n === "object") {
               const arr = n.mahalleler ?? n.neighborhoods ?? n.list ?? n.items ?? [];
-              return { ilce, mahalleler: Array.isArray(arr) ? arr.map(normStr) : [] };
+              return {
+                ilce,
+                mahalleler: Array.isArray(arr) ? arr.map(normStr) : [],
+              };
             }
 
             return { ilce, mahalleler: [] };
@@ -244,33 +280,40 @@ function normalizeLocationsAny(raw: any): LocationsIL[] {
           .filter((x) => x.ilce);
 
         out.push({ il, ilceler });
-        continue;
       }
     }
+
     if (out.length) return out;
   }
 
   return [];
 }
 
+function ext(f: File) {
+  return (f.name.split(".").pop() || "jpg").toLowerCase();
+}
+
 async function uploadToKyc(bucketPath: string, file: File) {
-  const { error } = await supabase.storage.from("kyc_docs").upload(bucketPath, file, {
+  const { error } = await supabase.storage.from("kyc").upload(bucketPath, file, {
     upsert: true,
     cacheControl: "3600",
-    contentType: file.type,
+    contentType: file.type || "image/jpeg",
   });
+
   if (error) throw error;
-  return bucketPath;
+
+  const { data } = supabase.storage.from("kyc").getPublicUrl(bucketPath);
+  return data.publicUrl;
 }
 
 export default function ProfileClient() {
   const router = useRouter();
- const profileUserId =
-  typeof window !== "undefined"
-    ? (new URLSearchParams(window.location.search).get("u") || "").trim() || null
-    : null;
   const { toast } = useToast();
 
+  const profileUserId =
+    typeof window !== "undefined"
+      ? (new URLSearchParams(window.location.search).get("u") || "").trim() || null
+      : null;
 
   const avatarInput = useRef<HTMLInputElement | null>(null);
 
@@ -286,11 +329,9 @@ export default function ProfileClient() {
   const [locLoading, setLocLoading] = useState(true);
   const [locError, setLocError] = useState<string | null>(null);
 
-  // üst sağ menü
   const [moreOpen, setMoreOpen] = useState(false);
   const moreRef = useRef<HTMLDivElement | null>(null);
 
-  // form
   const [accountType, setAccountType] = useState<AccountType>("individual");
   const [userRole, setUserRole] = useState<UserRole>("buyer");
 
@@ -310,12 +351,9 @@ export default function ProfileClient() {
 
   const [kvkkAccepted, setKvkkAccepted] = useState(false);
 
-  // KYC (kendi profili)
-  const [kyc, setKyc] = useState<KycReq | null>(null);
   const [kycUploading, setKycUploading] = useState(false);
   const [kycSubmitting, setKycSubmitting] = useState(false);
 
-  // File states
   const [idFront, setIdFront] = useState<File | null>(null);
   const [idBack, setIdBack] = useState<File | null>(null);
   const [selfie, setSelfie] = useState<File | null>(null);
@@ -327,7 +365,6 @@ export default function ProfileClient() {
 
   const displayName = useMemo(() => safeName(profile), [profile]);
 
-  // ✅ FIX: session yokken "kendi profil" sayma: sadece query yoksa kendi kabul et
   const isMyProfile = useMemo(() => {
     if (!myId) return !profileUserId;
     if (!profileUserId) return true;
@@ -338,21 +375,28 @@ export default function ProfileClient() {
   const inputsDisabled = !isMyProfile || (locked && !editMode);
 
   const kycStatus = (profile?.kyc_status ?? "none") as KycStatus;
-  const kycLocked = !isMyProfile || kycStatus === "pending" || kycStatus === "approved";
 
-  // dışarı tıklayınca menü kapat
+  const kycLocked =
+    !isMyProfile ||
+    kycStatus === "pending" ||
+    kycStatus === "approved" ||
+    kycStatus === "verified" ||
+    profile?.verified === true;
+
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!moreOpen) return;
       const el = moreRef.current;
       if (!el) return;
-      if (e.target instanceof Node && !el.contains(e.target)) setMoreOpen(false);
+      if (e.target instanceof Node && !el.contains(e.target)) {
+        setMoreOpen(false);
+      }
     }
+
     document.addEventListener("mousedown", onDoc);
     return () => document.removeEventListener("mousedown", onDoc);
   }, [moreOpen]);
 
-  // options
   const cityOptions = useMemo(() => {
     const arr = locs.map((x) => normStr(x.il)).filter(Boolean);
     const uniq = Array.from(new Set(arr));
@@ -370,7 +414,9 @@ export default function ProfileClient() {
 
   const neighborhoodOptions = useMemo(() => {
     const il = locs.find((x) => normKeyTR(x.il) === normKeyTR(city));
-    const ilce = (il?.ilceler ?? []).find((d) => normKeyTR(d.ilce) === normKeyTR(district));
+    const ilce = (il?.ilceler ?? []).find(
+      (d) => normKeyTR(d.ilce) === normKeyTR(district)
+    );
     const arr = (ilce?.mahalleler ?? []).map(normStr).filter(Boolean);
     const uniq = Array.from(new Set(arr));
     uniq.sort((a, b) => a.localeCompare(b, "tr"));
@@ -403,13 +449,22 @@ export default function ProfileClient() {
   async function loadLocations() {
     setLocLoading(true);
     setLocError(null);
+
     try {
       const r = await fetch("/locations.json", { cache: "no-store" });
-      if (!r.ok) throw new Error(`/locations.json okunamadı (HTTP ${r.status}). public klasöründe mi?`);
+
+      if (!r.ok) {
+        throw new Error(`/locations.json okunamadı (HTTP ${r.status}). public klasöründe mi?`);
+      }
+
       const raw = await r.json();
       const normalized = normalizeLocationsAny(raw);
+
       setLocs(normalized);
-      if (!normalized.length) setLocError("locations.json okundu ama format tanınmadı veya içerik boş.");
+
+      if (!normalized.length) {
+        setLocError("locations.json okundu ama format tanınmadı veya içerik boş.");
+      }
     } catch (e: any) {
       setLocs([]);
       setLocError(e?.message ?? "locations.json okunamadı.");
@@ -418,9 +473,13 @@ export default function ProfileClient() {
     }
   }
 
-  // ✅ FIX: ensureProfile sadece kendi profiline insert yapar
   async function ensureProfile(targetId: string, canCreate: boolean) {
-    const { data, error } = await supabase.from("profiles").select("*").eq("id", targetId).maybeSingle();
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .eq("id", targetId)
+      .maybeSingle();
+
     if (error) throw error;
 
     if (!data && canCreate) {
@@ -431,31 +490,34 @@ export default function ProfileClient() {
         kyc_status: "none",
         kvkk_accepted: false,
         profile_locked: false,
+        verified: false,
       });
+
       if (ie) throw ie;
 
-      const { data: p2, error: e2 } = await supabase.from("profiles").select("*").eq("id", targetId).maybeSingle();
+      const { data: p2, error: e2 } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", targetId)
+        .maybeSingle();
+
       if (e2) throw e2;
+
       return (p2 as ProfileRow) ?? null;
     }
 
     return (data as ProfileRow) ?? null;
   }
 
-  async function loadKyc(uid: string) {
-    if (!isMyProfile) return;
-    const { data, error } = await supabase.from("kyc_requests").select("*").eq("user_id", uid).maybeSingle();
-    if (error) throw error;
-    setKyc((data as any) ?? null);
-  }
-
   async function loadAll() {
     setLoading(true);
+
     try {
       await loadLocations();
 
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id ?? null;
+
       setMyId(uid);
 
       if (!uid && !profileUserId) {
@@ -470,35 +532,34 @@ export default function ProfileClient() {
       const p = await ensureProfile(targetId, canCreate);
 
       if (!p) {
-        toast({ variant: "warning", title: "Bulunamadı", message: "Bu kullanıcı profili bulunamadı." });
+        toast({
+          variant: "warning",
+          title: "Bulunamadı",
+          message: "Bu kullanıcı profili bulunamadı.",
+        });
         router.push("/");
         return;
       }
 
       setProfile(p);
       hydrate(p);
-
-      if (uid && targetId === uid) {
-        await loadKyc(uid);
-      } else {
-        setKyc(null);
-      }
-
       setEditMode(false);
     } catch (e: any) {
-      toast({ variant: "error", title: "Profil yüklenemedi", message: e?.message ?? "Hata oluştu." });
+      toast({
+        variant: "error",
+        title: "Profil yüklenemedi",
+        message: e?.message ?? "Hata oluştu.",
+      });
     } finally {
       setLoading(false);
     }
   }
 
-  // initial load + query change
   useEffect(() => {
     loadAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileUserId]);
 
-  // ✅ REALTIME: profiles + kyc_requests
   useEffect(() => {
     const targetId = profileUserId || myId;
     if (!targetId) return;
@@ -507,25 +568,25 @@ export default function ProfileClient() {
       .channel(`profile-live-${targetId}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "profiles", filter: `id=eq.${targetId}` },
+        {
+          event: "*",
+          schema: "public",
+          table: "profiles",
+          filter: `id=eq.${targetId}`,
+        },
         async () => {
           try {
-            const { data, error } = await supabase.from("profiles").select("*").eq("id", targetId).maybeSingle();
+            const { data, error } = await supabase
+              .from("profiles")
+              .select("*")
+              .eq("id", targetId)
+              .maybeSingle();
+
             if (error) return;
+
             const p = (data as ProfileRow) ?? null;
             setProfile(p);
             if (p) hydrate(p);
-          } catch {
-            // no-op
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "kyc_requests", filter: `user_id=eq.${targetId}` },
-        async () => {
-          try {
-            if (myId && targetId === myId) await loadKyc(myId);
           } catch {
             // no-op
           }
@@ -539,57 +600,86 @@ export default function ProfileClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [profileUserId, myId]);
 
-  // seçili değerler listede yoksa reset
   useEffect(() => {
     if (useManualLocation) return;
+
     if (!city) {
       setDistrict("");
       setNeighborhood("");
       return;
     }
-    if (district && !districtOptions.some((x) => normKeyTR(x) === normKeyTR(district))) setDistrict("");
+
+    if (
+      district &&
+      !districtOptions.some((x) => normKeyTR(x) === normKeyTR(district))
+    ) {
+      setDistrict("");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city, locs]);
 
   useEffect(() => {
     if (useManualLocation) return;
+
     if (!district) {
       setNeighborhood("");
       return;
     }
-    if (neighborhood && !neighborhoodOptions.some((x) => normKeyTR(x) === normKeyTR(neighborhood)))
+
+    if (
+      neighborhood &&
+      !neighborhoodOptions.some((x) => normKeyTR(x) === normKeyTR(neighborhood))
+    ) {
       setNeighborhood("");
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [district, locs]);
 
   async function pickAvatar(file: File) {
     if (!isMyProfile) return;
+
     try {
       setAvatarUploading(true);
+
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id;
+
       if (!uid) return;
 
-      const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-      const path = `${uid}/avatar_${Date.now()}.${ext}`;
+      const extension = (file.name.split(".").pop() || "jpg").toLowerCase();
+      const path = `${uid}/avatar_${Date.now()}.${extension}`;
 
       const { error: upErr } = await supabase.storage.from("avatars").upload(path, file, {
         upsert: true,
         cacheControl: "3600",
-        contentType: file.type,
+        contentType: file.type || "image/jpeg",
       });
+
       if (upErr) throw upErr;
 
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
       const url = pub.publicUrl;
 
-      const { error: dbErr } = await supabase.from("profiles").update({ avatar_url: url }).eq("id", uid);
+      const { error: dbErr } = await supabase
+        .from("profiles")
+        .update({ avatar_url: url })
+        .eq("id", uid);
+
       if (dbErr) throw dbErr;
 
-      toast({ variant: "success", title: "Güncellendi", message: "Profil fotoğrafın yenilendi." });
+      toast({
+        variant: "success",
+        title: "Güncellendi",
+        message: "Profil fotoğrafın yenilendi.",
+      });
+
       await loadAll();
     } catch (e: any) {
-      toast({ variant: "error", title: "Avatar yüklenemedi", message: e?.message ?? "Hata oluştu." });
+      toast({
+        variant: "error",
+        title: "Avatar yüklenemedi",
+        message: e?.message ?? "Hata oluştu.",
+      });
     } finally {
       setAvatarUploading(false);
     }
@@ -599,49 +689,74 @@ export default function ProfileClient() {
     if (!isMyProfile) return false;
 
     if (!kvkkAccepted) {
-      toast({ variant: "warning", title: "KVKK gerekli", message: "Devam için KVKK metnini kabul et." });
+      toast({
+        variant: "warning",
+        title: "KVKK gerekli",
+        message: "Devam için KVKK metnini kabul et.",
+      });
       return false;
     }
 
-    if (accountType === "individual") {
-      if (!fullName.trim()) {
-        toast({ variant: "warning", title: "Ad Soyad gerekli", message: "Bireysel hesapta ad soyad zorunlu." });
-        return false;
-      }
+    if (accountType === "individual" && !fullName.trim()) {
+      toast({
+        variant: "warning",
+        title: "Ad Soyad gerekli",
+        message: "Bireysel hesapta ad soyad zorunlu.",
+      });
+      return false;
     }
 
     if (accountType === "corporate") {
       if (!companyName.trim()) {
-        toast({ variant: "warning", title: "Şirket adı gerekli", message: "Kurumsal hesapta şirket adı zorunlu." });
+        toast({
+          variant: "warning",
+          title: "Şirket adı gerekli",
+          message: "Kurumsal hesapta şirket adı zorunlu.",
+        });
         return false;
       }
+
       if (!taxOffice.trim() || !taxNumber.trim()) {
-        toast({ variant: "warning", title: "Vergi bilgileri", message: "Vergi dairesi ve vergi no zorunlu." });
+        toast({
+          variant: "warning",
+          title: "Vergi bilgileri",
+          message: "Vergi dairesi ve vergi no zorunlu.",
+        });
         return false;
       }
     }
 
     if (!city.trim() || !district.trim() || !neighborhood.trim()) {
-      toast({ variant: "warning", title: "Adres eksik", message: "İl/İlçe/Mahalle zorunlu." });
+      toast({
+        variant: "warning",
+        title: "Adres eksik",
+        message: "İl/İlçe/Mahalle zorunlu.",
+      });
       return false;
     }
 
     if (!addressLine.trim()) {
-      toast({ variant: "warning", title: "Açık adres gerekli", message: "Detaylı adres zorunlu." });
+      toast({
+        variant: "warning",
+        title: "Açık adres gerekli",
+        message: "Detaylı adres zorunlu.",
+      });
       return false;
     }
 
     return true;
-  }
-
+}
   async function saveAndLock() {
     if (!isMyProfile) return;
+
     try {
       if (!validateProfile()) return;
 
       setSaving(true);
+
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id;
+
       if (!uid) return;
 
       const payload: any = {
@@ -671,10 +786,19 @@ export default function ProfileClient() {
       const { error } = await supabase.from("profiles").update(payload).eq("id", uid);
       if (error) throw error;
 
-      toast({ variant: "success", title: "Kaydedildi", message: "Profil kaydedildi ve kilitlendi." });
+      toast({
+        variant: "success",
+        title: "Kaydedildi",
+        message: "Profil kaydedildi ve kilitlendi.",
+      });
+
       await loadAll();
     } catch (e: any) {
-      toast({ variant: "error", title: "Kaydedilemedi", message: e?.message ?? "Hata oluştu." });
+      toast({
+        variant: "error",
+        title: "Kaydedilemedi",
+        message: e?.message ?? "Hata oluştu.",
+      });
     } finally {
       setSaving(false);
     }
@@ -683,110 +807,169 @@ export default function ProfileClient() {
   async function startEdit() {
     if (!isMyProfile) return;
     setEditMode(true);
-    toast({ variant: "info", title: "Düzenleme açık", message: "Alanları güncelleyebilirsin." });
+    toast({
+      variant: "info",
+      title: "Düzenleme açık",
+      message: "Alanları güncelleyebilirsin.",
+    });
   }
 
   async function cancelEdit() {
     if (profile) hydrate(profile);
     setEditMode(false);
-    toast({ variant: "info", title: "İptal", message: "Değişiklikler geri alındı." });
+    toast({
+      variant: "info",
+      title: "İptal",
+      message: "Değişiklikler geri alındı.",
+    });
   }
 
-  // KYC
   function validateKycBeforeSubmit() {
     if (!isMyProfile) return false;
 
     if (kycLocked) {
-      toast({ variant: "info", title: "Kilitli", message: "KYC incelemede/onaylı. Tekrar yüklenemez." });
+      toast({
+        variant: "info",
+        title: "Kilitli",
+        message: "KYC incelemede/onaylı. Tekrar yüklenemez.",
+      });
       return false;
     }
+
     if (!idFront || !idBack || !selfie) {
-      toast({ variant: "warning", title: "Eksik belge", message: "Kimlik ön/arka + selfie zorunlu." });
+      toast({
+        variant: "warning",
+        title: "Eksik belge",
+        message: "Kimlik ön/arka + selfie zorunlu.",
+      });
       return false;
     }
+
     if (accountType === "corporate") {
       if (!tradeReg || !taxPlate || !activityCert || !signatureCirc) {
         toast({
           variant: "warning",
           title: "Kurumsal belgeler eksik",
-          message: "Ticaret sicil, vergi levhası, faaliyet belgesi, imza sirküleri zorunlu.",
+          message:
+            "Ticaret sicil, vergi levhası, faaliyet belgesi, imza sirküleri zorunlu.",
         });
         return false;
       }
     }
-    return true;
-  }
 
-  function ext(f: File) {
-    return (f.name.split(".").pop() || "jpg").toLowerCase();
+    return true;
   }
 
   async function submitKycOnce() {
     if (!isMyProfile) return;
+
     try {
       if (!validateKycBeforeSubmit()) return;
 
       setKycSubmitting(true);
-      const { data } = await supabase.auth.getSession();
-      const uid = data.session?.user?.id;
-      if (!uid) return;
-
-      const base: any = { user_id: uid, account_type: accountType, status: "draft" };
-
-      const { error: upErr } = await supabase.from("kyc_requests").upsert(base, { onConflict: "user_id" });
-      if (upErr) throw upErr;
-
       setKycUploading(true);
 
+      const { data } = await supabase.auth.getSession();
+      const uid = data.session?.user?.id;
+
+      if (!uid) {
+        toast({
+          variant: "error",
+          title: "Oturum yok",
+          message: "Lütfen tekrar giriş yap.",
+        });
+        return;
+      }
+
+      const now = new Date().toISOString();
       const ts = Date.now();
       const prefix = `${uid}/${ts}`;
 
-      const idFrontPath = await uploadToKyc(`${prefix}_id_front.${ext(idFront!)}`, idFront!);
-      const idBackPath = await uploadToKyc(`${prefix}_id_back.${ext(idBack!)}`, idBack!);
-      const selfiePath = await uploadToKyc(`${prefix}_selfie.${ext(selfie!)}`, selfie!);
+      const idFrontUrl = await uploadToKyc(
+        `${prefix}_id_front.${ext(idFront!)}`,
+        idFront!
+      );
 
-      const corp =
-        accountType === "corporate"
-          ? {
-              trade_registry_path: await uploadToKyc(`${prefix}_trade_registry.${ext(tradeReg!)}`, tradeReg!),
-              tax_plate_path: await uploadToKyc(`${prefix}_tax_plate.${ext(taxPlate!)}`, taxPlate!),
-              activity_cert_path: await uploadToKyc(`${prefix}_activity_cert.${ext(activityCert!)}`, activityCert!),
-              signature_circ_path: await uploadToKyc(`${prefix}_signature_circ.${ext(signatureCirc!)}`, signatureCirc!),
-            }
-          : {
-              trade_registry_path: null,
-              tax_plate_path: null,
-              activity_cert_path: null,
-              signature_circ_path: null,
-            };
+      const idBackUrl = await uploadToKyc(
+        `${prefix}_id_back.${ext(idBack!)}`,
+        idBack!
+      );
 
-      const now = new Date().toISOString();
+      const selfieUrl = await uploadToKyc(
+        `${prefix}_selfie.${ext(selfie!)}`,
+        selfie!
+      );
 
-      const { error: upd2 } = await supabase
-        .from("kyc_requests")
-        .update({
-          status: "pending",
-          submitted_at: now,
-          id_front_path: idFrontPath,
-          id_back_path: idBackPath,
-          selfie_path: selfiePath,
-          ...corp,
-        })
-        .eq("user_id", uid);
+      let kycNote: string | null = null;
 
-      if (upd2) throw upd2;
+      if (accountType === "corporate") {
+        const tradeRegUrl = await uploadToKyc(
+          `${prefix}_trade_registry.${ext(tradeReg!)}`,
+          tradeReg!
+        );
 
-      const { error: pErr } = await supabase
-        .from("profiles")
-        .update({ kyc_status: "pending", kyc_submitted_at: now })
-        .eq("id", uid);
+        const taxPlateUrl = await uploadToKyc(
+          `${prefix}_tax_plate.${ext(taxPlate!)}`,
+          taxPlate!
+        );
 
-      if (pErr) throw pErr;
+        const activityCertUrl = await uploadToKyc(
+          `${prefix}_activity_cert.${ext(activityCert!)}`,
+          activityCert!
+        );
+
+        const signatureCircUrl = await uploadToKyc(
+          `${prefix}_signature_circ.${ext(signatureCirc!)}`,
+          signatureCirc!
+        );
+
+        kycNote = [
+          `Kurumsal KYC belgeleri yüklendi.`,
+          `Ticaret sicil: ${tradeRegUrl}`,
+          `Vergi levhası: ${taxPlateUrl}`,
+          `Faaliyet belgesi: ${activityCertUrl}`,
+          `İmza sirküleri: ${signatureCircUrl}`,
+        ].join("\n");
+      }
+
+      const payload: any = {
+        kyc_status: "pending",
+        kyc_submitted_at: now,
+        kyc_last_updated: now,
+        kyc_approved_at: null,
+        kyc_rejected_at: null,
+
+        verified: false,
+
+        kyc_id_front_url: idFrontUrl,
+        kyc_id_back_url: idBackUrl,
+        kyc_selfie_url: selfieUrl,
+
+        id_card_front_url: idFrontUrl,
+        id_card_back_url: idBackUrl,
+        selfie_url: selfieUrl,
+      };
+
+      if (kycNote) {
+        payload.kyc_note = kycNote;
+      }
+
+      if (accountType === "corporate") {
+        payload.registration_type = "corporate";
+        payload.company_name = companyName.trim() || null;
+        payload.tax_office = taxOffice.trim() || null;
+        payload.tax_number = taxNumber.trim() || null;
+        payload.activity_certificate_no = activityCert?.name ?? null;
+      }
+
+      const { error } = await supabase.from("profiles").update(payload).eq("id", uid);
+
+      if (error) throw error;
 
       toast({
         variant: "success",
         title: "KYC Gönderildi",
-        message: "Belgeler incelemeye alındı. Sonuçlanınca durum otomatik güncellenecek.",
+        message: "Belgeler incelemeye alındı.",
       });
 
       setIdFront(null);
@@ -799,7 +982,11 @@ export default function ProfileClient() {
 
       await loadAll();
     } catch (e: any) {
-      toast({ variant: "error", title: "KYC gönderilemedi", message: e?.message ?? "Hata oluştu." });
+      toast({
+        variant: "error",
+        title: "KYC gönderilemedi",
+        message: e?.message ?? "Hata oluştu.",
+      });
     } finally {
       setKycUploading(false);
       setKycSubmitting(false);
@@ -808,20 +995,42 @@ export default function ProfileClient() {
 
   async function restartKycIfRejected() {
     if (!isMyProfile) return;
+
     try {
       if (kycStatus !== "rejected") return;
 
       const { data } = await supabase.auth.getSession();
       const uid = data.session?.user?.id;
+
       if (!uid) return;
 
-      await supabase.from("kyc_requests").update({ status: "draft", submitted_at: null }).eq("user_id", uid);
-      await supabase.from("profiles").update({ kyc_status: "none", kyc_submitted_at: null }).eq("id", uid);
+      const { error } = await supabase
+        .from("profiles")
+        .update({
+          kyc_status: "none",
+          kyc_submitted_at: null,
+          kyc_rejected_at: null,
+          kyc_last_updated: new Date().toISOString(),
+          kyc_note: null,
+          verified: false,
+        })
+        .eq("id", uid);
 
-      toast({ variant: "info", title: "Tekrar açıldı", message: "Belgeleri yeniden yükleyebilirsin." });
+      if (error) throw error;
+
+      toast({
+        variant: "info",
+        title: "Tekrar açıldı",
+        message: "Belgeleri yeniden yükleyebilirsin.",
+      });
+
       await loadAll();
     } catch (e: any) {
-      toast({ variant: "error", title: "Açılamadı", message: e?.message ?? "Hata oluştu." });
+      toast({
+        variant: "error",
+        title: "Açılamadı",
+        message: e?.message ?? "Hata oluştu.",
+      });
     }
   }
 
@@ -835,7 +1044,6 @@ export default function ProfileClient() {
 
   return (
     <div className="mx-auto w-full max-w-4xl space-y-4">
-      {/* HEADER */}
       <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 shadow-[0_18px_60px_rgba(0,0,0,0.08)] dark:border-white/10 dark:bg-white/[0.04] dark:shadow-[0_18px_70px_rgba(0,0,0,0.55)]">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="flex items-start gap-4">
@@ -844,15 +1052,19 @@ export default function ProfileClient() {
               onClick={() => (isMyProfile ? avatarInput.current?.click() : null)}
               disabled={avatarUploading || !isMyProfile}
               className={clsx(
-                "h-16 w-16 overflow-hidden rounded-3xl ring-1 ring-black/10 bg-black/5 dark:ring-white/10 dark:bg-white/5",
-                isMyProfile ? "hover:opacity-95 transition" : "cursor-default",
-                (avatarUploading || !isMyProfile) && "opacity-60 cursor-not-allowed"
+                "h-16 w-16 overflow-hidden rounded-3xl bg-black/5 ring-1 ring-black/10 dark:bg-white/5 dark:ring-white/10",
+                isMyProfile ? "transition hover:opacity-95" : "cursor-default",
+                (avatarUploading || !isMyProfile) && "cursor-not-allowed opacity-60"
               )}
               title={isMyProfile ? "Profil fotoğrafını değiştir" : "Profil fotoğrafı"}
             >
               {profile.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={bust(profile.avatar_url)} alt="Avatar" className="h-full w-full object-cover" />
+                <img
+                  src={bust(profile.avatar_url)}
+                  alt="Avatar"
+                  className="h-full w-full object-cover"
+                />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-sm font-black text-black/70 dark:text-white/75">
                   {initials(displayName)}
@@ -874,16 +1086,36 @@ export default function ProfileClient() {
 
             <div className="min-w-0">
               <div className="text-xl font-black tracking-tight">{displayName}</div>
-              <div className="mt-1 text-sm text-black/60 dark:text-white/60">{profile.phone || profile.email || "—"}</div>
+              <div className="mt-1 text-sm text-black/60 dark:text-white/60">
+                {profile.phone || profile.email || "—"}
+              </div>
 
               <div className="mt-3 flex flex-wrap gap-2">
-                <Badge variant="sky">Hesap: {accountType === "corporate" ? "Kurumsal" : "Bireysel"}</Badge>
                 <Badge variant="sky">
-                  Rol: {userRole === "both" ? "Alıcı + Satıcı" : userRole === "seller" ? "Satıcı" : "Alıcı"}
+                  Hesap: {accountType === "corporate" ? "Kurumsal" : "Bireysel"}
                 </Badge>
-                <Badge variant={kycStatus === "approved" ? "emerald" : kycStatus === "rejected" ? "rose" : "sky"}>
-                  KYC: {kycStatus}
+
+                <Badge variant="sky">
+                  Rol:{" "}
+                  {userRole === "both"
+                    ? "Alıcı + Satıcı"
+                    : userRole === "seller"
+                    ? "Satıcı"
+                    : "Alıcı"}
                 </Badge>
+
+                <Badge
+                  variant={
+                    kycStatus === "approved" || profile.verified
+                      ? "emerald"
+                      : kycStatus === "rejected"
+                      ? "rose"
+                      : "sky"
+                  }
+                >
+                  KYC: {profile.verified ? "approved" : kycStatus}
+                </Badge>
+
                 {locked ? <Badge variant="sky">Kilitli</Badge> : <Badge variant="sky">Açık</Badge>}
                 {editMode ? <Badge variant="amber">Düzenleme</Badge> : null}
                 {!isMyProfile ? <Badge variant="sky">Görüntüleme</Badge> : null}
@@ -892,13 +1124,12 @@ export default function ProfileClient() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            {/* BAŞKA PROFİL: ⋮ menü */}
             {!isMyProfile && (profileUserId || profile.id) ? (
               <div className="relative" ref={moreRef}>
                 <button
                   type="button"
                   onClick={() => setMoreOpen((s) => !s)}
-                  className="rounded-2xl border border-black/10 bg-black/5 px-3 py-2 text-sm font-extrabold hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 transition"
+                  className="rounded-2xl border border-black/10 bg-black/5 px-3 py-2 text-sm font-extrabold transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                   aria-label="Daha fazla"
                   title="Daha fazla"
                 >
@@ -906,7 +1137,7 @@ export default function ProfileClient() {
                 </button>
 
                 {moreOpen ? (
-                  <div className="absolute right-0 mt-2 w-64 overflow-hidden rounded-3xl border border-black/10 bg-white/95 shadow-[0_18px_70px_rgba(0,0,0,0.16)] dark:border-white/10 dark:bg-zinc-950/95">
+                  <div className="absolute right-0 z-20 mt-2 w-64 overflow-hidden rounded-3xl border border-black/10 bg-white/95 shadow-[0_18px_70px_rgba(0,0,0,0.16)] dark:border-white/10 dark:bg-zinc-950/95">
                     <div className="p-2">
                       <div className="px-1 py-1">
                         <BlockButton targetUserId={profile.id} />
@@ -932,12 +1163,11 @@ export default function ProfileClient() {
               </div>
             ) : null}
 
-            {/* KENDİ PROFİL */}
             {isMyProfile ? (
               !editMode ? (
                 <button
                   onClick={startEdit}
-                  className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 transition"
+                  className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   Profili Düzenle
                 </button>
@@ -945,16 +1175,17 @@ export default function ProfileClient() {
                 <>
                   <button
                     onClick={cancelEdit}
-                    className="rounded-2xl border border-black/10 bg-white/80 px-4 py-2 text-sm font-extrabold text-black/70 hover:bg-white transition dark:border-white/10 dark:bg-black/30 dark:text-white/75 dark:hover:bg-black/20"
+                    className="rounded-2xl border border-black/10 bg-white/80 px-4 py-2 text-sm font-extrabold text-black/70 transition hover:bg-white dark:border-white/10 dark:bg-black/30 dark:text-white/75 dark:hover:bg-black/20"
                   >
                     İptal
                   </button>
+
                   <button
                     onClick={saveAndLock}
                     disabled={saving}
                     className={clsx(
-                      "rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-black hover:bg-emerald-400 transition",
-                      saving && "opacity-60 cursor-not-allowed"
+                      "rounded-2xl bg-emerald-500 px-4 py-2 text-sm font-black text-black transition hover:bg-emerald-400",
+                      saving && "cursor-not-allowed opacity-60"
                     )}
                   >
                     {saving ? "Kaydediliyor…" : "Kaydet & Kilitle"}
@@ -964,7 +1195,7 @@ export default function ProfileClient() {
             ) : (
               <button
                 onClick={() => router.back()}
-                className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 transition"
+                className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
               >
                 Geri
               </button>
@@ -973,7 +1204,6 @@ export default function ProfileClient() {
         </div>
       </div>
 
-      {/* HESAP */}
       <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="text-lg font-black">Hesap Tipi</div>
         <div className="mt-1 text-sm text-black/60 dark:text-white/60">
@@ -993,7 +1223,11 @@ export default function ProfileClient() {
           </Field>
 
           <Field label="Rol">
-            <PremiumSelect value={userRole} onChange={(v) => setUserRole(v as UserRole)} disabled={inputsDisabled}>
+            <PremiumSelect
+              value={userRole}
+              onChange={(v) => setUserRole(v as UserRole)}
+              disabled={inputsDisabled}
+            >
               <option value="buyer">Alıcı</option>
               <option value="seller">Satıcı</option>
               <option value="both">Alıcı + Satıcı</option>
@@ -1002,10 +1236,11 @@ export default function ProfileClient() {
         </div>
       </div>
 
-      {/* KİMLİK */}
       <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="text-lg font-black">Kimlik & İletişim</div>
-        <div className="mt-1 text-sm text-black/60 dark:text-white/60">Profilin güveni için temel bilgiler.</div>
+        <div className="mt-1 text-sm text-black/60 dark:text-white/60">
+          Profilin güveni için temel bilgiler.
+        </div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Field label="Ad Soyad" hint="Bireysel hesaplarda zorunlu.">
@@ -1031,23 +1266,28 @@ export default function ProfileClient() {
           </Field>
 
           <Field label="E-posta">
-            <Input value={email} onChange={setEmail} placeholder="mail@..." disabled={inputsDisabled} type="email" />
+            <Input
+              value={email}
+              onChange={setEmail}
+              placeholder="mail@..."
+              disabled={inputsDisabled}
+              type="email"
+            />
           </Field>
         </div>
       </div>
 
-      {/* ADRES */}
       <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="text-lg font-black">Adres</div>
         <div className="mt-1 text-sm text-black/60 dark:text-white/60">
-          İl/İlçe/Mahalle Seçin <b>/</b> Açık adres (Zorunlu)
+          İl/İlçe/Mahalle Seçin <b>/</b> Açık adres zorunlu.
         </div>
 
         {locError ? (
           <div className="mt-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-black/70 dark:text-white/70">
             <b>Konum listesi yüklenemedi:</b> {locError}
             <div className="mt-1 text-xs opacity-80">
-              Dosya yolu: <b>public/locations.json</b> olmalı. (NOT: import yok, fetch ile okunur)
+              Dosya yolu: <b>public/locations.json</b> olmalı.
             </div>
           </div>
         ) : null}
@@ -1067,7 +1307,11 @@ export default function ProfileClient() {
               </Field>
 
               <Field label="İlçe">
-                <PremiumSelect value={district} onChange={setDistrict} disabled={inputsDisabled || !city || locLoading}>
+                <PremiumSelect
+                  value={district}
+                  onChange={setDistrict}
+                  disabled={inputsDisabled || !city || locLoading}
+                >
                   <option value="">{!city ? "Önce il seç" : "Seçiniz"}</option>
                   {districtOptions.map((x) => (
                     <option key={x} value={x}>
@@ -1094,14 +1338,26 @@ export default function ProfileClient() {
             </>
           ) : (
             <>
-              <Field label="İl (manuel)">
+              <Field label="İl">
                 <Input value={city} onChange={setCity} placeholder="Örn: Antalya" disabled={inputsDisabled} />
               </Field>
-              <Field label="İlçe (manuel)">
-                <Input value={district} onChange={setDistrict} placeholder="Örn: Muratpaşa" disabled={inputsDisabled} />
+
+              <Field label="İlçe">
+                <Input
+                  value={district}
+                  onChange={setDistrict}
+                  placeholder="Örn: Muratpaşa"
+                  disabled={inputsDisabled}
+                />
               </Field>
-              <Field label="Mahalle / Semt (manuel)">
-                <Input value={neighborhood} onChange={setNeighborhood} placeholder="Örn: Lara" disabled={inputsDisabled} />
+
+              <Field label="Mahalle / Semt">
+                <Input
+                  value={neighborhood}
+                  onChange={setNeighborhood}
+                  placeholder="Örn: Lara"
+                  disabled={inputsDisabled}
+                />
               </Field>
             </>
           )}
@@ -1114,11 +1370,10 @@ export default function ProfileClient() {
                 disabled={inputsDisabled}
                 placeholder="Örn: ... sokak no: ... kat: ... daire: ..."
                 className={clsx(
-                  "w-full min-h-[110px] rounded-2xl border border-black/10 bg-white/80 px-4 py-3",
-                  "text-sm font-extrabold text-black/80 outline-none",
+                  "min-h-[110px] w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm font-extrabold text-black/80 outline-none",
                   "focus:ring-2 focus:ring-emerald-500/40",
                   "dark:border-white/10 dark:bg-black/30 dark:text-white/85",
-                  inputsDisabled && "opacity-60 cursor-not-allowed"
+                  inputsDisabled && "cursor-not-allowed opacity-60"
                 )}
               />
             </Field>
@@ -1126,35 +1381,46 @@ export default function ProfileClient() {
         </div>
       </div>
 
-      {/* KURUMSAL */}
       {accountType === "corporate" ? (
         <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
           <div className="text-lg font-black">Kurumsal Bilgiler</div>
-          <div className="mt-1 text-sm text-black/60 dark:text-white/60">Kurumsal hesap için vergi bilgileri zorunlu.</div>
+          <div className="mt-1 text-sm text-black/60 dark:text-white/60">
+            Kurumsal hesap için vergi bilgileri zorunlu.
+          </div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
-            <Field label="Vergi Dairesi (Zorunlu)">
-              <Input value={taxOffice} onChange={setTaxOffice} placeholder="Örn: Kepez VD" disabled={inputsDisabled} />
+            <Field label="Vergi Dairesi">
+              <Input
+                value={taxOffice}
+                onChange={setTaxOffice}
+                placeholder="Örn: Kepez VD"
+                disabled={inputsDisabled}
+              />
             </Field>
-            <Field label="Vergi No (Zorunlu)">
-              <Input value={taxNumber} onChange={setTaxNumber} placeholder="1234567890" disabled={inputsDisabled} />
+
+            <Field label="Vergi No">
+              <Input
+                value={taxNumber}
+                onChange={setTaxNumber}
+                placeholder="1234567890"
+                disabled={inputsDisabled}
+              />
             </Field>
           </div>
 
           <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-black/70 dark:text-white/70">
-            Kurumsal KYC’de ayrıca <b>Ticaret Sicil</b>, <b>Vergi Levhası</b>, <b>Faaliyet Belgesi</b>,{" "}
-            <b>İmza Sirküleri</b> zorunludur.
+            Kurumsal KYC’de ayrıca <b>Ticaret Sicil</b>, <b>Vergi Levhası</b>,{" "}
+            <b>Faaliyet Belgesi</b>, <b>İmza Sirküleri</b> zorunludur.
           </div>
         </div>
       ) : null}
 
-      {/* KVKK */}
       <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="text-lg font-black">KVKK Aydınlatma Metni</div>
-        <div className="mt-2 text-sm text-black/65 dark:text-white/65 leading-6">
-          HalApp; platform güvenliği, ilan yayınlama, kullanıcı doğrulama (KYC), mesajlaşma ve destek süreçleri için
-          kimlik/iletişim ve adres verilerini işler. Veriler, mevzuata uygun süre boyunca saklanır. Haklarını kullanmak
-          için destek üzerinden başvurabilirsin.
+
+        <div className="mt-2 text-sm leading-6 text-black/65 dark:text-white/65">
+          HalApp; platform güvenliği, ilan yayınlama, kullanıcı doğrulama, mesajlaşma ve destek
+          süreçleri için kimlik/iletişim ve adres verilerini işler.
         </div>
 
         <label className={clsx("mt-4 flex items-start gap-3", inputsDisabled && "opacity-60")}>
@@ -1165,38 +1431,46 @@ export default function ProfileClient() {
             disabled={inputsDisabled}
             className="mt-1 h-4 w-4"
           />
+
           <span className="text-sm font-extrabold text-black/75 dark:text-white/75">
             KVKK metnini okudum ve kabul ediyorum. (Zorunlu)
           </span>
         </label>
       </div>
 
-      {/* KYC sadece kendi profilinde */}
       {isMyProfile ? (
         <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
               <div className="text-lg font-black">KYC (Kimlik Doğrulama)</div>
               <div className="mt-1 text-sm text-black/60 dark:text-white/60">
-                {kycStatus === "approved"
+                {profile.verified || kycStatus === "approved"
                   ? "KYC onaylandı. Belgeler kilitli."
                   : kycStatus === "pending"
                   ? "Belgeler inceleme aşamasında. Tekrar yükleyemezsin."
                   : kycStatus === "rejected"
                   ? "KYC reddedildi. Tekrar başlatabilirsin."
-                  : "Yeni kullanıcı isen belgeleri 1 kere yükleyip gönderebilirsin."}
+                  : "Yeni kullanıcı isen belgeleri yükleyip gönderebilirsin."}
               </div>
             </div>
 
             <div className="flex items-center gap-2">
-              <Badge variant={kycStatus === "approved" ? "emerald" : kycStatus === "rejected" ? "rose" : "sky"}>
-                Durum: {kycStatus}
+              <Badge
+                variant={
+                  profile.verified || kycStatus === "approved"
+                    ? "emerald"
+                    : kycStatus === "rejected"
+                    ? "rose"
+                    : "sky"
+                }
+              >
+                Durum: {profile.verified ? "approved" : kycStatus}
               </Badge>
 
               {kycStatus === "rejected" ? (
                 <button
                   onClick={restartKycIfRejected}
-                  className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10 transition"
+                  className="rounded-2xl border border-black/10 bg-black/5 px-4 py-2 text-sm font-extrabold transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:hover:bg-white/10"
                 >
                   Tekrar Başlat
                 </button>
@@ -1205,7 +1479,7 @@ export default function ProfileClient() {
           </div>
 
           <div className={clsx("mt-4 grid gap-3 sm:grid-cols-3", kycLocked && "opacity-60")}>
-            <Field label="Kimlik Ön (Zorunlu)">
+            <Field label="Kimlik Ön">
               <input
                 type="file"
                 accept="image/*,application/pdf"
@@ -1216,7 +1490,7 @@ export default function ProfileClient() {
               {idFront ? <div className="mt-2 text-xs font-bold">{idFront.name}</div> : null}
             </Field>
 
-            <Field label="Kimlik Arka (Zorunlu)">
+            <Field label="Kimlik Arka">
               <input
                 type="file"
                 accept="image/*,application/pdf"
@@ -1227,7 +1501,7 @@ export default function ProfileClient() {
               {idBack ? <div className="mt-2 text-xs font-bold">{idBack.name}</div> : null}
             </Field>
 
-            <Field label="Selfie (Zorunlu)">
+            <Field label="Selfie">
               <input
                 type="file"
                 accept="image/*,application/pdf"
@@ -1241,7 +1515,7 @@ export default function ProfileClient() {
 
           {accountType === "corporate" ? (
             <div className={clsx("mt-3 grid gap-3 sm:grid-cols-2", kycLocked && "opacity-60")}>
-              <Field label="Ticaret Sicil (Zorunlu)">
+              <Field label="Ticaret Sicil">
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -1252,7 +1526,7 @@ export default function ProfileClient() {
                 {tradeReg ? <div className="mt-2 text-xs font-bold">{tradeReg.name}</div> : null}
               </Field>
 
-              <Field label="Vergi Levhası (Zorunlu)">
+              <Field label="Vergi Levhası">
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -1263,7 +1537,7 @@ export default function ProfileClient() {
                 {taxPlate ? <div className="mt-2 text-xs font-bold">{taxPlate.name}</div> : null}
               </Field>
 
-              <Field label="Faaliyet Belgesi (Zorunlu)">
+              <Field label="Faaliyet Belgesi">
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -1274,7 +1548,7 @@ export default function ProfileClient() {
                 {activityCert ? <div className="mt-2 text-xs font-bold">{activityCert.name}</div> : null}
               </Field>
 
-              <Field label="İmza Sirküleri (Zorunlu)">
+              <Field label="İmza Sirküleri">
                 <input
                   type="file"
                   accept="image/*,application/pdf"
@@ -1293,11 +1567,15 @@ export default function ProfileClient() {
               disabled={kycLocked || kycSubmitting || kycUploading}
               onClick={submitKycOnce}
               className={clsx(
-                "rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-black hover:bg-emerald-400 transition",
-                (kycLocked || kycSubmitting || kycUploading) && "opacity-60 cursor-not-allowed"
+                "rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-black transition hover:bg-emerald-400",
+                (kycLocked || kycSubmitting || kycUploading) && "cursor-not-allowed opacity-60"
               )}
             >
-              {kycLocked ? "KYC Kilitli" : kycSubmitting ? "Gönderiliyor…" : "KYC Belgelerini Gönder"}
+              {kycLocked
+                ? "KYC Kilitli"
+                : kycSubmitting || kycUploading
+                ? "Gönderiliyor…"
+                : "KYC Belgelerini Gönder"}
             </button>
 
             {kycStatus === "pending" ? (
@@ -1309,15 +1587,14 @@ export default function ProfileClient() {
         </div>
       ) : null}
 
-      {/* Alt not */}
       {isMyProfile ? (
         editMode ? (
           <button
             onClick={saveAndLock}
             disabled={saving}
             className={clsx(
-              "w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-black hover:bg-emerald-400 transition",
-              saving && "opacity-60 cursor-not-allowed"
+              "w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-black transition hover:bg-emerald-400",
+              saving && "cursor-not-allowed opacity-60"
             )}
           >
             {saving ? "Kaydediliyor…" : "Kaydet & Kilitle"}
