@@ -47,6 +47,7 @@ type ProfileRow = {
   kyc_rejected_at: string | null;
   kyc_last_updated: string | null;
   kyc_note: string | null;
+  kyc_comment: string | null;
 
   verified: boolean | null;
 
@@ -58,7 +59,13 @@ type ProfileRow = {
   id_card_back_url: string | null;
   selfie_url: string | null;
 
+  kyc_trade_registry_url: string | null;
+  kyc_tax_plate_url: string | null;
+  kyc_activity_cert_url: string | null;
+  kyc_signature_circ_url: string | null;
+
   profile_locked: boolean | null;
+  profile_completed_at: string | null;
 };
 
 function clsx(...a: (string | false | null | undefined)[]) {
@@ -101,12 +108,7 @@ function Badge({
       : "border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200";
 
   return (
-    <span
-      className={clsx(
-        "inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-extrabold",
-        cls
-      )}
-    >
+    <span className={clsx("inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-extrabold", cls)}>
       {children}
     </span>
   );
@@ -123,15 +125,9 @@ function Field({
 }) {
   return (
     <div className="rounded-2xl border border-black/10 bg-black/5 p-4 dark:border-white/10 dark:bg-white/5">
-      <div className="text-xs font-extrabold text-black/55 dark:text-white/55">
-        {label}
-      </div>
+      <div className="text-xs font-extrabold text-black/55 dark:text-white/55">{label}</div>
       <div className="mt-2">{children}</div>
-      {hint ? (
-        <div className="mt-2 text-[11px] text-black/50 dark:text-white/50">
-          {hint}
-        </div>
-      ) : null}
+      {hint ? <div className="mt-2 text-[11px] text-black/50 dark:text-white/50">{hint}</div> : null}
     </div>
   );
 }
@@ -186,19 +182,12 @@ function normalizeLocationsAny(raw: any): LocationsIL[] {
     raw?.turkey ??
     raw;
 
-  if (
-    Array.isArray(unwrap) &&
-    unwrap.length &&
-    unwrap[0]?.il &&
-    Array.isArray(unwrap[0]?.ilceler)
-  ) {
+  if (Array.isArray(unwrap) && unwrap.length && unwrap[0]?.il && Array.isArray(unwrap[0]?.ilceler)) {
     return unwrap.map((c: any) => ({
       il: normStr(c.il),
       ilceler: (c.ilceler ?? []).map((d: any) => ({
         ilce: normStr(d.ilce),
-        mahalleler: Array.isArray(d.mahalleler)
-          ? d.mahalleler.map(normStr)
-          : [],
+        mahalleler: Array.isArray(d.mahalleler) ? d.mahalleler.map(normStr) : [],
       })),
     }));
   }
@@ -217,18 +206,11 @@ function normalizeLocationsAny(raw: any): LocationsIL[] {
             .map((d: any) => {
               const ilce = normStr(d.ilce ?? d.district ?? d.name);
               const mahalleler =
-                d.mahalleler ??
-                d.neighborhoods ??
-                d.quarters ??
-                d.list ??
-                d.items ??
-                [];
+                d.mahalleler ?? d.neighborhoods ?? d.quarters ?? d.list ?? d.items ?? [];
 
               return {
                 ilce,
-                mahalleler: Array.isArray(mahalleler)
-                  ? mahalleler.map(normStr)
-                  : [],
+                mahalleler: Array.isArray(mahalleler) ? mahalleler.map(normStr) : [],
               };
             })
             .filter((x: any) => x.ilce)
@@ -250,9 +232,7 @@ function normalizeLocationsAny(raw: any): LocationsIL[] {
       if (Array.isArray(v)) {
         out.push({
           il,
-          ilceler: v
-            .map((d: any) => ({ ilce: normStr(d), mahalleler: [] }))
-            .filter((x) => x.ilce),
+          ilceler: v.map((d: any) => ({ ilce: normStr(d), mahalleler: [] })).filter((x) => x.ilce),
         });
         continue;
       }
@@ -263,16 +243,11 @@ function normalizeLocationsAny(raw: any): LocationsIL[] {
             const ilce = normStr(distKey);
             const n = v[distKey];
 
-            if (Array.isArray(n)) {
-              return { ilce, mahalleler: n.map(normStr) };
-            }
+            if (Array.isArray(n)) return { ilce, mahalleler: n.map(normStr) };
 
             if (n && typeof n === "object") {
               const arr = n.mahalleler ?? n.neighborhoods ?? n.list ?? n.items ?? [];
-              return {
-                ilce,
-                mahalleler: Array.isArray(arr) ? arr.map(normStr) : [],
-              };
+              return { ilce, mahalleler: Array.isArray(arr) ? arr.map(normStr) : [] };
             }
 
             return { ilce, mahalleler: [] };
@@ -383,14 +358,59 @@ export default function ProfileClient() {
     kycStatus === "verified" ||
     profile?.verified === true;
 
+  const profileCompletion = useMemo(() => {
+    let total = 0;
+    let done = 0;
+
+    const check = (v: any) => {
+      total++;
+      if (String(v ?? "").trim()) done++;
+    };
+
+    total++;
+    if (profile?.avatar_url) done++;
+
+    check(phone);
+    check(email);
+    check(city);
+    check(district);
+    check(neighborhood);
+    check(addressLine);
+
+    if (accountType === "individual") {
+      check(fullName);
+    } else {
+      check(companyName);
+      check(taxOffice);
+      check(taxNumber);
+    }
+
+    total++;
+    if (profile?.verified || kycStatus === "approved" || kycStatus === "verified") done++;
+
+    return Math.max(0, Math.min(100, Math.round((done / Math.max(total, 1)) * 100)));
+  }, [
+    profile?.avatar_url,
+    profile?.verified,
+    phone,
+    email,
+    city,
+    district,
+    neighborhood,
+    addressLine,
+    fullName,
+    companyName,
+    taxOffice,
+    taxNumber,
+    accountType,
+    kycStatus,
+  ]);
   useEffect(() => {
     function onDoc(e: MouseEvent) {
       if (!moreOpen) return;
       const el = moreRef.current;
       if (!el) return;
-      if (e.target instanceof Node && !el.contains(e.target)) {
-        setMoreOpen(false);
-      }
+      if (e.target instanceof Node && !el.contains(e.target)) setMoreOpen(false);
     }
 
     document.addEventListener("mousedown", onDoc);
@@ -414,9 +434,7 @@ export default function ProfileClient() {
 
   const neighborhoodOptions = useMemo(() => {
     const il = locs.find((x) => normKeyTR(x.il) === normKeyTR(city));
-    const ilce = (il?.ilceler ?? []).find(
-      (d) => normKeyTR(d.ilce) === normKeyTR(district)
-    );
+    const ilce = (il?.ilceler ?? []).find((d) => normKeyTR(d.ilce) === normKeyTR(district));
     const arr = (ilce?.mahalleler ?? []).map(normStr).filter(Boolean);
     const uniq = Array.from(new Set(arr));
     uniq.sort((a, b) => a.localeCompare(b, "tr"));
@@ -474,12 +492,7 @@ export default function ProfileClient() {
   }
 
   async function ensureProfile(targetId: string, canCreate: boolean) {
-    const { data, error } = await supabase
-      .from("profiles")
-      .select("*")
-      .eq("id", targetId)
-      .maybeSingle();
-
+    const { data, error } = await supabase.from("profiles").select("*").eq("id", targetId).maybeSingle();
     if (error) throw error;
 
     if (!data && canCreate) {
@@ -495,12 +508,7 @@ export default function ProfileClient() {
 
       if (ie) throw ie;
 
-      const { data: p2, error: e2 } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", targetId)
-        .maybeSingle();
-
+      const { data: p2, error: e2 } = await supabase.from("profiles").select("*").eq("id", targetId).maybeSingle();
       if (e2) throw e2;
 
       return (p2 as ProfileRow) ?? null;
@@ -568,19 +576,10 @@ export default function ProfileClient() {
       .channel(`profile-live-${targetId}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${targetId}`,
-        },
+        { event: "*", schema: "public", table: "profiles", filter: `id=eq.${targetId}` },
         async () => {
           try {
-            const { data, error } = await supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", targetId)
-              .maybeSingle();
+            const { data, error } = await supabase.from("profiles").select("*").eq("id", targetId).maybeSingle();
 
             if (error) return;
 
@@ -609,10 +608,7 @@ export default function ProfileClient() {
       return;
     }
 
-    if (
-      district &&
-      !districtOptions.some((x) => normKeyTR(x) === normKeyTR(district))
-    ) {
+    if (district && !districtOptions.some((x) => normKeyTR(x) === normKeyTR(district))) {
       setDistrict("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -626,10 +622,7 @@ export default function ProfileClient() {
       return;
     }
 
-    if (
-      neighborhood &&
-      !neighborhoodOptions.some((x) => normKeyTR(x) === normKeyTR(neighborhood))
-    ) {
+    if (neighborhood && !neighborhoodOptions.some((x) => normKeyTR(x) === normKeyTR(neighborhood))) {
       setNeighborhood("");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -660,11 +653,7 @@ export default function ProfileClient() {
       const { data: pub } = supabase.storage.from("avatars").getPublicUrl(path);
       const url = pub.publicUrl;
 
-      const { error: dbErr } = await supabase
-        .from("profiles")
-        .update({ avatar_url: url })
-        .eq("id", uid);
-
+      const { error: dbErr } = await supabase.from("profiles").update({ avatar_url: url }).eq("id", uid);
       if (dbErr) throw dbErr;
 
       toast({
@@ -745,7 +734,8 @@ export default function ProfileClient() {
     }
 
     return true;
-}
+  }
+
   async function saveAndLock() {
     if (!isMyProfile) return;
 
@@ -758,6 +748,8 @@ export default function ProfileClient() {
       const uid = data.session?.user?.id;
 
       if (!uid) return;
+
+      const now = new Date().toISOString();
 
       const payload: any = {
         account_type: accountType,
@@ -778,9 +770,10 @@ export default function ProfileClient() {
         tax_number: accountType === "corporate" ? taxNumber.trim() : null,
 
         kvkk_accepted: kvkkAccepted,
-        kvkk_accepted_at: kvkkAccepted ? new Date().toISOString() : null,
+        kvkk_accepted_at: kvkkAccepted ? now : null,
 
         profile_locked: true,
+        profile_completed_at: now,
       };
 
       const { error } = await supabase.from("profiles").update(payload).eq("id", uid);
@@ -822,8 +815,7 @@ export default function ProfileClient() {
       title: "İptal",
       message: "Değişiklikler geri alındı.",
     });
-  }
-
+}
   function validateKycBeforeSubmit() {
     if (!isMyProfile) return false;
 
@@ -850,8 +842,7 @@ export default function ProfileClient() {
         toast({
           variant: "warning",
           title: "Kurumsal belgeler eksik",
-          message:
-            "Ticaret sicil, vergi levhası, faaliyet belgesi, imza sirküleri zorunlu.",
+          message: "Ticaret sicil, vergi levhası, faaliyet belgesi, imza sirküleri zorunlu.",
         });
         return false;
       }
@@ -885,52 +876,11 @@ export default function ProfileClient() {
       const ts = Date.now();
       const prefix = `${uid}/${ts}`;
 
-      const idFrontUrl = await uploadToKyc(
-        `${prefix}_id_front.${ext(idFront!)}`,
-        idFront!
-      );
-
-      const idBackUrl = await uploadToKyc(
-        `${prefix}_id_back.${ext(idBack!)}`,
-        idBack!
-      );
-
-      const selfieUrl = await uploadToKyc(
-        `${prefix}_selfie.${ext(selfie!)}`,
-        selfie!
-      );
+      const idFrontUrl = await uploadToKyc(`${prefix}_id_front.${ext(idFront!)}`, idFront!);
+      const idBackUrl = await uploadToKyc(`${prefix}_id_back.${ext(idBack!)}`, idBack!);
+      const selfieUrl = await uploadToKyc(`${prefix}_selfie.${ext(selfie!)}`, selfie!);
 
       let kycNote: string | null = null;
-
-      if (accountType === "corporate") {
-        const tradeRegUrl = await uploadToKyc(
-          `${prefix}_trade_registry.${ext(tradeReg!)}`,
-          tradeReg!
-        );
-
-        const taxPlateUrl = await uploadToKyc(
-          `${prefix}_tax_plate.${ext(taxPlate!)}`,
-          taxPlate!
-        );
-
-        const activityCertUrl = await uploadToKyc(
-          `${prefix}_activity_cert.${ext(activityCert!)}`,
-          activityCert!
-        );
-
-        const signatureCircUrl = await uploadToKyc(
-          `${prefix}_signature_circ.${ext(signatureCirc!)}`,
-          signatureCirc!
-        );
-
-        kycNote = [
-          `Kurumsal KYC belgeleri yüklendi.`,
-          `Ticaret sicil: ${tradeRegUrl}`,
-          `Vergi levhası: ${taxPlateUrl}`,
-          `Faaliyet belgesi: ${activityCertUrl}`,
-          `İmza sirküleri: ${signatureCircUrl}`,
-        ].join("\n");
-      }
 
       const payload: any = {
         kyc_status: "pending",
@@ -938,6 +888,7 @@ export default function ProfileClient() {
         kyc_last_updated: now,
         kyc_approved_at: null,
         kyc_rejected_at: null,
+        kyc_comment: null,
 
         verified: false,
 
@@ -950,20 +901,35 @@ export default function ProfileClient() {
         selfie_url: selfieUrl,
       };
 
-      if (kycNote) {
-        payload.kyc_note = kycNote;
-      }
-
       if (accountType === "corporate") {
+        const tradeRegUrl = await uploadToKyc(`${prefix}_trade_registry.${ext(tradeReg!)}`, tradeReg!);
+        const taxPlateUrl = await uploadToKyc(`${prefix}_tax_plate.${ext(taxPlate!)}`, taxPlate!);
+        const activityCertUrl = await uploadToKyc(`${prefix}_activity_cert.${ext(activityCert!)}`, activityCert!);
+        const signatureCircUrl = await uploadToKyc(`${prefix}_signature_circ.${ext(signatureCirc!)}`, signatureCirc!);
+
+        payload.kyc_trade_registry_url = tradeRegUrl;
+        payload.kyc_tax_plate_url = taxPlateUrl;
+        payload.kyc_activity_cert_url = activityCertUrl;
+        payload.kyc_signature_circ_url = signatureCircUrl;
+
         payload.registration_type = "corporate";
         payload.company_name = companyName.trim() || null;
         payload.tax_office = taxOffice.trim() || null;
         payload.tax_number = taxNumber.trim() || null;
         payload.activity_certificate_no = activityCert?.name ?? null;
+
+        kycNote = [
+          "Kurumsal KYC belgeleri yüklendi.",
+          `Ticaret sicil: ${tradeRegUrl}`,
+          `Vergi levhası: ${taxPlateUrl}`,
+          `Faaliyet belgesi: ${activityCertUrl}`,
+          `İmza sirküleri: ${signatureCircUrl}`,
+        ].join("\n");
       }
 
-      const { error } = await supabase.from("profiles").update(payload).eq("id", uid);
+      if (kycNote) payload.kyc_note = kycNote;
 
+      const { error } = await supabase.from("profiles").update(payload).eq("id", uid);
       if (error) throw error;
 
       toast({
@@ -1012,6 +978,7 @@ export default function ProfileClient() {
           kyc_rejected_at: null,
           kyc_last_updated: new Date().toISOString(),
           kyc_note: null,
+          kyc_comment: null,
           verified: false,
         })
         .eq("id", uid);
@@ -1060,11 +1027,7 @@ export default function ProfileClient() {
             >
               {profile.avatar_url ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={bust(profile.avatar_url)}
-                  alt="Avatar"
-                  className="h-full w-full object-cover"
-                />
+                <img src={bust(profile.avatar_url)} alt="Avatar" className="h-full w-full object-cover" />
               ) : (
                 <div className="flex h-full w-full items-center justify-center text-sm font-black text-black/70 dark:text-white/75">
                   {initials(displayName)}
@@ -1096,29 +1059,39 @@ export default function ProfileClient() {
                 </Badge>
 
                 <Badge variant="sky">
-                  Rol:{" "}
-                  {userRole === "both"
-                    ? "Alıcı + Satıcı"
-                    : userRole === "seller"
-                    ? "Satıcı"
-                    : "Alıcı"}
+                  Rol: {userRole === "both" ? "Alıcı + Satıcı" : userRole === "seller" ? "Satıcı" : "Alıcı"}
                 </Badge>
 
-                <Badge
-                  variant={
-                    kycStatus === "approved" || profile.verified
-                      ? "emerald"
-                      : kycStatus === "rejected"
-                      ? "rose"
-                      : "sky"
-                  }
-                >
+                <Badge variant={kycStatus === "approved" || profile.verified ? "emerald" : kycStatus === "rejected" ? "rose" : "sky"}>
                   KYC: {profile.verified ? "approved" : kycStatus}
                 </Badge>
+
+                {profile.verified ? (
+                  <Badge variant="emerald">
+                    ✓ {userRole === "buyer" ? "Onaylı Kullanıcı" : "Onaylı Satıcı"}
+                  </Badge>
+                ) : null}
 
                 {locked ? <Badge variant="sky">Kilitli</Badge> : <Badge variant="sky">Açık</Badge>}
                 {editMode ? <Badge variant="amber">Düzenleme</Badge> : null}
                 {!isMyProfile ? <Badge variant="sky">Görüntüleme</Badge> : null}
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-black text-black/80 dark:text-white/85">Profil Tamamlanma</div>
+                    <div className="mt-1 text-xs font-semibold text-black/55 dark:text-white/55">
+                      Güvenli ticaret için profil bilgilerini eksiksiz tamamla.
+                    </div>
+                  </div>
+
+                  <div className="text-2xl font-black text-emerald-600">%{profileCompletion}</div>
+                </div>
+
+                <div className="mt-3 h-3 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+                  <div className="h-full rounded-full bg-emerald-500 transition-all" style={{ width: `${profileCompletion}%` }} />
+                </div>
               </div>
             </div>
           </div>
@@ -1203,7 +1176,6 @@ export default function ProfileClient() {
           </div>
         </div>
       </div>
-
       <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="text-lg font-black">Hesap Tipi</div>
         <div className="mt-1 text-sm text-black/60 dark:text-white/60">
@@ -1212,22 +1184,14 @@ export default function ProfileClient() {
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Field label="Hesap tipi">
-            <PremiumSelect
-              value={accountType}
-              onChange={(v) => setAccountType(v as AccountType)}
-              disabled={inputsDisabled}
-            >
+            <PremiumSelect value={accountType} onChange={(v) => setAccountType(v as AccountType)} disabled={inputsDisabled}>
               <option value="individual">Bireysel</option>
               <option value="corporate">Kurumsal</option>
             </PremiumSelect>
           </Field>
 
           <Field label="Rol">
-            <PremiumSelect
-              value={userRole}
-              onChange={(v) => setUserRole(v as UserRole)}
-              disabled={inputsDisabled}
-            >
+            <PremiumSelect value={userRole} onChange={(v) => setUserRole(v as UserRole)} disabled={inputsDisabled}>
               <option value="buyer">Alıcı</option>
               <option value="seller">Satıcı</option>
               <option value="both">Alıcı + Satıcı</option>
@@ -1238,27 +1202,15 @@ export default function ProfileClient() {
 
       <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="text-lg font-black">Kimlik & İletişim</div>
-        <div className="mt-1 text-sm text-black/60 dark:text-white/60">
-          Profilin güveni için temel bilgiler.
-        </div>
+        <div className="mt-1 text-sm text-black/60 dark:text-white/60">Profilin güveni için temel bilgiler.</div>
 
         <div className="mt-4 grid gap-3 sm:grid-cols-2">
           <Field label="Ad Soyad" hint="Bireysel hesaplarda zorunlu.">
-            <Input
-              value={fullName}
-              onChange={setFullName}
-              placeholder="Ad Soyad"
-              disabled={inputsDisabled || accountType !== "individual"}
-            />
+            <Input value={fullName} onChange={setFullName} placeholder="Ad Soyad" disabled={inputsDisabled || accountType !== "individual"} />
           </Field>
 
           <Field label="Şirket Ünvanı" hint="Kurumsal hesaplarda zorunlu.">
-            <Input
-              value={companyName}
-              onChange={setCompanyName}
-              placeholder="Örn: HalApp Gıda Pazarlama A.Ş."
-              disabled={inputsDisabled || accountType !== "corporate"}
-            />
+            <Input value={companyName} onChange={setCompanyName} placeholder="Örn: HalApp Gıda Pazarlama A.Ş." disabled={inputsDisabled || accountType !== "corporate"} />
           </Field>
 
           <Field label="Telefon">
@@ -1266,13 +1218,7 @@ export default function ProfileClient() {
           </Field>
 
           <Field label="E-posta">
-            <Input
-              value={email}
-              onChange={setEmail}
-              placeholder="mail@..."
-              disabled={inputsDisabled}
-              type="email"
-            />
+            <Input value={email} onChange={setEmail} placeholder="mail@..." disabled={inputsDisabled} type="email" />
           </Field>
         </div>
       </div>
@@ -1307,11 +1253,7 @@ export default function ProfileClient() {
               </Field>
 
               <Field label="İlçe">
-                <PremiumSelect
-                  value={district}
-                  onChange={setDistrict}
-                  disabled={inputsDisabled || !city || locLoading}
-                >
+                <PremiumSelect value={district} onChange={setDistrict} disabled={inputsDisabled || !city || locLoading}>
                   <option value="">{!city ? "Önce il seç" : "Seçiniz"}</option>
                   {districtOptions.map((x) => (
                     <option key={x} value={x}>
@@ -1322,11 +1264,7 @@ export default function ProfileClient() {
               </Field>
 
               <Field label="Mahalle / Semt">
-                <PremiumSelect
-                  value={neighborhood}
-                  onChange={setNeighborhood}
-                  disabled={inputsDisabled || !district || locLoading}
-                >
+                <PremiumSelect value={neighborhood} onChange={setNeighborhood} disabled={inputsDisabled || !district || locLoading}>
                   <option value="">{!district ? "Önce ilçe seç" : "Seçiniz"}</option>
                   {neighborhoodOptions.map((x) => (
                     <option key={x} value={x}>
@@ -1343,21 +1281,11 @@ export default function ProfileClient() {
               </Field>
 
               <Field label="İlçe">
-                <Input
-                  value={district}
-                  onChange={setDistrict}
-                  placeholder="Örn: Muratpaşa"
-                  disabled={inputsDisabled}
-                />
+                <Input value={district} onChange={setDistrict} placeholder="Örn: Muratpaşa" disabled={inputsDisabled} />
               </Field>
 
               <Field label="Mahalle / Semt">
-                <Input
-                  value={neighborhood}
-                  onChange={setNeighborhood}
-                  placeholder="Örn: Lara"
-                  disabled={inputsDisabled}
-                />
+                <Input value={neighborhood} onChange={setNeighborhood} placeholder="Örn: Lara" disabled={inputsDisabled} />
               </Field>
             </>
           )}
@@ -1384,33 +1312,21 @@ export default function ProfileClient() {
       {accountType === "corporate" ? (
         <div className="rounded-[28px] border border-black/10 bg-white/80 p-6 dark:border-white/10 dark:bg-white/[0.04]">
           <div className="text-lg font-black">Kurumsal Bilgiler</div>
-          <div className="mt-1 text-sm text-black/60 dark:text-white/60">
-            Kurumsal hesap için vergi bilgileri zorunlu.
-          </div>
+          <div className="mt-1 text-sm text-black/60 dark:text-white/60">Kurumsal hesap için vergi bilgileri zorunlu.</div>
 
           <div className="mt-4 grid gap-3 sm:grid-cols-2">
             <Field label="Vergi Dairesi">
-              <Input
-                value={taxOffice}
-                onChange={setTaxOffice}
-                placeholder="Örn: Kepez VD"
-                disabled={inputsDisabled}
-              />
+              <Input value={taxOffice} onChange={setTaxOffice} placeholder="Örn: Kepez VD" disabled={inputsDisabled} />
             </Field>
 
             <Field label="Vergi No">
-              <Input
-                value={taxNumber}
-                onChange={setTaxNumber}
-                placeholder="1234567890"
-                disabled={inputsDisabled}
-              />
+              <Input value={taxNumber} onChange={setTaxNumber} placeholder="1234567890" disabled={inputsDisabled} />
             </Field>
           </div>
 
           <div className="mt-4 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-4 text-sm text-black/70 dark:text-white/70">
-            Kurumsal KYC’de ayrıca <b>Ticaret Sicil</b>, <b>Vergi Levhası</b>,{" "}
-            <b>Faaliyet Belgesi</b>, <b>İmza Sirküleri</b> zorunludur.
+            Kurumsal KYC’de ayrıca <b>Ticaret Sicil</b>, <b>Vergi Levhası</b>, <b>Faaliyet Belgesi</b>,{" "}
+            <b>İmza Sirküleri</b> zorunludur.
           </div>
         </div>
       ) : null}
@@ -1419,8 +1335,8 @@ export default function ProfileClient() {
         <div className="text-lg font-black">KVKK Aydınlatma Metni</div>
 
         <div className="mt-2 text-sm leading-6 text-black/65 dark:text-white/65">
-          HalApp; platform güvenliği, ilan yayınlama, kullanıcı doğrulama, mesajlaşma ve destek
-          süreçleri için kimlik/iletişim ve adres verilerini işler.
+          HalApp; platform güvenliği, ilan yayınlama, kullanıcı doğrulama, mesajlaşma ve destek süreçleri için
+          kimlik/iletişim ve adres verilerini işler.
         </div>
 
         <label className={clsx("mt-4 flex items-start gap-3", inputsDisabled && "opacity-60")}>
@@ -1455,15 +1371,7 @@ export default function ProfileClient() {
             </div>
 
             <div className="flex items-center gap-2">
-              <Badge
-                variant={
-                  profile.verified || kycStatus === "approved"
-                    ? "emerald"
-                    : kycStatus === "rejected"
-                    ? "rose"
-                    : "sky"
-                }
-              >
+              <Badge variant={profile.verified || kycStatus === "approved" ? "emerald" : kycStatus === "rejected" ? "rose" : "sky"}>
                 Durum: {profile.verified ? "approved" : kycStatus}
               </Badge>
 
@@ -1477,6 +1385,15 @@ export default function ProfileClient() {
               ) : null}
             </div>
           </div>
+
+          {kycStatus === "rejected" && (profile.kyc_comment || profile.kyc_note) ? (
+            <div className="mt-4 rounded-2xl border border-rose-500/25 bg-rose-500/5 p-4">
+              <div className="text-sm font-black text-rose-700 dark:text-rose-200">Red Sebebi</div>
+              <div className="mt-2 whitespace-pre-wrap text-sm font-semibold text-black/70 dark:text-white/70">
+                {profile.kyc_comment || profile.kyc_note}
+              </div>
+            </div>
+          ) : null}
 
           <div className={clsx("mt-4 grid gap-3 sm:grid-cols-3", kycLocked && "opacity-60")}>
             <Field label="Kimlik Ön">
@@ -1571,11 +1488,7 @@ export default function ProfileClient() {
                 (kycLocked || kycSubmitting || kycUploading) && "cursor-not-allowed opacity-60"
               )}
             >
-              {kycLocked
-                ? "KYC Kilitli"
-                : kycSubmitting || kycUploading
-                ? "Gönderiliyor…"
-                : "KYC Belgelerini Gönder"}
+              {kycLocked ? "KYC Kilitli" : kycSubmitting || kycUploading ? "Gönderiliyor…" : "KYC Belgelerini Gönder"}
             </button>
 
             {kycStatus === "pending" ? (
