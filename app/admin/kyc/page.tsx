@@ -1,69 +1,126 @@
+// app/admin/kyc/page.tsx
 import { redirect } from "next/navigation";
 import { requireAdminOrRedirect, adminServerClient } from "@/lib/admin";
 import KycClient from "@/app/admin/ui/kyc-client";
 
 export const dynamic = "force-dynamic";
 
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+function firstParam(v: string | string[] | undefined, fallback = "") {
+  if (Array.isArray(v)) return String(v[0] ?? fallback);
+  return String(v ?? fallback);
+}
+
 function toInt(v: any, def: number) {
   const n = Number(v ?? "");
-  return Number.isFinite(n) && n >= 0 ? Math.floor(n) : def;
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : def;
 }
 
 function escLike(s: string) {
-  return String(s ?? "").replace(/[%_]/g, "\\$&");
+  return String(s ?? "")
+    .replace(/\\/g, "\\\\")
+    .replace(/%/g, "\\%")
+    .replace(/_/g, "\\_")
+    .replace(/,/g, " ");
 }
 
 function isUuid(v: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(v);
 }
 
+function normalizeStatus(v: string) {
+  const s = String(v || "pending").trim().toLowerCase();
+  if (["pending", "approved", "rejected", "all"].includes(s)) return s;
+  return "pending";
+}
+
+function pageUrl({
+  q,
+  status,
+  limit,
+  page,
+}: {
+  q: string;
+  status: string;
+  limit: number;
+  page: number;
+}) {
+  const sp = new URLSearchParams();
+  if (q) sp.set("q", q);
+  if (status && status !== "pending") sp.set("status", status);
+  if (limit !== 25) sp.set("limit", String(limit));
+  if (page > 1) sp.set("page", String(page));
+  const qs = sp.toString();
+  return `/admin/kyc${qs ? `?${qs}` : ""}`;
+}
+
+function ErrorBox({ title, message }: { title: string; message: string }) {
+  return (
+    <div className="rounded-[26px] border border-rose-500/30 bg-rose-500/10 p-6 shadow-sm">
+      <div className="text-lg font-black text-rose-700 dark:text-rose-200">{title}</div>
+      <div className="mt-2 text-sm font-semibold text-rose-700/80 dark:text-rose-200/80">
+        {message}
+      </div>
+    </div>
+  );
+}
+
 export default async function AdminKycPage({
   searchParams,
 }: {
-  searchParams?: Promise<Record<string, string | string[] | undefined>>;
+  searchParams?: SearchParams;
 }) {
   const gate = await requireAdminOrRedirect("/admin/kyc");
   if (!gate.ok) redirect(gate.redirectTo);
 
   const sp = (await searchParams) ?? {};
-  const q = String((sp.q as any) ?? "").trim();
-  const status = String((sp.status as any) ?? "pending").trim().toLowerCase();
-  const limit = Math.min(100, Math.max(1, toInt(sp.limit, 25)));
-  const page = Math.max(1, toInt(sp.page, 1));
-  const offset = (page - 1) * limit;
+
+  const q = firstParam(sp.q).trim();
+  const status = normalizeStatus(firstParam(sp.status, "pending"));
+  const limit = Math.min(100, Math.max(1, toInt(firstParam(sp.limit), 25)));
+  const page = Math.max(1, toInt(firstParam(sp.page), 1));
+
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
 
   const sb = await adminServerClient();
 
-  // base query
   let qb = sb
     .from("kyc_requests")
     .select("*", { count: "exact" })
-    .order("submitted_at", { ascending: false })
-    .order("created_at", { ascending: false });
+    .order("submitted_at", { ascending: false, nullsFirst: false })
+    .order("created_at", { ascending: false, nullsFirst: false });
 
-  if (status !== "all") qb = qb.eq("status", status);
+  if (status !== "all") {
+    qb = qb.eq("status", status);
+  }
 
-  // search (server-side, safe)
   if (q) {
     if (isUuid(q)) {
       qb = qb.or(`id.eq.${q},user_id.eq.${q}`);
     } else {
       const qq = escLike(q);
-      const { data: profs, error: pe } = await sb
+
+      const { data: profileMatches, error: profileError } = await sb
         .from("profiles")
         .select("id")
-        .or(`full_name.ilike.%${qq}%,company_name.ilike.%${qq}%,email.ilike.%${qq}%,phone.ilike.%${qq}%`);
+        .or(
+          [
+            `full_name.ilike.%${qq}%`,
+            `company_name.ilike.%${qq}%`,
+            `email.ilike.%${qq}%`,
+            `phone.ilike.%${qq}%`,
+          ].join(",")
+        )
+        .limit(250);
 
-      if (pe) {
-        return (
-          <div className="rounded-[22px] border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
-            <div className="text-lg font-black">🪪 KYC Talepleri</div>
-            <div className="mt-2 text-sm text-rose-600 dark:text-rose-400">API Hatası: {pe.message}</div>
-          </div>
-        );
+      if (profileError) {
+        return <ErrorBox title="🪪 KYC Talepleri" message={`Profil arama hatası: ${profileError.message}`} />;
       }
 
-      const ids = (profs ?? []).map((p: any) => p.id).filter(Boolean);
+      const ids = (profileMatches ?? []).map((p: any) => p.id).filter(Boolean);
+
       if (ids.length === 0) {
         return (
           <KycClient
@@ -82,58 +139,42 @@ export default async function AdminKycPage({
     }
   }
 
-  const from = offset;
-  const to = offset + limit - 1;
-
   const { data, error, count } = await qb.range(from, to);
 
   if (error) {
-    return (
-      <div className="rounded-[22px] border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
-        <div className="text-lg font-black">🪪 KYC Talepleri</div>
-        <div className="mt-2 text-sm text-rose-600 dark:text-rose-400">API Hatası: {error.message}</div>
-      </div>
-    );
+    return <ErrorBox title="🪪 KYC Talepleri" message={`KYC sorgu hatası: ${error.message}`} />;
   }
 
-  // merge profiles
-  const userIds = [...new Set((data ?? []).map((x: any) => x.user_id).filter(Boolean))];
-  const map: Record<string, any> = {};
+  const rows = data ?? [];
+  const userIds = [...new Set(rows.map((x: any) => x.user_id).filter(Boolean))];
+
+  const profileMap: Record<string, any> = {};
 
   if (userIds.length) {
-    const { data: проф, error: pe2 } = await sb
+    const { data: profilesData, error: profilesError } = await sb
       .from("profiles")
-      .select("id,full_name,company_name,phone,email")
+      .select("id,full_name,company_name,phone,email,avatar_url,city,district,role,kyc_status,is_premium,verified")
       .in("id", userIds);
 
-    if (pe2) {
-      return (
-        <div className="rounded-[22px] border border-black/10 bg-white/80 p-5 dark:border-white/10 dark:bg-white/[0.04]">
-          <div className="text-lg font-black">🪪 KYC Talepleri</div>
-          <div className="mt-2 text-sm text-rose-600 dark:text-rose-400">API Hatası: {pe2.message}</div>
-        </div>
-      );
+    if (profilesError) {
+      return <ErrorBox title="🪪 KYC Talepleri" message={`Profil eşleştirme hatası: ${profilesError.message}`} />;
     }
 
-    for (const p of проф ?? []) map[p.id] = p;
+    for (const profile of profilesData ?? []) {
+      profileMap[profile.id] = profile;
+    }
   }
 
-  const items = (data ?? []).map((x: any) => ({
-    ...x,
-    profiles: x.user_id ? map[x.user_id] ?? null : null,
+  const items = rows.map((row: any) => ({
+    ...row,
+    profiles: row.user_id ? profileMap[row.user_id] ?? null : null,
   }));
 
-  const total = count ?? 0;
+  const total = Number(count ?? 0);
   const pages = Math.max(1, Math.ceil(total / limit));
 
-  // clamp page
-  if (page > pages && pages > 0) {
-    const p2 = new URLSearchParams();
-    if (q) p2.set("q", q);
-    if (status) p2.set("status", status);
-    if (limit !== 25) p2.set("limit", String(limit));
-    p2.set("page", String(pages));
-    redirect(`/admin/kyc?${p2.toString()}`);
+  if (page > pages) {
+    redirect(pageUrl({ q, status, limit, page: pages }));
   }
 
   return (

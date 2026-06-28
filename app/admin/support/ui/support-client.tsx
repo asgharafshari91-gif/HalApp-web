@@ -5,100 +5,69 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
-function statusBadge(status: string) {
-  const s = String(status || "open").toLowerCase();
-
-  if (s === "closed" || s === "resolved") {
-    return "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200";
-  }
-
-  return "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200";
+function clsx(...a: (string | false | null | undefined)[]) {
+  return a.filter(Boolean).join(" ");
 }
 
-function priorityBadge(priority?: string | null) {
-  const p = String(priority ?? "normal").toLowerCase();
+type TicketRow = {
+  id: string;
+  ticket_no?: string | null;
+  user_id?: string | null;
+  status?: string | null;
+  priority?: string | null;
+  category?: string | null;
+  subject?: string | null;
+  title?: string | null;
+  message?: string | null;
+  body?: string | null;
+  last_message_preview?: string | null;
+  contact?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  unread_admin_count?: number | null;
+  last_user_reply_at?: string | null;
+  last_admin_reply_at?: string | null;
+  last_message_at?: string | null;
+  created_at?: string | null;
+  updated_at?: string | null;
+};
 
-  if (p === "critical") {
-    return "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-200";
-  }
-
-  if (p === "high") {
-    return "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200";
-  }
-
-  if (p === "low") {
-    return "bg-zinc-500/10 text-zinc-600 border-zinc-500/20 dark:text-zinc-300";
-  }
-
-  return "bg-blue-500/10 text-blue-700 border-blue-500/20 dark:text-blue-200";
-}
-
-function priorityLabel(priority?: string | null) {
-  const p = String(priority ?? "normal").toLowerCase();
-
-  if (p === "critical") return "KRİTİK";
-  if (p === "high") return "YÜKSEK";
-  if (p === "low") return "DÜŞÜK";
-
-  return "NORMAL";
-}
-
-function replyState(ticket: any) {
-  const userAt = ticket?.last_user_reply_at
-    ? new Date(ticket.last_user_reply_at).getTime()
-    : 0;
-
-  const adminAt = ticket?.last_admin_reply_at
-    ? new Date(ticket.last_admin_reply_at).getTime()
-    : 0;
-
-  const closed = String(ticket?.status ?? "open").toLowerCase() === "closed";
-
-  if (closed) {
-    return {
-      label: "Kapatıldı",
-      cls: "bg-zinc-500/10 text-zinc-600 border-zinc-500/20 dark:text-zinc-300",
-    };
-  }
-
-  if (userAt > adminAt || Number(ticket?.unread_admin_count ?? 0) > 0) {
-    return {
-      label: "Kullanıcı cevap bekliyor",
-      cls: "bg-rose-500/10 text-rose-700 border-rose-500/20 dark:text-rose-200",
-    };
-  }
-
-  if (adminAt > 0 && adminAt >= userAt) {
-    return {
-      label: "Admin cevapladı",
-      cls: "bg-emerald-500/10 text-emerald-700 border-emerald-500/20 dark:text-emerald-200",
-    };
-  }
-
-  return {
-    label: "Yeni talep",
-    cls: "bg-orange-500/10 text-orange-700 border-orange-500/20 dark:text-orange-200",
+type DashboardData = {
+  stats?: {
+    open?: number;
+    closed?: number;
+    waiting?: number;
+    today?: number;
+    last24h?: number;
+    critical?: number;
+    avgRating?: number | null;
+    ratingCount?: number;
+    avgResolutionHours?: number | null;
+    avgFirstReplyHours?: number | null;
+    closeRate?: number | null;
+    topCategory?: { category: string; count: number } | null;
   };
-}
+  charts?: {
+    last7Days?: { date: string; count: number }[];
+    categories?: { category: string; count: number }[];
+  };
+};
 
 function fmt(dt?: string | null) {
   if (!dt) return "—";
-
   try {
     return new Date(dt).toLocaleString("tr-TR", {
       dateStyle: "medium",
       timeStyle: "short",
     });
   } catch {
-    return dt;
+    return String(dt);
   }
 }
 
 function timeAgo(dt?: string | null) {
   if (!dt) return "—";
-
   const t = new Date(dt).getTime();
-
   if (!Number.isFinite(t)) return "—";
 
   const diff = Date.now() - t;
@@ -113,34 +82,79 @@ function timeAgo(dt?: string | null) {
   return `${Math.floor(hour / 24)} gün önce`;
 }
 
-type DashboardData = {
-  stats?: {
-    open?: number;
-    closed?: number;
-    waiting?: number;
-    today?: number;
-    last24h?: number;
-    critical?: number;
+function moneyNum(v: any) {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "number") return Number(v).toLocaleString("tr-TR");
+  return String(v);
+}
 
-    avgRating?: number | null;
-    ratingCount?: number;
-    fiveStarCount?: number;
-    fiveStarRate?: number | null;
+function statusTone(status?: string | null) {
+  const s = String(status || "open").toLowerCase();
 
-    avgResolutionHours?: number | null;
-    avgFirstReplyHours?: number | null;
-    closeRate?: number | null;
+  if (s === "closed" || s === "resolved") {
+    return "border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200";
+  }
 
-    topCategory?: {
-      category: string;
-      count: number;
-    } | null;
+  return "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200";
+}
+
+function priorityTone(priority?: string | null) {
+  const p = String(priority ?? "normal").toLowerCase();
+
+  if (p === "critical") return "border-rose-500/25 bg-rose-500/10 text-rose-800 dark:text-rose-200";
+  if (p === "high") return "border-orange-500/25 bg-orange-500/10 text-orange-800 dark:text-orange-200";
+  if (p === "low") return "border-zinc-500/25 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300";
+
+  return "border-sky-500/25 bg-sky-500/10 text-sky-800 dark:text-sky-200";
+}
+
+function priorityLabel(priority?: string | null) {
+  const p = String(priority ?? "normal").toLowerCase();
+  if (p === "critical") return "KRİTİK";
+  if (p === "high") return "YÜKSEK";
+  if (p === "low") return "DÜŞÜK";
+  return "NORMAL";
+}
+
+function replyState(ticket: TicketRow) {
+  const userAt = ticket.last_user_reply_at ? new Date(ticket.last_user_reply_at).getTime() : 0;
+  const adminAt = ticket.last_admin_reply_at ? new Date(ticket.last_admin_reply_at).getTime() : 0;
+  const closed = String(ticket.status ?? "open").toLowerCase() === "closed";
+
+  if (closed) {
+    return {
+      label: "Kapatıldı",
+      cls: "border-zinc-500/25 bg-zinc-500/10 text-zinc-700 dark:text-zinc-300",
+    };
+  }
+
+  if (userAt > adminAt || Number(ticket.unread_admin_count ?? 0) > 0) {
+    return {
+      label: "Cevap bekliyor",
+      cls: "border-rose-500/25 bg-rose-500/10 text-rose-800 dark:text-rose-200",
+    };
+  }
+
+  if (adminAt > 0 && adminAt >= userAt) {
+    return {
+      label: "Admin cevapladı",
+      cls: "border-emerald-500/25 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200",
+    };
+  }
+
+  return {
+    label: "Yeni talep",
+    cls: "border-amber-500/25 bg-amber-500/10 text-amber-800 dark:text-amber-200",
   };
-  charts?: {
-    last7Days?: { date: string; count: number }[];
-    categories?: { category: string; count: number }[];
-  };
-};
+}
+
+function Badge({ children, className }: { children: React.ReactNode; className: string }) {
+  return (
+    <span className={clsx("inline-flex rounded-full border px-3 py-1 text-[11px] font-black", className)}>
+      {children}
+    </span>
+  );
+}
 
 export default function SupportClient({
   initialItems,
@@ -151,7 +165,7 @@ export default function SupportClient({
   total,
   limit,
 }: {
-  initialItems: any[];
+  initialItems: TicketRow[];
   q: string;
   status: string;
   page: number;
@@ -161,23 +175,20 @@ export default function SupportClient({
 }) {
   const router = useRouter();
 
-  const [items, setItems] = useState<any[]>(initialItems);
+  const [items, setItems] = useState<TicketRow[]>(initialItems);
   const [dash, setDash] = useState<DashboardData | null>(null);
+  const [live, setLive] = useState(false);
 
   useEffect(() => {
     setItems(initialItems);
   }, [initialItems]);
 
   async function loadDashboard() {
-    const res = await fetch("/api/admin/support/dashboard", {
-      cache: "no-store",
-    });
-
-    const j = await res.json().catch(() => ({}));
-
-    if (res.ok) {
-      setDash(j);
-    }
+    try {
+      const res = await fetch("/api/admin/support/dashboard", { cache: "no-store" });
+      const j = await res.json().catch(() => ({}));
+      if (res.ok) setDash(j);
+    } catch {}
   }
 
   useEffect(() => {
@@ -224,7 +235,7 @@ export default function SupportClient({
           loadDashboard();
         }
       )
-      .subscribe();
+      .subscribe((s) => setLive(s === "SUBSCRIBED"));
 
     return () => {
       supabase.removeChannel(channel);
@@ -232,25 +243,17 @@ export default function SupportClient({
   }, []);
 
   const openCount = useMemo(
-    () =>
-      items.filter((x) => String(x.status ?? "open").toLowerCase() !== "closed")
-        .length,
+    () => items.filter((x) => String(x.status ?? "open").toLowerCase() !== "closed").length,
     [items]
   );
 
   const closedCount = useMemo(
-    () =>
-      items.filter((x) => String(x.status ?? "").toLowerCase() === "closed")
-        .length,
+    () => items.filter((x) => String(x.status ?? "").toLowerCase() === "closed").length,
     [items]
   );
 
   const waitingCount = useMemo(
-    () =>
-      items.filter((x) => {
-        const r = replyState(x);
-        return r.label === "Kullanıcı cevap bekliyor";
-      }).length,
+    () => items.filter((x) => replyState(x).label === "Cevap bekliyor").length,
     [items]
   );
 
@@ -259,7 +262,6 @@ export default function SupportClient({
     const nextStatus = String(formData.get("status") ?? "open");
 
     const sp = new URLSearchParams();
-
     if (nextQ) sp.set("q", nextQ);
     if (nextStatus) sp.set("status", nextStatus);
     if (limit !== 25) sp.set("limit", String(limit));
@@ -269,11 +271,9 @@ export default function SupportClient({
 
   function goPage(nextPage: number) {
     const sp = new URLSearchParams();
-
     if (q) sp.set("q", q);
     if (status) sp.set("status", status);
     if (limit !== 25) sp.set("limit", String(limit));
-
     sp.set("page", String(nextPage));
 
     router.push(`/admin/support?${sp.toString()}`);
@@ -282,78 +282,61 @@ export default function SupportClient({
   const stats = dash?.stats;
 
   return (
-    <main className="space-y-6">
-      <section className="relative overflow-hidden rounded-[32px] border border-black/10 bg-white/80 p-6 shadow-[0_26px_100px_rgba(0,0,0,.07)] backdrop-blur-2xl dark:border-white/10 dark:bg-white/[0.045]">
-        <div className="absolute -right-28 -top-28 h-72 w-72 rounded-full bg-emerald-500/15 blur-3xl" />
-        <div className="absolute -bottom-28 left-20 h-72 w-72 rounded-full bg-cyan-500/10 blur-3xl" />
+    <main className="space-y-5">
+      <section className="relative overflow-hidden rounded-[32px] border border-black/10 bg-white/85 p-6 shadow-sm backdrop-blur dark:border-white/10 dark:bg-white/[0.04]">
+        <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-emerald-500/15 blur-3xl" />
+        <div className="absolute -bottom-24 left-20 h-72 w-72 rounded-full bg-sky-500/10 blur-3xl" />
 
         <div className="relative flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
           <div>
-            <div className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-700 dark:text-emerald-200">
-              ADMIN DESTEK PANELİ
+            <div className="inline-flex rounded-full border border-emerald-500/20 bg-emerald-500/10 px-3 py-1 text-xs font-black text-emerald-800 dark:text-emerald-200">
+              🎫 Admin destek operasyon merkezi
             </div>
 
-            <h1 className="mt-4 text-3xl font-black tracking-tight text-zinc-950 dark:text-white sm:text-4xl">
+            <h1 className="mt-4 text-3xl font-black tracking-tight md:text-4xl">
               Destek Talepleri
             </h1>
 
-            <p className="mt-2 text-sm font-semibold text-zinc-600 dark:text-white/60">
-              Canlı ticket akışı, cevap durumu, puanlar ve destek performansı.
+            <p className="mt-2 max-w-2xl text-sm font-semibold leading-6 text-black/60 dark:text-white/60">
+              Canlı ticket akışı, cevap bekleyen talepler, performans metrikleri ve kategori yoğunluğunu tek panelden takip et.
             </p>
 
-            <div className="mt-3 flex items-center gap-2 text-xs font-black text-emerald-600 dark:text-emerald-300">
-              <span className="h-2 w-2 animate-pulse rounded-full bg-emerald-500" />
-              Canlı Destek Akışı
+            <div className="mt-3 flex items-center gap-2 text-xs font-black text-emerald-700 dark:text-emerald-300">
+              <span className={clsx("h-2 w-2 rounded-full", live ? "animate-pulse bg-emerald-500" : "bg-zinc-400")} />
+              {live ? "Canlı destek akışı aktif" : "Canlı bağlantı kuruluyor"}
             </div>
           </div>
 
-          <Link
-            href="/support"
-            className="inline-flex h-12 items-center justify-center rounded-2xl border border-black/10 bg-white/70 px-5 text-sm font-black text-zinc-800 transition hover:bg-white dark:border-white/10 dark:bg-white/[0.05] dark:text-white"
-          >
-            Kullanıcı Destek Merkezi →
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/support"
+              className="rounded-2xl border border-black/10 bg-white/80 px-5 py-3 text-sm font-black hover:bg-white dark:border-white/10 dark:bg-white/[0.05]"
+            >
+              Kullanıcı Destek Merkezi →
+            </Link>
+
+            <button
+              onClick={() => {
+                loadDashboard();
+                router.refresh();
+              }}
+              className="rounded-2xl bg-black px-5 py-3 text-sm font-black text-white hover:opacity-90 dark:bg-white dark:text-black"
+            >
+              Yenile
+            </button>
+          </div>
         </div>
       </section>
 
-      <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-        <StatCard
-          label="⭐ Ortalama Puan"
-          value={stats?.avgRating ?? "—"}
-          tone="amber"
-          suffix={stats?.ratingCount ? `/${stats.ratingCount}` : ""}
-        />
-
-        <StatCard
-          label="⚡ İlk Cevap Süresi"
-          value={stats?.avgFirstReplyHours ?? "—"}
-          tone="blue"
-          suffix={stats?.avgFirstReplyHours != null ? " saat" : ""}
-        />
-
-        <StatCard
-          label="🎯 Çözüm Süresi"
-          value={stats?.avgResolutionHours ?? "—"}
-          tone="emerald"
-          suffix={stats?.avgResolutionHours != null ? " saat" : ""}
-        />
-
-        <StatCard
-          label="📈 Kapanma Oranı"
-          value={stats?.closeRate ?? "—"}
-          tone="orange"
-          suffix={stats?.closeRate != null ? "%" : ""}
-        />
-
-        <StatCard
-          label="🏆 En Yoğun Kategori"
-          value={stats?.topCategory?.category ?? "—"}
-          tone="rose"
-          suffix={stats?.topCategory?.count ? `/${stats.topCategory.count}` : ""}
-        />
+      <section className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+        <StatCard label="⭐ Ortalama Puan" value={stats?.avgRating ?? "—"} tone="amber" suffix={stats?.ratingCount ? `/${stats.ratingCount}` : ""} />
+        <StatCard label="⚡ İlk Cevap" value={stats?.avgFirstReplyHours ?? "—"} tone="blue" suffix={stats?.avgFirstReplyHours != null ? " saat" : ""} />
+        <StatCard label="🎯 Çözüm Süresi" value={stats?.avgResolutionHours ?? "—"} tone="emerald" suffix={stats?.avgResolutionHours != null ? " saat" : ""} />
+        <StatCard label="📈 Kapanma" value={stats?.closeRate ?? "—"} tone="orange" suffix={stats?.closeRate != null ? "%" : ""} />
+        <StatCard label="🏆 Yoğun Kategori" value={stats?.topCategory?.category ?? "—"} tone="rose" suffix={stats?.topCategory?.count ? `/${stats.topCategory.count}` : ""} />
       </section>
 
-      <section className="grid gap-4 md:grid-cols-3 xl:grid-cols-6">
+      <section className="grid gap-3 md:grid-cols-3 xl:grid-cols-6">
         <StatCard label="Açık Ticket" value={stats?.open ?? openCount} tone="orange" />
         <StatCard label="Cevap Bekleyen" value={stats?.waiting ?? waitingCount} tone="rose" />
         <StatCard label="Kritik" value={stats?.critical ?? 0} tone="rose" />
@@ -367,11 +350,8 @@ export default function SupportClient({
         <CategoryChart title="Kategori Dağılımı" rows={dash?.charts?.categories ?? []} />
       </section>
 
-      <section className="rounded-[30px] border border-black/10 bg-white/80 p-5 shadow-[0_20px_80px_rgba(0,0,0,.05)] dark:border-white/10 dark:bg-white/[0.045]">
-        <form
-          action={submitSearch}
-          className="grid gap-3 md:grid-cols-[1fr_180px_140px]"
-        >
+      <section className="rounded-[30px] border border-black/10 bg-white/85 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+        <form action={submitSearch} className="grid gap-3 md:grid-cols-[1fr_180px_140px]">
           <input
             name="q"
             defaultValue={q}
@@ -395,14 +375,17 @@ export default function SupportClient({
         </form>
       </section>
 
-      <section className="overflow-hidden rounded-[32px] border border-black/10 bg-white/80 shadow-[0_24px_90px_rgba(0,0,0,.06)] dark:border-white/10 dark:bg-white/[0.045]">
+      <section className="overflow-hidden rounded-[32px] border border-black/10 bg-white/85 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
         <div className="border-b border-black/10 px-5 py-4 dark:border-white/10">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-sm font-black text-zinc-950 dark:text-white">
-              Ticket Listesi
+            <div>
+              <div className="text-sm font-black">Ticket Listesi</div>
+              <div className="mt-1 text-xs font-semibold text-black/50 dark:text-white/50">
+                Toplam {total} kayıt
+              </div>
             </div>
 
-            <div className="text-xs font-black text-zinc-500">
+            <div className="text-xs font-black text-black/50 dark:text-white/50">
               Sayfa {page}/{pages}
             </div>
           </div>
@@ -411,11 +394,8 @@ export default function SupportClient({
         {items.length === 0 ? (
           <div className="p-10 text-center">
             <div className="text-5xl">🎫</div>
-            <div className="mt-4 text-xl font-black text-zinc-950 dark:text-white">
-              Ticket bulunamadı
-            </div>
-
-            <p className="mt-2 text-sm font-semibold text-zinc-500">
+            <div className="mt-4 text-xl font-black">Ticket bulunamadı</div>
+            <p className="mt-2 text-sm font-semibold text-black/50 dark:text-white/50">
               Arama veya filtreyi değiştir.
             </p>
           </div>
@@ -424,86 +404,55 @@ export default function SupportClient({
             {items.map((ticket) => {
               const ticketStatus = String(ticket.status ?? "open").toLowerCase();
               const title = ticket.subject || ticket.title || "Destek Talebi";
-              const message =
-                ticket.last_message_preview || ticket.message || ticket.body || "";
+              const message = ticket.last_message_preview || ticket.message || ticket.body || "";
               const contact = ticket.contact || ticket.email || ticket.phone || "—";
               const r = replyState(ticket);
-              const lastAt =
-                ticket.last_message_at ||
-                ticket.updated_at ||
-                ticket.created_at ||
-                null;
+              const lastAt = ticket.last_message_at || ticket.updated_at || ticket.created_at || null;
 
               return (
                 <Link
                   key={ticket.id}
-                  href={`/admin/support/${ticket.id}`}
+                  href={`/admin/support/${encodeURIComponent(ticket.id)}`}
                   className="group block p-5 transition hover:bg-emerald-500/5"
                 >
                   <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
-                        <span className="rounded-full border border-black/10 bg-black/5 px-3 py-1 text-[11px] font-black text-zinc-600 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
+                        <Badge className="border-black/10 bg-black/5 text-black/60 dark:border-white/10 dark:bg-white/5 dark:text-white/60">
                           #{ticket.ticket_no || ticket.id}
-                        </span>
+                        </Badge>
 
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${statusBadge(
-                            ticketStatus
-                          )}`}
-                        >
-                          {ticketStatus}
-                        </span>
-
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${priorityBadge(
-                            ticket.priority
-                          )}`}
-                        >
-                          {priorityLabel(ticket.priority)}
-                        </span>
-
-                        <span
-                          className={`rounded-full border px-3 py-1 text-[11px] font-black ${r.cls}`}
-                        >
-                          {r.label}
-                        </span>
+                        <Badge className={statusTone(ticketStatus)}>{ticketStatus}</Badge>
+                        <Badge className={priorityTone(ticket.priority)}>{priorityLabel(ticket.priority)}</Badge>
+                        <Badge className={r.cls}>{r.label}</Badge>
 
                         {Number(ticket.unread_admin_count ?? 0) > 0 ? (
-                          <span className="rounded-full border border-rose-500/20 bg-rose-500 px-3 py-1 text-[11px] font-black text-white">
+                          <Badge className="border-rose-500 bg-rose-500 text-white">
                             {ticket.unread_admin_count} yeni
-                          </span>
+                          </Badge>
                         ) : null}
 
                         {ticket.category ? (
-                          <span className="rounded-full border border-cyan-500/20 bg-cyan-500/10 px-3 py-1 text-[11px] font-black text-cyan-700 dark:text-cyan-200">
+                          <Badge className="border-cyan-500/25 bg-cyan-500/10 text-cyan-800 dark:text-cyan-200">
                             {ticket.category}
-                          </span>
+                          </Badge>
                         ) : null}
                       </div>
 
-                      <div className="mt-3 truncate text-lg font-black text-zinc-950 dark:text-white">
-                        {title}
-                      </div>
+                      <div className="mt-3 truncate text-lg font-black">{title}</div>
 
-                      <div className="mt-1 line-clamp-1 text-sm font-semibold text-zinc-500 dark:text-white/50">
+                      <div className="mt-1 line-clamp-1 text-sm font-semibold text-black/55 dark:text-white/50">
                         {message || "Mesaj yok"}
                       </div>
 
-                      <div className="mt-2 text-xs font-bold text-zinc-400">
+                      <div className="mt-2 text-xs font-bold text-black/40 dark:text-white/40">
                         Son hareket: {timeAgo(lastAt)}
                       </div>
                     </div>
 
                     <div className="shrink-0 text-left lg:text-right">
-                      <div className="text-sm font-black text-zinc-700 dark:text-white/75">
-                        {contact}
-                      </div>
-
-                      <div className="mt-1 text-xs font-semibold text-zinc-500">
-                        {fmt(lastAt)}
-                      </div>
-
+                      <div className="text-sm font-black text-black/70 dark:text-white/75">{contact}</div>
+                      <div className="mt-1 text-xs font-semibold text-black/45 dark:text-white/45">{fmt(lastAt)}</div>
                       <div className="mt-3 text-xs font-black text-emerald-700 opacity-0 transition group-hover:opacity-100">
                         Sohbeti aç →
                       </div>
@@ -520,19 +469,19 @@ export default function SupportClient({
         <button
           disabled={page <= 1}
           onClick={() => goPage(page - 1)}
-          className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm font-black disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.045]"
+          className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm font-black disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04]"
         >
           ← Önceki
         </button>
 
-        <div className="text-sm font-black text-zinc-500">
+        <div className="text-sm font-black text-black/50 dark:text-white/50">
           Sayfa {page} / {pages}
         </div>
 
         <button
           disabled={page >= pages}
           onClick={() => goPage(page + 1)}
-          className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm font-black disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.045]"
+          className="rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm font-black disabled:opacity-40 dark:border-white/10 dark:bg-white/[0.04]"
         >
           Sonraki →
         </button>
@@ -554,23 +503,22 @@ function StatCard({
 }) {
   const cls =
     tone === "orange"
-      ? "border-orange-500/20 bg-orange-500/10 text-orange-700 dark:text-orange-200"
+      ? "border-orange-500/20 bg-orange-500/10 text-orange-800 dark:text-orange-200"
       : tone === "rose"
-        ? "border-rose-500/20 bg-rose-500/10 text-rose-700 dark:text-rose-200"
+        ? "border-rose-500/20 bg-rose-500/10 text-rose-800 dark:text-rose-200"
         : tone === "emerald"
-          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-700 dark:text-emerald-200"
+          ? "border-emerald-500/20 bg-emerald-500/10 text-emerald-800 dark:text-emerald-200"
           : tone === "blue"
-            ? "border-blue-500/20 bg-blue-500/10 text-blue-700 dark:text-blue-200"
+            ? "border-sky-500/20 bg-sky-500/10 text-sky-800 dark:text-sky-200"
             : tone === "amber"
-              ? "border-amber-500/20 bg-amber-500/10 text-amber-700 dark:text-amber-200"
-              : "border-black/10 bg-white/75 text-zinc-950 dark:border-white/10 dark:bg-white/[0.045] dark:text-white";
+              ? "border-amber-500/20 bg-amber-500/10 text-amber-800 dark:text-amber-200"
+              : "border-black/10 bg-white/75 text-black dark:border-white/10 dark:bg-white/[0.04] dark:text-white";
 
   return (
-    <div className={`rounded-[26px] border p-5 ${cls}`}>
+    <div className={clsx("rounded-[26px] border p-5 shadow-sm", cls)}>
       <div className="text-sm font-black opacity-75">{label}</div>
-
       <div className="mt-2 text-3xl font-black">
-        {value}
+        {moneyNum(value)}
         {suffix ? <span className="ml-1 text-sm opacity-60">{suffix}</span> : null}
       </div>
     </div>
@@ -587,25 +535,20 @@ function MiniChart({
   const max = Math.max(1, ...rows.map((x) => Number(x.count ?? 0)));
 
   return (
-    <div className="rounded-[30px] border border-black/10 bg-white/80 p-5 shadow-[0_20px_80px_rgba(0,0,0,.05)] dark:border-white/10 dark:bg-white/[0.045]">
-      <div className="text-sm font-black text-zinc-950 dark:text-white">
-        {title}
-      </div>
+    <div className="rounded-[30px] border border-black/10 bg-white/85 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="text-sm font-black">{title}</div>
 
       <div className="mt-5 flex h-36 items-end gap-2">
         {rows.length === 0 ? (
-          <div className="text-sm font-semibold text-zinc-500">Veri yok</div>
+          <div className="text-sm font-semibold text-black/50 dark:text-white/50">Veri yok</div>
         ) : (
           rows.map((x) => (
             <div key={x.date} className="flex flex-1 flex-col items-center gap-2">
               <div
                 className="w-full rounded-t-xl bg-emerald-500/70"
-                style={{
-                  height: `${Math.max(8, (Number(x.count ?? 0) / max) * 120)}px`,
-                }}
+                style={{ height: `${Math.max(8, (Number(x.count ?? 0) / max) * 120)}px` }}
               />
-
-              <div className="text-[10px] font-black text-zinc-400">
+              <div className="text-[10px] font-black text-black/40 dark:text-white/40">
                 {x.date.slice(5)}
               </div>
             </div>
@@ -626,28 +569,24 @@ function CategoryChart({
   const max = Math.max(1, ...rows.map((x) => Number(x.count ?? 0)));
 
   return (
-    <div className="rounded-[30px] border border-black/10 bg-white/80 p-5 shadow-[0_20px_80px_rgba(0,0,0,.05)] dark:border-white/10 dark:bg-white/[0.045]">
-      <div className="text-sm font-black text-zinc-950 dark:text-white">
-        {title}
-      </div>
+    <div className="rounded-[30px] border border-black/10 bg-white/85 p-5 shadow-sm dark:border-white/10 dark:bg-white/[0.04]">
+      <div className="text-sm font-black">{title}</div>
 
       <div className="mt-5 space-y-3">
         {rows.length === 0 ? (
-          <div className="text-sm font-semibold text-zinc-500">Veri yok</div>
+          <div className="text-sm font-semibold text-black/50 dark:text-white/50">Veri yok</div>
         ) : (
           rows.map((x) => (
             <div key={x.category}>
-              <div className="mb-1 flex items-center justify-between text-xs font-black text-zinc-500">
+              <div className="mb-1 flex items-center justify-between text-xs font-black text-black/50 dark:text-white/50">
                 <span>{x.category}</span>
                 <span>{x.count}</span>
               </div>
 
               <div className="h-2 overflow-hidden rounded-full bg-black/5 dark:bg-white/10">
                 <div
-                  className="h-full rounded-full bg-cyan-500"
-                  style={{
-                    width: `${Math.max(5, (Number(x.count ?? 0) / max) * 100)}%`,
-                  }}
+                  className="h-full rounded-full bg-sky-500"
+                  style={{ width: `${Math.max(5, (Number(x.count ?? 0) / max) * 100)}%` }}
                 />
               </div>
             </div>
