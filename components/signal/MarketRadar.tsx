@@ -43,29 +43,186 @@ function timeAgo(value?: string | null) {
 function productEmoji(name?: string | null) {
   const s = String(name ?? "").toLocaleLowerCase("tr-TR");
 
-  if (s.includes("avokado")) return "🥑";
+ if (s.includes("elma")) return "🍎";
+  if (s.includes("armut")) return "🍐";
+  if (s.includes("portakal")) return "🍊";
+  if (s.includes("mandalina")) return "🍊";
+  if (s.includes("greyfurt")) return "🍊";
   if (s.includes("limon")) return "🍋";
-  if (s.includes("domates")) return "🍅";
+  if (s.includes("muz")) return "🍌";
+  if (s.includes("karpuz")) return "🍉";
+  if (s.includes("kavun")) return "🍈";
+  if (s.includes("üzüm")) return "🍇";
+  if (s.includes("çilek")) return "🍓";
+  if (s.includes("ahududu")) return "🫐";
+  if (s.includes("böğürtlen")) return "🫐";
+  if (s.includes("blueberry")) return "🫐";
+  if (s.includes("yaban mersini")) return "🫐";
+  if (s.includes("kiraz")) return "🍒";
+  if (s.includes("vişne")) return "🍒";
+  if (s.includes("şeftali")) return "🍑";
   if (s.includes("kayısı")) return "🍑";
-  if (s.includes("elma")) return "🍎";
-  if (s.includes("salatalık")) return "🥒";
+  if (s.includes("nektarin")) return "🍑";
+  if (s.includes("erik")) return "🟣";
+  if (s.includes("nar")) return "🔴";
+  if (s.includes("incir")) return "🟣";
+  if (s.includes("kivi")) return "🥝";
+  if (s.includes("ananas")) return "🍍";
+  if (s.includes("mango")) return "🥭";
+  if (s.includes("avokado")) return "🥑";
+
+  if (s.includes("domates")) return "🍅";
   if (s.includes("biber")) return "🌶️";
+  if (s.includes("patlıcan")) return "🍆";
+  if (s.includes("salatalık")) return "🥒";
+  if (s.includes("kabak")) return "🎃";
+  if (s.includes("patates")) return "🥔";
+  if (s.includes("soğan")) return "🧅";
+  if (s.includes("sarımsak")) return "🧄";
+  if (s.includes("havuç")) return "🥕";
+  if (s.includes("brokoli")) return "🥦";
+  if (s.includes("lahana")) return "🥬";
+  if (s.includes("marul")) return "🥬";
+  if (s.includes("ıspanak")) return "🥬";
+  if (s.includes("mısır")) return "🌽";
+  if (s.includes("mantar")) return "🍄";
   if (s.includes("kuşkonmaz")) return "🌱";
+
+  if (s.includes("roka")) return "🌿";
+  if (s.includes("nane")) return "🌿";
+  if (s.includes("maydanoz")) return "🌿";
+  if (s.includes("dereotu")) return "🌿";
+
+  if (s.includes("ceviz")) return "🥜";
+  if (s.includes("badem")) return "🥜";
+  if (s.includes("fındık")) return "🥜";
 
   return "🧺";
 }
 
-function cityIcon(city?: string | null) {
-  const c = String(city ?? "").toLocaleLowerCase("tr-TR");
+type CitySignalLevel = "hot" | "rising" | "active" | "normal" | "low";
 
-  if (c.includes("antalya")) return "🔥";
-  if (c.includes("istanbul")) return "🚀";
-  if (c.includes("izmir")) return "⚡";
-  if (c.includes("bursa")) return "📈";
-  if (c.includes("mersin")) return "🌴";
-  if (c.includes("adana")) return "☀️";
+function normalizeCityName(city?: string | null) {
+  return String(city ?? "")
+    .trim()
+    .toLocaleLowerCase("tr-TR")
+    .replace(/\s+/g, " ");
+}
+
+function cityBaseIcon(city?: string | null) {
+  const c = normalizeCityName(city);
+
+  const icons: Record<string, string> = {
+    adana: "🌶️",
+    adıyaman: "🏔️",
+    afyonkarahisar: "🧀",
+    ağrı: "⛰️",
+    amasya: "🍎",
+    ankara: "🏛️",
+    antalya: "🍊",
+    artvin: "🌲",
+    aydın: "🍈",
+    balıkesir: "🌾",
+    bilecik: "🏞️",
+    bingöl: "🌿",
+    bitlis: "🏔️",
+    bolu: "🌲",
+    burdur: "🦩",
+    bursa: "🍑",
+    çanakkale: "⚔️",
+    çankırı: "🏜️",
+    çorum: "🌻",
+    denizli: "🐓",
+    diyarbakır: "🏰",
+    edirne: "🕌",
+    elazığ: "🍇",
+    erzincan: "🌄",
+    erzurum: "❄️",
+    eskişehir: "🚄",
+    gaziantep: "🥜",
+    giresun: "🌰",
+    gümüşhane: "⛏️",
+    hakkari: "🏔️",
+    hatay: "🫒",
+    ısparta: "🌹",
+    mersin: "🍋",
+    istanbul: "🚀",
+    izmir: "⚡",
+    kars: "🧀",
+    kastamonu: "🌲",
+    kayseri: "🏭",
+    kırklareli: "🌻",
+    kırşehir: "🎻",
+    kocaeli: "🏭",
+    konya: "🌾",
+    kütahya: "🏺",
+    malatya: "🍑",
+    manisa: "🍇",
+    kahramanmaraş: "🍦",
+    mardin: "🏛️",
+    muğla: "⛵",
+    muş: "🌄",
+    nevşehir: "🎈",
+    niğde: "🥔",
+    ordu: "🌰",
+    rize: "🍵",
+    sakarya: "🌿",
+    samsun: "⚓",
+    siirt: "🌄",
+    sinop: "🌊",
+    sivas: "🐺",
+    tekirdağ: "🌻",
+    tokat: "🍃",
+    trabzon: "⚽",
+    tunceli: "🏞️",
+    şanlıurfa: "🌞",
+    uşak: "🧵",
+    van: "🐱",
+    yozgat: "🌾",
+    zonguldak: "⛏️",
+    aksaray: "🏜️",
+    bayburt: "🏔️",
+    karaman: "🌾",
+    kırıkkale: "🏭",
+    batman: "🛢️",
+    şırnak: "⛰️",
+    bartın: "🌊",
+    ardahan: "❄️",
+    ığdır: "🍏",
+    yalova: "🌺",
+    karabük: "🏭",
+    kilis: "🫒",
+    osmaniye: "🌿",
+    düzce: "🌲",
+  };
+
+  for (const [key, icon] of Object.entries(icons)) {
+    if (c.includes(key)) return icon;
+  }
 
   return "📍";
+}
+
+function citySignalIcon(level?: CitySignalLevel | null) {
+  if (level === "hot") return "🔥";
+  if (level === "rising") return "📈";
+  if (level === "active") return "⚡";
+  if (level === "low") return "❄️";
+  return "🌱";
+}
+
+/**
+ * Kullanım:
+ * cityIcon("Antalya") => "🍊"
+ * cityIcon("Antalya", "hot") => "🔥🍊"
+ * cityIcon("Mersin", "rising") => "📈🍋"
+ */
+function cityIcon(city?: string | null, level?: CitySignalLevel | null) {
+  const base = cityBaseIcon(city);
+
+  if (!level) return base;
+
+  return `${citySignalIcon(level)}${base}`;
 }
 
 function sourceLabel(value?: string | null) {
