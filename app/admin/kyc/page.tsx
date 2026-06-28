@@ -31,7 +31,7 @@ function isUuid(v: string) {
 
 function normalizeStatus(v: string) {
   const s = String(v || "pending").trim().toLowerCase();
-  if (["pending", "approved", "rejected", "all"].includes(s)) return s;
+  if (["pending", "approved", "rejected", "verified", "none", "all"].includes(s)) return s;
   return "pending";
 }
 
@@ -47,10 +47,12 @@ function pageUrl({
   page: number;
 }) {
   const sp = new URLSearchParams();
+
   if (q) sp.set("q", q);
   if (status && status !== "pending") sp.set("status", status);
   if (limit !== 25) sp.set("limit", String(limit));
   if (page > 1) sp.set("page", String(page));
+
   const qs = sp.toString();
   return `/admin/kyc${qs ? `?${qs}` : ""}`;
 }
@@ -58,7 +60,9 @@ function pageUrl({
 function ErrorBox({ title, message }: { title: string; message: string }) {
   return (
     <div className="rounded-[26px] border border-rose-500/30 bg-rose-500/10 p-6 shadow-sm">
-      <div className="text-lg font-black text-rose-700 dark:text-rose-200">{title}</div>
+      <div className="text-lg font-black text-rose-700 dark:text-rose-200">
+        {title}
+      </div>
       <div className="mt-2 text-sm font-semibold text-rose-700/80 dark:text-rose-200/80">
         {message}
       </div>
@@ -87,87 +91,92 @@ export default async function AdminKycPage({
   const sb = await adminServerClient();
 
   let qb = sb
-    .from("kyc_requests")
-    .select("*", { count: "exact" })
-    .order("submitted_at", { ascending: false, nullsFirst: false })
+    .from("profiles")
+    .select(
+      `
+      id,
+      full_name,
+      company_name,
+      phone,
+      email,
+      account_type,
+      user_role,
+      role,
+      city,
+      district,
+      avatar_url,
+      kyc_status,
+      verified,
+      kyc_submitted_at,
+      kyc_approved_at,
+      kyc_rejected_at,
+      kyc_last_updated,
+      kyc_comment,
+      kyc_note,
+      kyc_id_front_url,
+      kyc_id_back_url,
+      kyc_selfie_url,
+      id_card_front_url,
+      id_card_back_url,
+      selfie_url,
+      kyc_trade_registry_url,
+      kyc_tax_plate_url,
+      kyc_activity_cert_url,
+      kyc_signature_circ_url
+    `,
+      { count: "exact" }
+    )
+    .not("kyc_status", "is", null)
+    .order("kyc_submitted_at", { ascending: false, nullsFirst: false })
+    .order("kyc_last_updated", { ascending: false, nullsFirst: false })
     .order("created_at", { ascending: false, nullsFirst: false });
 
   if (status !== "all") {
-    qb = qb.eq("status", status);
+    if (status === "approved" || status === "verified") {
+      qb = qb.or(`kyc_status.eq.approved,kyc_status.eq.verified,verified.eq.true`);
+    } else {
+      qb = qb.eq("kyc_status", status);
+    }
+  } else {
+    qb = qb.in("kyc_status", ["pending", "approved", "verified", "rejected", "none"]);
   }
 
   if (q) {
     if (isUuid(q)) {
-      qb = qb.or(`id.eq.${q},user_id.eq.${q}`);
+      qb = qb.eq("id", q);
     } else {
       const qq = escLike(q);
 
-      const { data: profileMatches, error: profileError } = await sb
-        .from("profiles")
-        .select("id")
-        .or(
-          [
-            `full_name.ilike.%${qq}%`,
-            `company_name.ilike.%${qq}%`,
-            `email.ilike.%${qq}%`,
-            `phone.ilike.%${qq}%`,
-          ].join(",")
-        )
-        .limit(250);
-
-      if (profileError) {
-        return <ErrorBox title="🪪 KYC Talepleri" message={`Profil arama hatası: ${profileError.message}`} />;
-      }
-
-      const ids = (profileMatches ?? []).map((p: any) => p.id).filter(Boolean);
-
-      if (ids.length === 0) {
-        return (
-          <KycClient
-            initialItems={[]}
-            q={q}
-            status={status}
-            page={page}
-            pages={1}
-            total={0}
-            limit={limit}
-          />
-        );
-      }
-
-      qb = qb.in("user_id", ids);
+      qb = qb.or(
+        [
+          `full_name.ilike.%${qq}%`,
+          `company_name.ilike.%${qq}%`,
+          `email.ilike.%${qq}%`,
+          `phone.ilike.%${qq}%`,
+        ].join(",")
+      );
     }
   }
 
   const { data, error, count } = await qb.range(from, to);
 
   if (error) {
-    return <ErrorBox title="🪪 KYC Talepleri" message={`KYC sorgu hatası: ${error.message}`} />;
+    return (
+      <ErrorBox
+        title="🪪 KYC Talepleri"
+        message={`KYC sorgu hatası: ${error.message}`}
+      />
+    );
   }
 
-  const rows = data ?? [];
-  const userIds = [...new Set(rows.map((x: any) => x.user_id).filter(Boolean))];
-
-  const profileMap: Record<string, any> = {};
-
-  if (userIds.length) {
-    const { data: profilesData, error: profilesError } = await sb
-      .from("profiles")
-      .select("id,full_name,company_name,phone,email,avatar_url,city,district,role,kyc_status,is_premium,verified")
-      .in("id", userIds);
-
-    if (profilesError) {
-      return <ErrorBox title="🪪 KYC Talepleri" message={`Profil eşleştirme hatası: ${profilesError.message}`} />;
-    }
-
-    for (const profile of profilesData ?? []) {
-      profileMap[profile.id] = profile;
-    }
-  }
-
-  const items = rows.map((row: any) => ({
+  const rows = (data ?? []).map((row: any) => ({
     ...row,
-    profiles: row.user_id ? profileMap[row.user_id] ?? null : null,
+    account_type: row.account_type ?? "individual",
+    user_role: row.user_role ?? row.role ?? "buyer",
+
+    kyc_id_front_url: row.kyc_id_front_url ?? row.id_card_front_url ?? null,
+    kyc_id_back_url: row.kyc_id_back_url ?? row.id_card_back_url ?? null,
+    kyc_selfie_url: row.kyc_selfie_url ?? row.selfie_url ?? null,
   }));
 
   const total = Number(count ?? 0);
@@ -179,7 +188,7 @@ export default async function AdminKycPage({
 
   return (
     <KycClient
-      initialItems={items as any}
+      initialItems={rows as any}
       q={q}
       status={status}
       page={page}

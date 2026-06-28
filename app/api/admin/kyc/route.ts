@@ -17,81 +17,120 @@ function isUuid(v: string) {
 }
 
 function escLike(s: string) {
-  // ilike içinde % ve _ kaçış
-  return s.replace(/[%_]/g, "\\$&");
+  return s.replace(/[%_]/g, "\\$&").replace(/,/g, " ");
+}
+
+function normStatus(v: string) {
+  const s = String(v || "pending").trim().toLowerCase();
+  if (["pending", "approved", "verified", "rejected", "none", "all"].includes(s)) return s;
+  return "pending";
 }
 
 /**
- * GET /api/admin/kyc?q=&status=pending|approved|rejected|all&limit=25&offset=0
+ * GET /api/admin/kyc?q=&status=pending|approved|verified|rejected|none|all&limit=25&offset=0
  */
 export async function GET(req: Request) {
   const gate = await requireAdminOrRedirect("/admin/kyc");
   if (!gate.ok) return json({ error: gate.reason ?? "not_allowed" }, 403);
 
   const url = new URL(req.url);
+
   const qRaw = (url.searchParams.get("q") ?? "").trim();
-  const status = (url.searchParams.get("status") ?? "pending").trim().toLowerCase();
+  const status = normStatus(url.searchParams.get("status") ?? "pending");
 
   const limit = Math.min(100, Math.max(1, toInt(url.searchParams.get("limit"), 25)));
   const offset = Math.max(0, toInt(url.searchParams.get("offset"), 0));
+
   const from = offset;
   const to = offset + limit - 1;
 
   const sb = await adminServerClient();
 
   let qb = sb
-    .from("kyc_requests")
-    .select("*", { count: "exact" })
-    .order("submitted_at", { ascending: false })
-    .order("created_at", { ascending: false });
+    .from("profiles")
+    .select(
+      `
+      id,
+      full_name,
+      company_name,
+      phone,
+      email,
+      account_type,
+      user_role,
+      role,
+      city,
+      district,
+      avatar_url,
+      kyc_status,
+      verified,
+      kyc_submitted_at,
+      kyc_approved_at,
+      kyc_rejected_at,
+      kyc_last_updated,
+      kyc_comment,
+      kyc_note,
+      kyc_id_front_url,
+      kyc_id_back_url,
+      kyc_selfie_url,
+      id_card_front_url,
+      id_card_back_url,
+      selfie_url,
+      kyc_trade_registry_url,
+      kyc_tax_plate_url,
+      kyc_activity_cert_url,
+      kyc_signature_circ_url
+    `,
+      { count: "exact" }
+    )
+    .not("kyc_status", "is", null)
+    .order("kyc_submitted_at", { ascending: false, nullsFirst: false })
+    .order("kyc_last_updated", { ascending: false, nullsFirst: false });
 
-  if (status && status !== "all") qb = qb.eq("status", status);
+  if (status !== "all") {
+    if (status === "approved" || status === "verified") {
+      qb = qb.or("kyc_status.eq.approved,kyc_status.eq.verified,verified.eq.true");
+    } else {
+      qb = qb.eq("kyc_status", status);
+    }
+  } else {
+    qb = qb.in("kyc_status", ["pending", "approved", "verified", "rejected", "none"]);
+  }
 
-  // ✅ ARAMA
   if (qRaw) {
     if (isUuid(qRaw)) {
-      // UUID → exact
-      qb = qb.or(`id.eq.${qRaw},user_id.eq.${qRaw}`);
+      qb = qb.eq("id", qRaw);
     } else {
-      // Text → profiles’ta ara, sonra kyc_requests user_id in (...)
       const q = escLike(qRaw);
 
-      const { data: profs, error: pe } = await sb
-        .from("profiles")
-        .select("id")
-        .or(`full_name.ilike.%${q}%,company_name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%`);
-
-      if (pe) return json({ error: pe.message }, 400);
-
-      const ids = (profs ?? []).map((p: any) => p.id).filter(Boolean);
-      if (ids.length === 0) return json({ items: [], total: 0, limit, offset });
-
-      qb = qb.in("user_id", ids);
+      qb = qb.or(
+        [
+          `full_name.ilike.%${q}%`,
+          `company_name.ilike.%${q}%`,
+          `email.ilike.%${q}%`,
+          `phone.ilike.%${q}%`,
+        ].join(",")
+      );
     }
   }
 
   const { data, error, count } = await qb.range(from, to);
+
   if (error) return json({ error: error.message }, 400);
 
-  // ✅ profiles’ı server-side merge (relationship cache derdi yok)
-  const userIds = [...new Set((data ?? []).map((x: any) => x.user_id).filter(Boolean))];
-  const map: Record<string, any> = {};
+  const items = (data ?? []).map((row: any) => ({
+    ...row,
+    account_type: row.account_type ?? "individual",
+    user_role: row.user_role ?? row.role ?? "buyer",
 
-  if (userIds.length) {
-    const { data: проф, error: pe2 } = await sb
-      .from("profiles")
-      .select("id,full_name,company_name,phone,email")
-      .in("id", userIds);
-
-    if (pe2) return json({ error: pe2.message }, 400);
-
-    for (const p of проф ?? []) map[p.id] = p;
-  }
-
-  const items = (data ?? []).map((x: any) => ({
-    ...x,
-    profiles: x.user_id ? map[x.user_id] ?? null : null,
+    kyc_id_front_url: row.kyc_id_front_url ?? row.id_card_front_url ?? null,
+    kyc_id_back_url: row.kyc_id_back_url ?? row.id_card_back_url ?? null,
+    kyc_selfie_url: row.kyc_selfie_url ?? row.selfie_url ?? null,
   }));
 
-  return json({ items, total: count ?? 0, limit, offset });
+  return json({
+    items,
+    total: count ?? 0,
+    limit,
+    offset,
+  });
 }

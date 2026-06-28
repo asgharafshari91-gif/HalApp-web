@@ -10,29 +10,28 @@ function clsx(...a: (string | false | null | undefined)[]) {
 
 type KycRow = {
   id: string;
-  user_id: string;
-  account_type: "individual" | "corporate";
-  status: "draft" | "pending" | "approved" | "rejected";
+  full_name: string | null;
+  company_name: string | null;
+  phone: string | null;
+  email: string | null;
+  account_type: "individual" | "corporate" | null;
+  user_role: "buyer" | "seller" | "both" | null;
 
-  submitted_at: string | null;
+  kyc_status: "none" | "pending" | "approved" | "rejected" | "verified" | null;
+  verified: boolean | null;
+  kyc_submitted_at: string | null;
 
-  id_front_path: string | null;
-  id_back_path: string | null;
-  selfie_path: string | null;
+  kyc_id_front_url: string | null;
+  kyc_id_back_url: string | null;
+  kyc_selfie_url: string | null;
 
-  trade_registry_path: string | null;
-  tax_plate_path: string | null;
-  activity_cert_path: string | null;
-  signature_circ_path: string | null;
+  kyc_trade_registry_url: string | null;
+  kyc_tax_plate_url: string | null;
+  kyc_activity_cert_url: string | null;
+  kyc_signature_circ_url: string | null;
 
-  // (opsiyonel) join ile gelirse:
-  profiles?: {
-    id: string;
-    full_name: string | null;
-    company_name: string | null;
-    phone: string | null;
-    email: string | null;
-  } | null;
+  kyc_comment: string | null;
+  kyc_note: string | null;
 };
 
 function pill(variant: "sky" | "emerald" | "rose" | "amber") {
@@ -50,11 +49,11 @@ function Badge({ children, variant }: { children: React.ReactNode; variant: "sky
   );
 }
 
-function statusBadge(s: KycRow["status"]) {
-  if (s === "approved") return <Badge variant="emerald">APPROVED</Badge>;
+function statusBadge(s: KycRow["kyc_status"], verified?: boolean | null) {
+  if (verified || s === "approved" || s === "verified") return <Badge variant="emerald">APPROVED</Badge>;
   if (s === "rejected") return <Badge variant="rose">REJECTED</Badge>;
   if (s === "pending") return <Badge variant="amber">PENDING</Badge>;
-  return <Badge variant="sky">{String(s).toUpperCase()}</Badge>;
+  return <Badge variant="sky">{String(s ?? "none").toUpperCase()}</Badge>;
 }
 
 function fmt(dt?: string | null) {
@@ -66,12 +65,13 @@ function fmt(dt?: string | null) {
   }
 }
 
-async function apiPatch(id: string, body: any) {
-  const res = await fetch(`/api/admin/kyc/${encodeURIComponent(id)}`, {
+async function apiPatch(userId: string, body: any) {
+  const res = await fetch(`/api/admin/kyc/${encodeURIComponent(userId)}`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
   });
+
   const j = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(j?.error ?? "request_failed");
   return j;
@@ -94,7 +94,7 @@ export default function KycClient({
 }) {
   const router = useRouter();
 
-  const [items, setItems] = useState<KycRow[]>(initialItems as any);
+  const [items, setItems] = useState<KycRow[]>(initialItems as KycRow[]);
   const [busyId, setBusyId] = useState<string | null>(null);
 
   const title = useMemo(() => `🪪 KYC Talepleri (${total})`, [total]);
@@ -110,9 +110,17 @@ export default function KycClient({
   async function approve(row: KycRow) {
     if (busyId) return;
     setBusyId(row.id);
+
     try {
       await apiPatch(row.id, { status: "approved" });
-      setItems((prev) => prev.map((x) => (x.id === row.id ? { ...x, status: "approved" } : x)));
+
+      setItems((prev) =>
+        prev.map((x) =>
+          x.id === row.id
+            ? { ...x, kyc_status: "approved", verified: true }
+            : x
+        )
+      );
     } catch (e: any) {
       alert(e?.message ?? "approve_failed");
     } finally {
@@ -122,11 +130,28 @@ export default function KycClient({
 
   async function reject(row: KycRow) {
     if (busyId) return;
-    const reason = prompt("Red sebebi (opsiyonel):") ?? "";
+
+    const reason = prompt("Red sebebi:") ?? "";
     setBusyId(row.id);
+
     try {
-      await apiPatch(row.id, { status: "rejected", reject_reason: reason.trim() || null });
-      setItems((prev) => prev.map((x) => (x.id === row.id ? { ...x, status: "rejected" } : x)));
+      await apiPatch(row.id, {
+        status: "rejected",
+        reject_reason: reason.trim() || "KYC belgeleri uygun bulunmadı.",
+      });
+
+      setItems((prev) =>
+        prev.map((x) =>
+          x.id === row.id
+            ? {
+                ...x,
+                kyc_status: "rejected",
+                verified: false,
+                kyc_comment: reason.trim() || "KYC belgeleri uygun bulunmadı.",
+              }
+            : x
+        )
+      );
     } catch (e: any) {
       alert(e?.message ?? "reject_failed");
     } finally {
@@ -142,7 +167,7 @@ export default function KycClient({
         <div className="mt-3 grid gap-2 sm:grid-cols-[1fr_200px_120px]">
           <input
             defaultValue={q}
-            placeholder="İsim / şirket / user_id ara…"
+            placeholder="İsim / mail / telefon / user_id ara…"
             className="w-full rounded-2xl border border-black/10 bg-white/80 px-4 py-3 text-sm font-semibold outline-none dark:border-white/10 dark:bg-black/30"
             onKeyDown={(e) => {
               if (e.key === "Enter") {
@@ -175,20 +200,19 @@ export default function KycClient({
       <div className="rounded-[22px] border border-black/10 bg-white/80 p-3 dark:border-white/10 dark:bg-white/[0.04]">
         <div className="grid gap-2">
           {items.map((r) => {
-            const p = r.profiles ?? null;
-            const name = (p?.company_name?.trim() || p?.full_name?.trim() || "Kullanıcı") ?? "Kullanıcı";
+            const name = r.company_name?.trim() || r.full_name?.trim() || "Kullanıcı";
             const isBusy = busyId === r.id;
 
             const docs = [
-              ["Kimlik Ön", r.id_front_path],
-              ["Kimlik Arka", r.id_back_path],
-              ["Selfie", r.selfie_path],
+              ["Kimlik Ön", r.kyc_id_front_url],
+              ["Kimlik Arka", r.kyc_id_back_url],
+              ["Selfie", r.kyc_selfie_url],
               ...(r.account_type === "corporate"
                 ? ([
-                    ["Ticaret Sicil", r.trade_registry_path],
-                    ["Vergi Levhası", r.tax_plate_path],
-                    ["Faaliyet", r.activity_cert_path],
-                    ["İmza", r.signature_circ_path],
+                    ["Ticaret Sicil", r.kyc_trade_registry_url],
+                    ["Vergi Levhası", r.kyc_tax_plate_url],
+                    ["Faaliyet", r.kyc_activity_cert_url],
+                    ["İmza", r.kyc_signature_circ_url],
                   ] as any)
                 : []),
             ].filter((x) => x[1]);
@@ -202,42 +226,48 @@ export default function KycClient({
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
                       <div className="truncate text-sm font-black">{name}</div>
-                      {statusBadge(r.status)}
+                      {statusBadge(r.kyc_status, r.verified)}
                       <Badge variant="sky">{r.account_type === "corporate" ? "Kurumsal" : "Bireysel"}</Badge>
                     </div>
 
                     <div className="mt-1 text-xs text-black/60 dark:text-white/60">
-                      <div className="truncate">user_id: {r.user_id}</div>
+                      <div className="truncate">user_id: {r.id}</div>
                       <div className="truncate">
-                        {p?.phone ? `tel: ${p.phone}` : null} {p?.email ? ` • mail: ${p.email}` : null}
+                        {r.phone ? `tel: ${r.phone}` : null} {r.email ? ` • mail: ${r.email}` : null}
                       </div>
-                      <div>Gönderim: {fmt(r.submitted_at)}</div>
+                      <div>Gönderim: {fmt(r.kyc_submitted_at)}</div>
                     </div>
+
+                    {r.kyc_comment || r.kyc_note ? (
+                      <div className="mt-3 rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3 text-xs font-semibold text-black/70 dark:text-white/70">
+                        {r.kyc_comment || r.kyc_note}
+                      </div>
+                    ) : null}
 
                     {docs.length ? (
                       <div className="mt-3 flex flex-wrap gap-2">
-                        {docs.map(([label, path]) => (
-                          <button
+                        {docs.map(([label, url]) => (
+                          <a
                             key={String(label)}
-                            type="button"
-                            onClick={() => navigator.clipboard.writeText(String(path))}
+                            href={String(url)}
+                            target="_blank"
+                            rel="noreferrer"
                             className="rounded-full border border-black/10 bg-black/5 px-3 py-1 text-[11px] font-extrabold text-black/70 hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-white/70 dark:hover:bg-white/10"
-                            title="Path kopyala"
                           >
-                            {label} ✓
-                          </button>
+                            {label} Aç →
+                          </a>
                         ))}
                       </div>
                     ) : (
                       <div className="mt-3 text-[11px] text-black/55 dark:text-white/55">
-                        Belge path bulunamadı.
+                        Belge URL bulunamadı.
                       </div>
                     )}
                   </div>
 
                   <div className="flex shrink-0 flex-col gap-2">
                     <Link
-                      href={`/admin/users/${r.user_id}`}
+                      href={`/admin/users/${r.id}`}
                       className="rounded-2xl border border-black/10 bg-white/70 px-4 py-2 text-xs font-black hover:bg-white dark:border-white/10 dark:bg-white/[0.04] dark:hover:bg-white/[0.06]"
                     >
                       Kullanıcıya Git →
@@ -245,25 +275,26 @@ export default function KycClient({
 
                     <div className="flex gap-2">
                       <button
-                        disabled={isBusy || r.status === "approved"}
+                        disabled={isBusy || r.kyc_status === "approved" || r.verified === true}
                         onClick={() => approve(r)}
                         className={clsx(
-                          "rounded-2xl bg-emerald-500 px-4 py-2 text-xs font-black text-black hover:bg-emerald-400 transition",
-                          (isBusy || r.status === "approved") && "opacity-60 cursor-not-allowed"
+                          "rounded-2xl bg-emerald-500 px-4 py-2 text-xs font-black text-black transition hover:bg-emerald-400",
+                          (isBusy || r.kyc_status === "approved" || r.verified === true) &&
+                            "cursor-not-allowed opacity-60"
                         )}
                       >
-                        {isBusy && busyId === r.id ? "…" : "Onayla"}
+                        {isBusy ? "…" : "Onayla"}
                       </button>
 
                       <button
-                        disabled={isBusy || r.status === "rejected"}
+                        disabled={isBusy || r.kyc_status === "rejected"}
                         onClick={() => reject(r)}
                         className={clsx(
-                          "rounded-2xl bg-rose-500 px-4 py-2 text-xs font-black text-white hover:bg-rose-400 transition",
-                          (isBusy || r.status === "rejected") && "opacity-60 cursor-not-allowed"
+                          "rounded-2xl bg-rose-500 px-4 py-2 text-xs font-black text-white transition hover:bg-rose-400",
+                          (isBusy || r.kyc_status === "rejected") && "cursor-not-allowed opacity-60"
                         )}
                       >
-                        {isBusy && busyId === r.id ? "…" : "Reddet"}
+                        {isBusy ? "…" : "Reddet"}
                       </button>
                     </div>
                   </div>
@@ -283,6 +314,7 @@ export default function KycClient({
           <div className="text-black/60 dark:text-white/60">
             Sayfa {page}/{pages} • toplam {total}
           </div>
+
           <div className="flex gap-2">
             <button
               className="rounded-xl bg-black/10 px-3 py-2 font-black hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/15"
@@ -290,6 +322,7 @@ export default function KycClient({
             >
               ←
             </button>
+
             <button
               className="rounded-xl bg-black/10 px-3 py-2 font-black hover:bg-black/15 dark:bg-white/10 dark:hover:bg-white/15"
               onClick={() => pushParams({ q, status, page: Math.min(pages, page + 1) })}
