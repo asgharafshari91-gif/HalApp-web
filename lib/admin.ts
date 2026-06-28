@@ -1,5 +1,6 @@
 // lib/admin.ts
 import "server-only";
+
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -14,13 +15,14 @@ function encNext(path: string) {
 }
 
 /**
- * ✅ Next.js 16 (Turbopack) uyumlu server-side Supabase client (cookie session ile)
+ * ✅ Next.js 16 uyumlu cookie-session Supabase client
+ * Sadece auth/admin kontrolü için kullanılır.
  */
 async function sbServer() {
   const cookieStore = await cookies();
 
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
   if (!url || !anon) {
     throw new Error(
@@ -34,13 +36,12 @@ async function sbServer() {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
-        // Server Component / Route Handler farklarında set bazen engellenebilir
         try {
           cookiesToSet.forEach(({ name, value, options }) => {
             cookieStore.set(name, value, options);
           });
         } catch {
-          // noop
+          // Server Component içinde cookie set engellenebilir.
         }
       },
     },
@@ -48,82 +49,13 @@ async function sbServer() {
 }
 
 /**
- * ✅ Admin kontrolü yapar, redirect path döndürür.
- * Kullanım:
- *   const g = await requireAdminOrRedirect("/admin/users");
- *   if (!g.ok) redirect(g.redirectTo);
+ * ✅ Service Role client
+ * Sadece server-side admin işlemlerinde kullanılır.
+ * Browser'a asla gönderilmez.
  */
-export async function requireAdminOrRedirect(
-  nextPath = "/admin"
-): Promise<AdminGuard> {
-  const sb = await sbServer();
-
-  // 1) Auth kontrol
-  const { data: u, error: ue } = await sb.auth.getUser();
-  const user = u?.user ?? null;
-
-  if (ue || !user) {
-    return {
-      ok: false,
-      redirectTo: `/auth?next=${encNext(nextPath)}`,
-      reason: "not_authed",
-    };
-  }
-
-  const uid = user.id;
-
-  // 2) profiles.is_admin kontrol (RLS doğruysa çalışır)
-  const { data: p, error: pe } = await sb
-    .from("profiles")
-    .select("id,is_admin")
-    .eq("id", uid)
-    .maybeSingle();
-
-  if (pe) {
-    return { ok: false, redirectTo: "/", reason: "profile_read_failed" };
-  }
-
-  const isAdmin = Boolean((p as any)?.is_admin);
-  if (!isAdmin) {
-    return { ok: false, redirectTo: "/", reason: "not_admin" };
-  }
-
-  return { ok: true, uid };
-}
-
-/**
- * ✅ Direkt redirect eden helper
- */
-export async function mustBeAdmin(nextPath = "/admin") {
-  const g = await requireAdminOrRedirect(nextPath);
-  if (!g.ok) redirect(g.redirectTo);
-  return g;
-}
-
-/**
- * ✅ Admin işlemleri için server client
- */
-export async function adminServerClient() {
-  return sbServer();
-}
-
-/**
- * ✅ Alias (eski import'ların bozulmaması için)
- * Bazı dosyalarda `supabaseServer()` adı kullanılmış olabilir.
- */
-export async function supabaseServer() {
-  return sbServer();
-}
-
-/**
- * ✅ İstersen ekstra alias daha (bazı projelerde kullanılıyor)
- */
-export async function supabaseServerClient() {
-  return sbServer();
-}
 export function serviceRoleClient() {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-  const key = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
   if (!url || !key) {
     throw new Error(
@@ -137,4 +69,98 @@ export function serviceRoleClient() {
       autoRefreshToken: false,
     },
   });
+}
+
+/**
+ * ✅ Admin kontrolü
+ * Kullanıcı cookie session ile doğrulanır.
+ * profiles.is_admin true değilse admin alanına girmez.
+ */
+export async function requireAdminOrRedirect(
+  nextPath = "/admin"
+): Promise<AdminGuard> {
+  const sb = await sbServer();
+
+  const { data: u, error: ue } = await sb.auth.getUser();
+  const user = u?.user ?? null;
+
+  if (ue || !user) {
+    return {
+      ok: false,
+      redirectTo: `/auth?next=${encNext(nextPath)}`,
+      reason: "not_authed",
+    };
+  }
+
+  const uid = user.id;
+
+  const { data: p, error: pe } = await sb
+    .from("profiles")
+    .select("id,is_admin")
+    .eq("id", uid)
+    .maybeSingle();
+
+  if (pe) {
+    return {
+      ok: false,
+      redirectTo: "/",
+      reason: "profile_read_failed",
+    };
+  }
+
+  const isAdmin = Boolean((p as any)?.is_admin);
+
+  if (!isAdmin) {
+    return {
+      ok: false,
+      redirectTo: "/",
+      reason: "not_admin",
+    };
+  }
+
+  return {
+    ok: true,
+    uid,
+  };
+}
+
+/**
+ * ✅ Direkt redirect eden admin guard
+ */
+export async function mustBeAdmin(nextPath = "/admin") {
+  const g = await requireAdminOrRedirect(nextPath);
+
+  if (!g.ok) {
+    redirect(g.redirectTo);
+  }
+
+  return g;
+}
+
+/**
+ * ✅ Admin DB işlemleri için client
+ *
+ * Önemli:
+ * - Yetki kontrolü önce requireAdminOrRedirect ile yapılmalı.
+ * - Bu client service role kullanır.
+ * - RLS'e takılmaz.
+ */
+export async function adminServerClient() {
+  return serviceRoleClient();
+}
+
+/**
+ * ✅ Normal session client alias
+ * Eski dosyalar bozulmasın diye bırakıldı.
+ * Kullanıcı oturumuna göre çalışır.
+ */
+export async function supabaseServer() {
+  return sbServer();
+}
+
+/**
+ * ✅ Normal session client alias
+ */
+export async function supabaseServerClient() {
+  return sbServer();
 }

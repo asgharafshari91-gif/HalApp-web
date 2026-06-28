@@ -88,30 +88,15 @@ export default async function AdminDashboardPage() {
   ] = await Promise.all([
     sb.from("profiles").select("id", { count: "exact", head: true }),
 
-    sb
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .eq("is_premium", true),
+    sb.from("profiles").select("id", { count: "exact", head: true }).eq("is_premium", true),
 
-    sb
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .gt("banned_until", nowIso),
+    sb.from("profiles").select("id", { count: "exact", head: true }).gt("banned_until", nowIso),
 
-    sb
-      .from("support_tickets")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "open"),
+    sb.from("support_tickets").select("id", { count: "exact", head: true }).eq("status", "open"),
 
-    sb
-      .from("kyc_requests")
-      .select("id", { count: "exact", head: true })
-      .eq("status", "pending"),
+    sb.from("profiles").select("id", { count: "exact", head: true }).eq("kyc_status", "pending"),
 
-    sb
-      .from("profiles")
-      .select("id", { count: "exact", head: true })
-      .gte("created_at", todayIso),
+    sb.from("profiles").select("id", { count: "exact", head: true }).gte("created_at", todayIso),
 
     sb
       .from("profiles")
@@ -134,33 +119,35 @@ export default async function AdminDashboardPage() {
 
     sb
       .from("support_tickets")
-      .select(
-        [
-          "id",
-          "user_id",
-          "status",
-          "subject",
-          "message",
-          "body",
-          "created_at",
-        ].join(",")
-      )
+      .select(["id", "user_id", "status", "subject", "message", "body", "created_at"].join(","))
       .order("created_at", { ascending: false })
       .limit(8),
 
     sb
-      .from("kyc_requests")
-      .select("id,user_id,status,submitted_at,created_at")
-      .order("submitted_at", { ascending: false, nullsFirst: false })
+      .from("profiles")
+      .select(
+        [
+          "id",
+          "full_name",
+          "company_name",
+          "phone",
+          "email",
+          "avatar_url",
+          "account_type",
+          "user_role",
+          "role",
+          "kyc_status",
+          "verified",
+          "kyc_submitted_at",
+          "created_at",
+        ].join(",")
+      )
+      .eq("kyc_status", "pending")
+      .order("kyc_submitted_at", { ascending: false, nullsFirst: false })
       .order("created_at", { ascending: false, nullsFirst: false })
       .limit(8),
 
-    sb
-      .from("profiles")
-      .select("id,created_at")
-      .gte("created_at", since30Iso)
-      .order("created_at", { ascending: true })
-      .limit(5000),
+    sb.from("profiles").select("id,created_at").gte("created_at", since30Iso).order("created_at", { ascending: true }).limit(5000),
 
     sb
       .from("profiles")
@@ -178,27 +165,26 @@ export default async function AdminDashboardPage() {
   const kycPending = toNum(kycPendingRes.count);
   const todayUsers = toNum(todayUsersRes.count);
 
-  const recentKycRaw = recentKycRes.data ?? [];
-  const recentKycUserIds = [
-    ...new Set(recentKycRaw.map((x: any) => x.user_id).filter(Boolean)),
-  ];
-
-  const profileMap: Record<string, any> = {};
-
-  if (recentKycUserIds.length > 0) {
-    const { data: kycProfiles } = await sb
-      .from("profiles")
-      .select("id,full_name,company_name,phone,email,avatar_url")
-      .in("id", recentKycUserIds);
-
-    for (const profile of kycProfiles ?? []) {
-      profileMap[(profile as any).id] = profile;
-    }
-  }
-
-  const recentKyc = recentKycRaw.map((row: any) => ({
-    ...row,
-    profiles: row.user_id ? profileMap[row.user_id] ?? null : null,
+  const recentKyc = (recentKycRes.data ?? []).map((row: any) => ({
+    id: row.id,
+    user_id: row.id,
+    status: row.kyc_status ?? "pending",
+    kyc_status: row.kyc_status ?? "pending",
+    account_type: row.account_type ?? "individual",
+    submitted_at: row.kyc_submitted_at ?? row.created_at ?? null,
+    created_at: row.created_at ?? null,
+    verified: row.verified ?? false,
+    profiles: {
+      id: row.id,
+      full_name: row.full_name,
+      company_name: row.company_name,
+      phone: row.phone,
+      email: row.email,
+      avatar_url: row.avatar_url,
+      role: row.user_role ?? row.role,
+      kyc_status: row.kyc_status,
+      verified: row.verified,
+    },
   }));
 
   const days = lastNDays(30);
@@ -212,16 +198,12 @@ export default async function AdminDashboardPage() {
 
   for (const row of chartUsersRes.data ?? []) {
     const d = dayKey((row as any).created_at);
-    if (d && d in registrationsByDay) {
-      registrationsByDay[d] += 1;
-    }
+    if (d && d in registrationsByDay) registrationsByDay[d] += 1;
   }
 
   for (const row of chartPremiumRes.data ?? []) {
     const d = dayKey((row as any).created_at);
-    if (d && d in premiumByDay) {
-      premiumByDay[d] += 1;
-    }
+    if (d && d in premiumByDay) premiumByDay[d] += 1;
   }
 
   const chartSeries = days.map((d) => {
@@ -232,10 +214,7 @@ export default async function AdminDashboardPage() {
       day: d,
       registrations,
       premium_registrations: premiumRegistrations,
-      premium_rate:
-        registrations > 0
-          ? Math.round((premiumRegistrations / registrations) * 10000) / 100
-          : 0,
+      premium_rate: registrations > 0 ? Math.round((premiumRegistrations / registrations) * 10000) / 100 : 0,
     };
   });
 
