@@ -11,7 +11,9 @@ import ConsentScripts from "@/components/ConsentScripts";
 import PushNavigationListener from "@/components/PushNavigationListener";
 import RootChrome from "@/components/layout/RootChrome";
 import WebSessionGuard from "@/components/WebSessionGuard";
+
 const SITE_URL = "https://halapp.app";
+const ICON_VERSION = "20260822";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -71,6 +73,7 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
     nocache: false,
+
     googleBot: {
       index: true,
       follow: true,
@@ -83,12 +86,15 @@ export const metadata: Metadata = {
 
   openGraph: {
     title: "HalApp | Dijital Toptancı Hali",
+
     description:
       "Meyve, sebze ve tarım ürünleri için dijital toptancı hal platformu. Canlı ilanlar, premium vitrin, hızlı iletişim ve pazar istihbaratı.",
+
     url: SITE_URL,
     siteName: "HalApp",
     locale: "tr_TR",
     type: "website",
+
     images: [
       {
         url: "/og-image.png",
@@ -102,8 +108,10 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "HalApp | Dijital Toptancı Hali",
+
     description:
       "Türkiye'nin dijital toptancı hali. Meyve, sebze ve tarım ürünleri alım-satım platformu.",
+
     images: ["/og-image.png"],
   },
 
@@ -122,30 +130,36 @@ export const metadata: Metadata = {
   icons: {
     icon: [
       {
-        url: "/favicon.ico?v=100",
+        url: `/favicon.png?v=${ICON_VERSION}`,
+        type: "image/png",
         sizes: "any",
       },
       {
-        url: "/favicon-32x32.png?v=100",
-        sizes: "32x32",
+        url: `/favicon-32x32.png?v=${ICON_VERSION}`,
         type: "image/png",
+        sizes: "32x32",
       },
       {
-        url: "/favicon-16x16.png?v=100",
+        url: `/favicon-16x16.png?v=${ICON_VERSION}`,
+        type: "image/png",
         sizes: "16x16",
+      },
+    ],
+
+    shortcut: [
+      {
+        url: `/favicon.png?v=${ICON_VERSION}`,
         type: "image/png",
       },
     ],
 
     apple: [
       {
-        url: "/apple-touch-icon.png?v=100",
-        sizes: "180x180",
+        url: `/apple-touch-icon.png?v=${ICON_VERSION}`,
         type: "image/png",
+        sizes: "180x180",
       },
     ],
-
-    shortcut: ["/favicon.ico?v=100"],
   },
 
   manifest: "/site.webmanifest",
@@ -155,6 +169,7 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
+
   themeColor: [
     {
       media: "(prefers-color-scheme: light)",
@@ -169,9 +184,9 @@ export const viewport: Viewport = {
 
 export default function RootLayout({
   children,
-}: {
+}: Readonly<{
   children: React.ReactNode;
-}) {
+}>) {
   const themeBoot = `
 (function() {
   try {
@@ -201,8 +216,10 @@ export default function RootLayout({
     "@type": "WebSite",
     name: "HalApp",
     url: SITE_URL,
+
     description:
       "Türkiye'nin dijital toptancı hali. Meyve, sebze ve tarım ürünleri için ilan, alım-satım ve pazar istihbaratı platformu.",
+
     potentialAction: {
       "@type": "SearchAction",
       target: `${SITE_URL}/listings?search={search_term_string}`,
@@ -222,32 +239,23 @@ export default function RootLayout({
   return (
     <html lang="tr" suppressHydrationWarning>
       <head>
-        <meta
-          name="viewport"
-          content="width=device-width, initial-scale=1, viewport-fit=cover"
+        <link
+          rel="icon"
+          href={`/favicon.png?v=${ICON_VERSION}`}
+          type="image/png"
         />
 
-        <meta
-          name="theme-color"
-          content="#16a34a"
-          media="(prefers-color-scheme: light)"
+        <link
+          rel="shortcut icon"
+          href={`/favicon.png?v=${ICON_VERSION}`}
+          type="image/png"
         />
 
-        <meta
-          name="theme-color"
-          content="#0b0f0c"
-          media="(prefers-color-scheme: dark)"
+        <link
+          rel="apple-touch-icon"
+          href={`/apple-touch-icon.png?v=${ICON_VERSION}`}
+          sizes="180x180"
         />
-
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-
-        <meta
-          name="apple-mobile-web-app-status-bar-style"
-          content="black-translucent"
-        />
-
-        <meta name="mobile-web-app-capable" content="yes" />
-        <meta name="format-detection" content="telephone=no" />
 
         <script
           dangerouslySetInnerHTML={{
@@ -283,23 +291,25 @@ export default function RootLayout({
       >
         <Providers>
           <ToastProvider>
-     <WebSessionGuard /> 
-      <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+            <WebSessionGuard />
+
+            <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
               <div className="hidden dark:block">
                 <div className="absolute left-[-200px] top-[-260px] h-[520px] w-[520px] rounded-full bg-emerald-500/18 blur-3xl" />
 
                 <div className="absolute right-[-240px] top-[120px] h-[560px] w-[560px] rounded-full bg-emerald-400/14 blur-3xl" />
 
-                <div className="absolute left-[10%] bottom-[-320px] h-[680px] w-[680px] rounded-full bg-emerald-600/12 blur-3xl" />
+                <div className="absolute bottom-[-320px] left-[10%] h-[680px] w-[680px] rounded-full bg-emerald-600/12 blur-3xl" />
 
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(16,185,129,.10),transparent_45%),radial-gradient(circle_at_80%_40%,rgba(34,197,94,.08),transparent_50%),radial-gradient(circle_at_50%_100%,rgba(52,211,153,.06),transparent_60%)]" />
               </div>
+
               <div className="block dark:hidden">
                 <div className="absolute left-[-220px] top-[-300px] h-[560px] w-[560px] rounded-full bg-emerald-500/12 blur-3xl" />
 
                 <div className="absolute right-[-260px] top-[60px] h-[620px] w-[620px] rounded-full bg-emerald-400/10 blur-3xl" />
 
-                <div className="absolute left-[10%] bottom-[-360px] h-[720px] w-[720px] rounded-full bg-emerald-600/8 blur-3xl" />
+                <div className="absolute bottom-[-360px] left-[10%] h-[720px] w-[720px] rounded-full bg-emerald-600/8 blur-3xl" />
 
                 <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(16,185,129,.10),transparent_52%),radial-gradient(circle_at_80%_40%,rgba(34,197,94,.08),transparent_55%),radial-gradient(circle_at_50%_100%,rgba(52,211,153,.06),transparent_62%)]" />
               </div>
