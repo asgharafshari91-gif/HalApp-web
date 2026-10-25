@@ -55,6 +55,11 @@ type ListingRow = {
   deleted_at: string | null;
 };
 
+type GpsLocation = {
+  lat: number;
+  lng: number;
+};
+
 function cn(...a: Array<string | false | null | undefined>) {
   return a.filter(Boolean).join(" ");
 }
@@ -116,7 +121,9 @@ function productEmoji(name: any) {
   if (s.includes("mango")) return "🥭";
   if (s.includes("avokado")) return "🥑";
   if (s.includes("hindistan cevizi")) return "🥥";
-  if (s.includes("hurma") || s.includes("amme") || s.includes("cennet")) return "🌴";
+  if (s.includes("hurma") || s.includes("amme") || s.includes("cennet")) {
+    return "🌴";
+  }
 
   if (s.includes("domates")) return "🍅";
   if (s.includes("biber")) return "🌶️";
@@ -277,12 +284,14 @@ function fmtPrice(x: any) {
 
   if (hasPPU) return { main: fmtNum(ppu), sub: unit ? `/ ${unit}` : "" };
   if (hasPrice) return { main: fmtNum(price), sub: "Toplam" };
+
   if (hasMin && hasMax) {
     return {
       main: `${fmtNum(minP)} - ${fmtNum(maxP)}`,
       sub: "Aralık",
     };
   }
+
   if (hasMin) return { main: fmtNum(minP), sub: "Min" };
   if (hasMax) return { main: fmtNum(maxP), sub: "Max" };
 
@@ -360,32 +369,95 @@ async function bumpView(listingId: string) {
   }
 }
 
-function getGpsLocation(): Promise<{ lat: number; lng: number } | null> {
+// GÜNCELLENDİ:
+// Boş, sayı olmayan, aralık dışı veya 0,0 koordinatı kabul edilmez.
+// Bu kontrol il/ilçe doğrulaması yapmaz.
+function isValidGpsCoordinate(lat: number, lng: number) {
+  return (
+    Number.isFinite(lat) &&
+    Number.isFinite(lng) &&
+    lat >= -90 &&
+    lat <= 90 &&
+    lng >= -180 &&
+    lng <= 180 &&
+    !(lat === 0 && lng === 0)
+  );
+}
+
+// GÜNCELLENDİ:
+// Eski konum önbelleği yerine yeni konum istenir.
+// İzin veya konum alınamazsa null döner.
+function getGpsLocation(): Promise<GpsLocation | null> {
   return new Promise((resolve) => {
-    if (typeof navigator === "undefined" || !navigator.geolocation) {
+    if (
+      typeof window === "undefined" ||
+      !window.isSecureContext ||
+      typeof navigator === "undefined" ||
+      !navigator.geolocation
+    ) {
       resolve(null);
       return;
     }
 
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        resolve({
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-        });
-      },
-      () => resolve(null),
-      {
-        enableHighAccuracy: true,
-        timeout: 7000,
-        maximumAge: 1000 * 60 * 5,
+    let settled = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    const finish = (value: GpsLocation | null) => {
+      if (settled) return;
+
+      settled = true;
+
+      if (timer !== undefined) {
+        clearTimeout(timer);
       }
-    );
+
+      resolve(value);
+    };
+
+    // İzin penceresi yanıtsız kalırsa işlemin açık kalmasını önler.
+    timer = setTimeout(() => {
+      finish(null);
+    }, 12000);
+
+    try {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+
+          if (!isValidGpsCoordinate(lat, lng)) {
+            finish(null);
+            return;
+          }
+
+          finish({ lat, lng });
+        },
+        () => {
+          finish(null);
+        },
+        {
+          enableHighAccuracy: true,
+          timeout: 10000,
+          maximumAge: 0,
+        }
+      );
+    } catch {
+      finish(null);
+    }
   });
 }
 
-async function trackListingView(listingId: string) {
+// GÜNCELLENDİ:
+// Tek takip isteği gönderilir.
+// Sayfadan çıkılmışsa bekleyen konum sonucu gönderilmez.
+// İl/ilçe, track-listing-view Edge Function tarafından belirlenir.
+async function trackListingView(
+  listingId: string,
+  isCancelled: () => boolean
+) {
   try {
+    if (isCancelled()) return;
+
     const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
 
     const isMobileWeb =
@@ -393,7 +465,9 @@ async function trackListingView(listingId: string) {
 
     const gps = await getGpsLocation();
 
-    await supabase.functions.invoke("track-listing-view", {
+    if (isCancelled()) return;
+
+    const { error } = await supabase.functions.invoke("track-listing-view", {
       body: {
         listing_id: listingId,
         source: "detail",
@@ -404,38 +478,20 @@ async function trackListingView(listingId: string) {
         location_source: gps ? "gps" : "ip",
       },
     });
+
+    if (error) {
+      console.warn("track-listing-view error:", error.message);
+    }
   } catch (e) {
-    console.log("track invoke error:", e);
+    console.warn(
+      "track invoke error:",
+      e instanceof Error ? e.message : "Takip isteği başarısız"
+    );
   }
 }
 
-function trackListingViewPixel(listingId: string) {
-  try {
-    const ua = typeof navigator !== "undefined" ? navigator.userAgent : "";
-
-    const isMobileWeb =
-      /Android|iPhone|iPad|iPod|Mobile|Opera Mini|IEMobile/i.test(ua);
-
-    if (!isMobileWeb) return;
-
-    const baseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-    if (!baseUrl) return;
-
-    const params = new URLSearchParams({
-      listing_id: listingId,
-      source: "detail",
-      platform: "web",
-      device_type: "mobile_web",
-      location_source: "ip",
-      t: String(Date.now()),
-    });
-
-    const img = new Image();
-    img.src = `${baseUrl}/functions/v1/track-listing-view?${params.toString()}`;
-  } catch {
-    // sessiz
-  }
-}
+// Eski trackListingViewPixel fonksiyonu kaldırıldı.
+// Mobil tarayıcıda ikinci bir IP isteği gönderilmeyecek.
 
 async function fetchMyFavoriteIds(userId: string) {
   const { data, error } = await supabase
@@ -447,6 +503,7 @@ async function fetchMyFavoriteIds(userId: string) {
 
   return new Set((data ?? []).map((r: any) => String(r.listing_id)));
 }
+
 export default function PazarDetailClient({ id }: { id: string }) {
   const router = useRouter();
 
@@ -477,8 +534,11 @@ export default function PazarDetailClient({ id }: { id: string }) {
 
       try {
         const { data: auth } = await supabase.auth.getUser();
+
+        if (cancelled) return;
+
         const user = auth?.user ?? null;
-        if (!cancelled) setMe(user?.id ?? null);
+        setMe(user?.id ?? null);
 
         const { data, error } = await supabase
           .from("listings")
@@ -515,16 +575,21 @@ export default function PazarDetailClient({ id }: { id: string }) {
           .eq("id", id)
           .maybeSingle();
 
+        if (cancelled) return;
+
         if (error) throw error;
 
         const listing = (data ?? null) as ListingRow | null;
         if (!listing) throw new Error("İlan bulunamadı");
-        if (cancelled) return;
 
         const cur = getMedia(listing);
+
         if (cur.urls.length === 0) {
           const m = await fetchListingMediaFor(String(listing.id));
-          if (!cancelled && m.urls.length) {
+
+          if (cancelled) return;
+
+          if (m.urls.length) {
             listing.media_urls = m.urls as any;
             listing.media_types = m.types as any;
           }
@@ -533,24 +598,37 @@ export default function PazarDetailClient({ id }: { id: string }) {
         setRow(listing);
 
         const sid = String(listing.seller_id ?? "").trim();
+
         if (sid) {
           const prof = await fetchSellerProfile(sid);
-          if (!cancelled) setSeller(prof);
+
+          if (cancelled) return;
+
+          setSeller(prof);
         } else {
           setSeller(null);
         }
 
         const v = await fetchViews(String(listing.id));
-        if (!cancelled) setViews(v);
 
-        bumpView(String(listing.id));
-        trackListingView(String(listing.id));
-        trackListingViewPixel(String(listing.id));
+        if (cancelled) return;
+
+        setViews(v);
+
+        // Görüntüleme sayacı mevcut şekilde korunur.
+        void bumpView(String(listing.id));
+
+        // Tek konum takip isteği.
+        // GPS beklenirken sayfa kapanırsa kayıt gönderilmez.
+        void trackListingView(String(listing.id), () => cancelled);
 
         if (user?.id) {
           try {
             const set = await fetchMyFavoriteIds(user.id);
-            if (!cancelled) setFavSet(set);
+
+            if (!cancelled) {
+              setFavSet(set);
+            }
           } catch {}
         } else {
           setFavSet(new Set());
@@ -636,6 +714,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
   const isFav = row?.id ? favSet.has(String(row.id)) : false;
 
   const { urls, types } = useMemo(() => getMedia(row), [row]);
+
   const posters = useMemo(
     () => urls.map((u, idx) => (types[idx] === "video" ? null : u)),
     [urls, types]
@@ -643,6 +722,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
 
   const sellerName = useMemo(() => {
     const sid = String(row?.seller_id ?? "");
+
     return (
       seller?.full_name?.trim() ||
       (sid ? `Kullanıcı • ${sid.slice(0, 6)}…` : "Kullanıcı")
@@ -687,10 +767,14 @@ export default function PazarDetailClient({ id }: { id: string }) {
     const expired = left != null && left <= 0;
 
     if (expired) return { text: "Süresi doldu", tone: "rose" as const };
+
     if (left != null && left <= 3) {
       return { text: `${left} gün kaldı`, tone: "rose" as const };
     }
-    if (left != null) return { text: `${left} gün`, tone: "neutral" as const };
+
+    if (left != null) {
+      return { text: `${left} gün`, tone: "neutral" as const };
+    }
 
     return null;
   }, [row, left]);
@@ -700,14 +784,19 @@ export default function PazarDetailClient({ id }: { id: string }) {
       <div className="mx-auto w-full max-w-6xl px-4 py-7 md:py-10">
         <div className="rounded-[28px] border border-black/10 bg-white p-6 shadow-sm dark:border-white/10 dark:bg-zinc-950">
           <div className="h-6 w-2/3 animate-pulse rounded bg-black/5 dark:bg-white/5" />
+
           <div className="mt-3 h-4 w-1/3 animate-pulse rounded bg-black/5 dark:bg-white/5" />
+
           <div className="mt-6 grid gap-4 lg:grid-cols-12">
             <div className="lg:col-span-7">
               <div className="aspect-square w-full animate-pulse rounded-3xl bg-black/5 dark:bg-white/5" />
             </div>
+
             <div className="lg:col-span-5">
               <div className="h-24 animate-pulse rounded-3xl bg-black/5 dark:bg-white/5" />
+
               <div className="mt-4 h-24 animate-pulse rounded-3xl bg-black/5 dark:bg-white/5" />
+
               <div className="mt-4 h-48 animate-pulse rounded-3xl bg-black/5 dark:bg-white/5" />
             </div>
           </div>
@@ -909,6 +998,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
                 <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
                   İlan No
                 </div>
+
                 <div className="mt-1 font-mono text-sm font-black text-zinc-900 dark:text-zinc-100">
                   {String(row.id).slice(0, 8)}…
                 </div>
@@ -918,6 +1008,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
                 <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
                   Oluşturma
                 </div>
+
                 <div className="mt-1 text-sm font-black text-zinc-900 dark:text-zinc-100">
                   {fmtDateTime(row.created_at)}
                 </div>
@@ -932,6 +1023,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
                   <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
                     Fiyat
                   </div>
+
                   <div className="mt-2 flex items-end gap-2">
                     <div className="text-3xl font-black tracking-tight text-zinc-900 dark:text-zinc-100">
                       {priceView.main}
@@ -949,6 +1041,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
                   <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
                     Birim
                   </div>
+
                   <div className="mt-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-black text-zinc-900 dark:border-white/10 dark:bg-zinc-950/35 dark:text-zinc-100">
                     {row.unit ?? "—"}
                   </div>
@@ -960,6 +1053,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
                   <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
                     Min. Miktar
                   </div>
+
                   <div className="mt-1 text-lg font-black text-zinc-900 dark:text-zinc-100">
                     {fmtNum(row.min_quantity)}
                   </div>
@@ -969,6 +1063,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
                   <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
                     Stok / Miktar
                   </div>
+
                   <div className="mt-1 text-lg font-black text-zinc-900 dark:text-zinc-100">
                     {fmtNum(row.quantity)}
                   </div>
@@ -978,7 +1073,9 @@ export default function PazarDetailClient({ id }: { id: string }) {
               {row.boost_until ? (
                 <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm font-semibold text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/40 dark:text-amber-200">
                   🚀 Boost bitiş:{" "}
-                  <span className="font-black">{fmtDateTime(row.boost_until)}</span>
+                  <span className="font-black">
+                    {fmtDateTime(row.boost_until)}
+                  </span>
                 </div>
               ) : null}
             </div>
@@ -1007,7 +1104,11 @@ export default function PazarDetailClient({ id }: { id: string }) {
               <div className="mt-4 grid grid-cols-2 gap-2">
                 <Link
                   prefetch={false}
-                  href={row.seller_id ? `/chat/user/${String(row.seller_id)}` : "#"}
+                  href={
+                    row.seller_id
+                      ? `/chat/user/${String(row.seller_id)}`
+                      : "#"
+                  }
                   className={cn(
                     "rounded-2xl px-4 py-3 text-center text-sm font-black",
                     row.seller_id
@@ -1037,6 +1138,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
               <div className="text-[11px] font-black text-zinc-600 dark:text-zinc-400">
                 Konum
               </div>
+
               <div className="mt-2 text-sm font-black text-zinc-900 dark:text-zinc-100">
                 {locStr}
               </div>
@@ -1044,6 +1146,7 @@ export default function PazarDetailClient({ id }: { id: string }) {
               <div className="mt-4 text-[11px] font-black text-zinc-600 dark:text-zinc-400">
                 Pazar
               </div>
+
               <div className="mt-2 text-sm font-black text-zinc-900 dark:text-zinc-100">
                 {row.market_name ?? "—"}
               </div>
